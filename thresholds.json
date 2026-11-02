@@ -162,7 +162,7 @@
     "buzz_above_hz": { "value": 1000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_min_hz": { "value": 2000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_over_median_db": { "value": 15.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
-    "slight_energy_share": {
+    "slight_energy_share_frac": {
       "value": 0.0909,
       "state": "pending",
       "source": "规格起始值",

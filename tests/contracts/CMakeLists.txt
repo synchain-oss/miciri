@@ -14,6 +14,7 @@ function(miciri_thresholds_case name expect json)
   add_test(NAME thresholds_${name}
     COMMAND "${CMAKE_COMMAND}" "-DINPUT=${_in}" "-DSCHEMA=${MICIRI_THRESHOLDS_SCHEMA}"
             "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/thr-${name}.h" -P "${CMAKE_SOURCE_DIR}/tools/gen-thresholds.cmake")
+  set_tests_properties(thresholds_${name} PROPERTIES TIMEOUT 60)
   if(expect)
     set_tests_properties(thresholds_${name} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
   endif()

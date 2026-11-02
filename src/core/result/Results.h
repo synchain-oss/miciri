@@ -61,6 +61,8 @@ struct Evidence
     std::vector<EvidenceMark> marks;
 };
 
+// 只检查可平凡复制与标准布局；成员是否全是数值，C++ 无法枚举，
+// 由评审和 golden 把关。
 template<class T>
 inline constexpr bool isMeasures = std::is_trivially_copyable_v<T> && std::is_standard_layout_v<T>;
 
@@ -150,6 +152,8 @@ struct HumMeasures
 {
     double fundamentalHz = 0.0; // 啸叫时是那条窄峰的频率
     double overFloorDb = 0.0; // 峰高出本底
+    // 单位是百分比（0 到 100）。阈值 hum.slight_energy_share_frac 是比例，
+    // 比较前先除以 100。
     double energySharePct = 0.0; // 占噪声能量的百分比
     double highestHarmonicHz = 0.0;
 };
