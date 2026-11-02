@@ -25,6 +25,7 @@
 |---|---|
 | `ci` | workflow、检查脚本与运行器、hooks、钉版文件、格式与许可配置 |
 | `build` | 构建 workflow 与构建脚本 |
+| `cmake` | 根 `CMakeLists.txt` 与 `cmake/` 下的告警、JUCE 守卫模块 |
 | `release` | 发版 workflow |
 | `gates` | 本地 gates、定档规则、`CLAUDE.md`、`CONTRIBUTING.md` |
 
