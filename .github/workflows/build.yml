@@ -131,11 +131,9 @@ jobs:
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Validate
 
       - name: Stage
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Stage (Join-Path $env:RUNNER_TEMP 'dist')
 
       - name: Upload plugins
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Miciri-win64-${{ github.sha }}
@@ -220,11 +218,9 @@ jobs:
           printf '%s\n' "$comps" | while IFS= read -r c; do bash scripts/ci/mac.sh auval "$c"; bash scripts/ci/mac.sh pluginval "$HOME/Library/Audio/Plug-Ins/Components/$(basename "$c")"; done
 
       - name: Stage
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Stage "$RUNNER_TEMP/dist"
 
       - name: Upload plugins
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Miciri-macos-arm64-${{ github.sha }}
