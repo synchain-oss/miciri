@@ -90,11 +90,15 @@ Tone toneOf(const HumVerdict& v)
 {
     if (v.kind == HumKind::None)
         return Tone::Green;
-    return v.slight ? Tone::Amber : Tone::Red;
+    // 这是卡片的色调：轻微、hum、buzz 都是琥珀，只有不轻微的啸叫是红。
+    // 电平管上的标记另有规则：检出就红，不看这里。
+    return v.kind == HumKind::Whistle && !v.slight ? Tone::Red : Tone::Amber;
 }
 
 Tone toneOf(const ReverbVerdict& v)
 {
+    if (v.gated)
+        return Tone::None; // 整组作废：灰色“无法判断”，不能显示成健康的颜色
     switch (v.band)
     {
     case ReverbBand::Dry:
@@ -118,6 +122,21 @@ Tone toneOf(const DirectRatioVerdict& v)
         return Tone::Amber;
     case DrBand::High:
         return Tone::Green;
+    }
+    return Tone::None;
+}
+
+Tone toneOf(const DirectionVerdict& v)
+{
+    switch (v.kind)
+    {
+    case DirectionCase::Best:
+    case DirectionCase::SmallDifference:
+        return Tone::Green;
+    case DirectionCase::MaybeReversed:
+        return Tone::Red;
+    case DirectionCase::Uncertain:
+        return Tone::None;
     }
     return Tone::None;
 }

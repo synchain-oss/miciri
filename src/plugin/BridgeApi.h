@@ -26,7 +26,7 @@ constexpr std::array<std::string_view, sizeof...(S)> names(S... s)
 // 表名与 bridge-api.js 里的 export 名逐字相同
 inline constexpr auto kFunctions =
     names("requestInitialState", "setLang", "setUiScale", "commitUiScale", "setGuideSeen", "setMicType", "startStep",
-          "cancelStep", "reportChange", "dismissChannelPrompt", "openExternal", "showLicense");
+          "cancelStep", "reportChange", "dismissChannelPrompt", "openExternal", "showLicense", "clearClipLatch");
 inline constexpr auto kEvents = names("miciri.state", "miciri.meters", "miciri.error");
 inline constexpr auto kReasons =
     names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked", "not-ready", "busy");
@@ -51,9 +51,9 @@ inline constexpr auto kResultChannels =
 inline constexpr auto kResultGain =
     names("samplePeakDbfsL", "samplePeakDbfsR", "truePeakDbfsL", "truePeakDbfsR", "loudnessLkfs", "digitalClipRunsL",
           "digitalClipRunsR", "flatPlateauPeaksL", "flatPlateauPeaksR", "band", "digitalClip", "maybeFlatTop");
-inline constexpr auto kResultNoise = names("noiseDbfs", "noiseDbfsA", "snrDb", "band");
-inline constexpr auto kResultHum =
-    names("fundamentalHz", "overFloorDb", "energySharePct", "highestHarmonicHz", "kind", "slight");
+inline constexpr auto kResultNoise = names("noiseDbfs", "noiseDbfsA", "snrDb", "noisePeakDbfs", "band");
+inline constexpr auto kResultHum = names("fundamentalHz", "overFloorDb", "energySharePct", "highestHarmonicHz",
+                                         "levelDbfs", "peakDbfs", "kind", "slight");
 inline constexpr auto kResultDeviceProcessing = names("longestZeroMs", "zeroRuns", "detected");
 inline constexpr auto kResultReverb =
     names("t20Sec", "tMidSec", "bandPnrDb", "bandR2", "repeatMaxOverMin", "band", "gated");
@@ -61,7 +61,8 @@ inline constexpr auto kResultDirectRatio = names("drDb", "lowerBoundOnly", "band
 inline constexpr auto kResultPlosive = names("worstRatioDb", "events", "severity", "lowSensitivity");
 inline constexpr auto kResultSibilance =
     names("midHighDb", "highDb", "effectiveBandwidthHz", "events", "severity", "highBandDisabled");
-inline constexpr auto kResultClick = names("perMinute", "loudestRelDb", "analysedSeconds", "count", "severity");
+inline constexpr auto kResultClick =
+    names("perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity");
 inline constexpr auto kResultDirection =
     names("levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb", "kind");
 inline constexpr auto kResultDistance = names("closeEvidence", "farEvidence", "kind");

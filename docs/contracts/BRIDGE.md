@@ -31,6 +31,7 @@ status: frozen
 | `dismissChannelPrompt` | 无 | “两路是同一个声音”的“不再提醒” |
 | `openExternal` | 链接 | 交给系统浏览器，页面不自己打开外链 |
 | `showLicense` | 无 | 打开许可证 |
+| `clearClipLatch` | 无 | 用户点削波灯：清掉锁存，单声道和立体声都清 |
 
 失败原因（`BRIDGE_REASONS`）：`bad-lang` 语言不认识；`bad-scale` 缩放档位越界；`bad-step` 步骤名不认识；`bad-arg` 其他参数类型不符；
 `no-pending` 没有待确认的缩放；`scale-locked` 此时不允许改缩放；`not-ready` 宿主在显示兜底面板；`busy` 当前步骤正忙。

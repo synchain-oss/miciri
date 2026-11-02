@@ -116,10 +116,14 @@ TEST_CASE("result contract: names, plain measures and tone mapping")
         CHECK(toneOf(flat) == worse(toneOf(GainVerdict{b, false, false}), Tone::Amber));
     }
 
-    // 电流声：检出为红，轻微为琥珀（不进“最该改”）
+    // 电流声：卡片上 hum 和 buzz 琥珀，啸叫红，标了轻微的一律琥珀
     HumVerdict h;
     CHECK(toneOf(h) == Tone::Green);
     h.kind = HumKind::Hum;
+    CHECK(toneOf(h) == Tone::Amber);
+    h.kind = HumKind::Buzz;
+    CHECK(toneOf(h) == Tone::Amber);
+    h.kind = HumKind::Whistle;
     CHECK(toneOf(h) == Tone::Red);
     h.slight = true;
     CHECK(toneOf(h) == Tone::Amber);
@@ -127,9 +131,16 @@ TEST_CASE("result contract: names, plain measures and tone mapping")
     CHECK(toneOf(NoiseVerdict{NoiseBand::Bad}) == Tone::Red);
     CHECK(toneOf(ReverbVerdict{ReverbBand::Boomy, false}) == Tone::Amber);
     CHECK(toneOf(ReverbVerdict{ReverbBand::VeryBoomy, false}) == Tone::Red);
+    // 整组作废不能显示成任何档位的颜色
+    for (auto b : {ReverbBand::Dry, ReverbBand::Normal, ReverbBand::Boomy, ReverbBand::VeryBoomy})
+        CHECK(toneOf(ReverbVerdict{b, true}) == Tone::None);
     CHECK(toneOf(DirectRatioVerdict{DrBand::Low}) == Tone::Red);
     CHECK(toneOf(DirectRatioVerdict{DrBand::High}) == Tone::Green);
     CHECK(toneOf(Severity::Moderate) == Tone::Amber);
+    CHECK(toneOf(DirectionVerdict{DirectionCase::Best}) == Tone::Green);
+    CHECK(toneOf(DirectionVerdict{DirectionCase::SmallDifference}) == Tone::Green);
+    CHECK(toneOf(DirectionVerdict{DirectionCase::MaybeReversed}) == Tone::Red);
+    CHECK(toneOf(DirectionVerdict{DirectionCase::Uncertain}) == Tone::None);
 
     CHECK(worse(Tone::None, Tone::Green) == Tone::Green);
     CHECK(worse(Tone::Red, Tone::Amber) == Tone::Red);

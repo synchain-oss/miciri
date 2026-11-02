@@ -29,7 +29,7 @@
 校验口径只在 schema 里写一份，生成脚本从 schema 读必填字段、允许字段和 `state` 取值。
 
 **2. Result 的形状：四块，档位与连续量分开。**
-`Result<Measures, Verdict>` 加 `confidence`（可信，或“再测一次”加原因）和 `evidence`。`Measures` 只含算术类型（静态断言），golden 只锁它；
+`Result<Measures, Verdict>` 加 `confidence`（可信，或“再测一次”加原因）和 `evidence`。`Measures` 只放数值和少量标志（静态断言只能查可平凡复制和标准布局，其余靠评审），golden 只锁它；
 `Verdict` 由 measures 加阈值得出，所以改阈值不会让 golden 变红，也不需要重录。数字削波次数与模拟平顶处数是两个字段，色调映射保证平顶最多到琥珀。
 枚举用一处定义的 X 宏生成（标识符、线上名字、`toString`），桥契约直接引用同一份名字。房间、位置、喷麦、齿音、口水音、方向、距离这几项先定字段，算法以后做。
 

@@ -137,9 +137,10 @@ using GainResult = Result<GainMeasures, GainVerdict>;
 // ---- 噪声 ----
 struct NoiseMeasures
 {
-    double noiseDbfs = 0.0; // 全频，信息项，不分档
+    double noiseDbfs = 0.0; // 全频，信息项，不分档；也是电平管上底噪区间的上沿
     double noiseDbfsA = 0.0; // A 加权，注明不是 dBA
     double snrDb = 0.0; // A 加权 SNR，唯一的分档依据
+    double noisePeakDbfs = 0.0; // 全频最响一帧，电平管悬停时的峰值线
 };
 struct NoiseVerdict
 {
@@ -156,6 +157,8 @@ struct HumMeasures
     // 比较前先除以 100。
     double energySharePct = 0.0; // 占噪声能量的百分比
     double highestHarmonicHz = 0.0;
+    double levelDbfs = 0.0; // 电流声成分的均值，电平管上区间的上沿
+    double peakDbfs = 0.0; // 电平管悬停时的峰值线
 };
 struct HumVerdict
 {
@@ -233,6 +236,7 @@ struct ClickMeasures
 {
     double perMinute = 0.0;
     double loudestRelDb = 0.0; // 最响一次相对本人语音
+    double loudestDbfs = 0.0; // 最响一次的绝对电平，电平管外的圆点
     double analysedSeconds = 0.0;
     std::int64_t count = 0;
 };
@@ -293,5 +297,6 @@ Tone toneOf(const NoiseVerdict& v);
 Tone toneOf(const HumVerdict& v);
 Tone toneOf(const ReverbVerdict& v);
 Tone toneOf(const DirectRatioVerdict& v);
+Tone toneOf(const DirectionVerdict& v);
 Tone toneOf(Severity s);
 } // namespace miciri::core

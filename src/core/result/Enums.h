@@ -45,7 +45,8 @@ MICIRI_DEFINE_ENUM(SignalState, MICIRI_ENUM_SignalState)
 MICIRI_DEFINE_ENUM(ChannelLayout, MICIRI_ENUM_ChannelLayout)
 #define MICIRI_ENUM_ChannelStatus(X) \
     X(Signal, "signal")              \
-    X(FloorOnly, "floor-only") X(Silent, "silent") X(SameAsLeft, "same-as-left") X(Unknown, "unknown")
+    X(FloorOnly, "floor-only") X(Silent, "silent") X(SameAsLeft, "same-as-left") X(Unknown, "unknown") \
+    X(InvertedFromLeft, "inverted-from-left")
 MICIRI_DEFINE_ENUM(ChannelStatus, MICIRI_ENUM_ChannelStatus)
 #define MICIRI_ENUM_ChannelCase(X)  \
     X(Undetermined, "undetermined") \
@@ -74,8 +75,7 @@ MICIRI_DEFINE_ENUM(AnalysedChannel, MICIRI_ENUM_AnalysedChannel)
     X(Quiet, "quiet")         \
     X(Room, "room")           \
     X(Position, "position")   \
-    X(Direction, "direction") \
-    X(Words, "words")
+    X(Direction, "direction")
 MICIRI_DEFINE_ENUM(StepId, MICIRI_ENUM_StepId)
 #define MICIRI_ENUM_StepStatus(X) \
     X(Idle, "idle") X(Running, "running") X(Done, "done") X(Invalid, "invalid") X(Stale, "stale")
@@ -96,7 +96,10 @@ MICIRI_DEFINE_ENUM(Reliability, MICIRI_ENUM_Reliability)
     X(LowPnr, "low-pnr")             \
     X(GateDetected, "gate-detected") \
     X(Unstable, "unstable")          \
-    X(Ambiguous, "ambiguous")
+    X(Ambiguous, "ambiguous")        \
+    X(FewClaps, "few-claps")         \
+    X(DeviceProcessing, "device-processing") \
+    X(VoiceDetected, "voice-detected")
 MICIRI_DEFINE_ENUM(RetestReason, MICIRI_ENUM_RetestReason)
 
 // 各项结果的档位

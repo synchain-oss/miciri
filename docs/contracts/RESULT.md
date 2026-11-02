@@ -10,7 +10,7 @@ status: frozen
 
 | 块 | 内容 | 规则 |
 |---|---|---|
-| `measures` | 连续量：dB、Hz、秒、次数、比值 | double 精度，只含算术类型（`isMeasures` 静态断言）；**golden 只锁这一块** |
+| `measures` | 连续量：dB、Hz、秒、次数、比值 | double 精度，只放数值和少量标志。`isMeasures` 静态断言只能查可平凡复制和标准布局，成员是否全是数值靠评审和 golden；**golden 只锁这一块** |
 | `verdict` | 档位判定 | 由 measures 加 `thresholds.json` 的阈值得出；改阈值只动 verdict，不动 measures 与 golden |
 | `confidence` | `Reliability`（`trusted` 或 `retest`）加 `RetestReason` | `trusted` 时原因必为 `none`；`retest` 的原因不会是 `none`（构造时 `none` 换成 `ambiguous`），`isConsistent` 检查这两条 |
 | `evidence` | `EvidenceMark` 列表：时间段、频率、电平 | 给证据波形与详情用；时间是相对该步开始的采样计时 |
@@ -40,8 +40,10 @@ status: frozen
 ## 色调
 
 `toneOf(...)` 是档位到颜色的固定映射（`Results.cpp`），不读阈值。无信号三种红、极低琥珀；声道五种琥珀、真立体声绿；
-增益 偏低琥珀、过低红、偏高琥珀、过高红、数字削波红（平顶最多把绿抬到琥珀）；噪声 差红、一般琥珀、好绿；电流声检出红、轻微琥珀；
-T20 偏混琥珀、很混红；D/R 低红、中琥珀、高绿；喷麦、齿音、口水音 轻绿、中琥珀、重红。`worse(a, b)` 取更严重者。
+增益 偏低琥珀、过低红、偏高琥珀、过高红、数字削波红（平顶最多把绿抬到琥珀）；噪声 差红、一般琥珀、好绿；电流声 hum 和 buzz 琥珀、啸叫红、标了轻微的一律琥珀；
+T20 干和正常绿、偏混琥珀、很混红，`gated` 整组作废时无色；D/R 低红、中琥珀、高绿；喷麦、齿音、口水音 轻绿、中琥珀、重红；方向 最响和差别不大绿、可能放反红、不确定无色。距离没有色调。`worse(a, b)` 取更严重者。
+
+`toneOf` 给的是卡片的颜色。电平管上的标记另有规则：电流声检出就红，不看 `tone`；底噪和口水音跟结果档位。电平管要的绝对电平是 `noiseDbfs`、`noisePeakDbfs`、`hum.levelDbfs`、`hum.peakDbfs`、`click.loudestDbfs`。
 
 ## 过期规则（Session 实现，这里只记契约）
 

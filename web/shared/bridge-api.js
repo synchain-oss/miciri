@@ -24,6 +24,7 @@ export const BRIDGE_FUNCTIONS = [
     "dismissChannelPrompt",
     "openExternal",
     "showLicense",
+    "clearClipLatch",
 ];
 
 // 原生推给界面（纯下行，界面只订阅）
@@ -122,8 +123,17 @@ export const RESULT_GAIN = [
     "digitalClip",
     "maybeFlatTop",
 ];
-export const RESULT_NOISE = ["noiseDbfs", "noiseDbfsA", "snrDb", "band"];
-export const RESULT_HUM = ["fundamentalHz", "overFloorDb", "energySharePct", "highestHarmonicHz", "kind", "slight"];
+export const RESULT_NOISE = ["noiseDbfs", "noiseDbfsA", "snrDb", "noisePeakDbfs", "band"];
+export const RESULT_HUM = [
+    "fundamentalHz",
+    "overFloorDb",
+    "energySharePct",
+    "highestHarmonicHz",
+    "levelDbfs",
+    "peakDbfs",
+    "kind",
+    "slight",
+];
 export const RESULT_DEVICE_PROCESSING = ["longestZeroMs", "zeroRuns", "detected"];
 export const RESULT_REVERB = ["t20Sec", "tMidSec", "bandPnrDb", "bandR2", "repeatMaxOverMin", "band", "gated"];
 export const RESULT_DIRECT_RATIO = ["drDb", "lowerBoundOnly", "band"];
@@ -136,7 +146,7 @@ export const RESULT_SIBILANCE = [
     "severity",
     "highBandDisabled",
 ];
-export const RESULT_CLICK = ["perMinute", "loudestRelDb", "analysedSeconds", "count", "severity"];
+export const RESULT_CLICK = ["perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity"];
 export const RESULT_DIRECTION = ["levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb", "kind"];
 export const RESULT_DISTANCE = ["closeEvidence", "farEvidence", "kind"];
 
@@ -153,7 +163,7 @@ export const ENUM_SIGNAL_STATE = [
     "very-low-noise",
 ];
 export const ENUM_CHANNEL_LAYOUT = ["mono", "stereo"];
-export const ENUM_CHANNEL_STATUS = ["signal", "floor-only", "silent", "same-as-left", "unknown"];
+export const ENUM_CHANNEL_STATUS = ["signal", "floor-only", "silent", "same-as-left", "unknown", "inverted-from-left"];
 export const ENUM_CHANNEL_CASE = [
     "undetermined",
     "true-stereo",
@@ -164,7 +174,7 @@ export const ENUM_CHANNEL_CASE = [
 ];
 export const ENUM_CHANNEL_PROMPT = ["none", "one-silent", "one-silent-host", "one-dominant", "antiphase", "identical"];
 export const ENUM_ANALYSED_CHANNEL = ["left", "right"];
-export const ENUM_STEP_ID = ["connect", "gain", "quiet", "room", "position", "direction", "words"];
+export const ENUM_STEP_ID = ["connect", "gain", "quiet", "room", "position", "direction"];
 export const ENUM_STEP_STATUS = ["idle", "running", "done", "invalid", "stale"];
 export const ENUM_TONE = ["none", "green", "amber", "red"];
 export const ENUM_RELIABILITY = ["trusted", "retest"];
@@ -179,6 +189,9 @@ export const ENUM_RETEST_REASON = [
     "gate-detected",
     "unstable",
     "ambiguous",
+    "few-claps",
+    "device-processing",
+    "voice-detected",
 ];
 export const ENUM_GAIN_BAND = ["too-quiet", "quiet", "good", "loud", "too-loud"];
 export const ENUM_NOISE_BAND = ["bad", "fair", "good"];
