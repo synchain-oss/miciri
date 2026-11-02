@@ -77,9 +77,10 @@ struct Result
 };
 
 // ---- 无信号诊断 ----
+// 这里只放由样本算出的量。“没有回调”时没有样本，它靠墙钟判断，不进 measures（否则 golden 会依赖时序）：
+// 距上次回调的秒数在桥快照的 connect.callbackAgeSec，由编辑器的定时器读心跳得出，state 的 no-callback 也由那一侧给出。
 struct NoSignalMeasures
 {
-    double secondsSinceCallback = 0.0;
     double zeroSeconds = 0.0; // 严格全 0 的累计时长
     double maxFrameDbfs = 0.0;
     double p10FrameDbfs = 0.0;

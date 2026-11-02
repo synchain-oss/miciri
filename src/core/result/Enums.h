@@ -43,9 +43,12 @@ MICIRI_DEFINE_ENUM(SignalState, MICIRI_ENUM_SignalState)
 // 声道布局与声道检查
 #define MICIRI_ENUM_ChannelLayout(X) X(Mono, "mono") X(Stereo, "stereo")
 MICIRI_DEFINE_ENUM(ChannelLayout, MICIRI_ENUM_ChannelLayout)
-#define MICIRI_ENUM_ChannelStatus(X) \
-    X(Signal, "signal")              \
-    X(FloorOnly, "floor-only") X(Silent, "silent") X(SameAsLeft, "same-as-left") X(Unknown, "unknown") \
+#define MICIRI_ENUM_ChannelStatus(X)  \
+    X(Signal, "signal")               \
+    X(FloorOnly, "floor-only")        \
+    X(Silent, "silent")               \
+    X(SameAsLeft, "same-as-left")     \
+    X(Unknown, "unknown")             \
     X(InvertedFromLeft, "inverted-from-left")
 MICIRI_DEFINE_ENUM(ChannelStatus, MICIRI_ENUM_ChannelStatus)
 #define MICIRI_ENUM_ChannelCase(X)  \
@@ -86,19 +89,19 @@ MICIRI_DEFINE_ENUM(StepStatus, MICIRI_ENUM_StepStatus)
 MICIRI_DEFINE_ENUM(Tone, MICIRI_ENUM_Tone)
 #define MICIRI_ENUM_Reliability(X) X(Trusted, "trusted") X(Retest, "retest")
 MICIRI_DEFINE_ENUM(Reliability, MICIRI_ENUM_Reliability)
-#define MICIRI_ENUM_RetestReason(X)  \
-    X(None, "none")                  \
-    X(TooShort, "too-short")         \
-    X(Overflow, "overflow")          \
-    X(CallbackGap, "callback-gap")   \
-    X(RateChanged, "rate-changed")   \
-    X(Clipped, "clipped")            \
-    X(LowPnr, "low-pnr")             \
-    X(GateDetected, "gate-detected") \
-    X(Unstable, "unstable")          \
-    X(Ambiguous, "ambiguous")        \
-    X(FewClaps, "few-claps")         \
-    X(DeviceProcessing, "device-processing") \
+#define MICIRI_ENUM_RetestReason(X)              \
+    X(None, "none")                              \
+    X(TooShort, "too-short")                     \
+    X(Overflow, "overflow")                      \
+    X(CallbackGap, "callback-gap")               \
+    X(RateChanged, "rate-changed")               \
+    X(Clipped, "clipped")                        \
+    X(LowPnr, "low-pnr")                         \
+    X(GateDetected, "gate-detected")             \
+    X(Unstable, "unstable")                      \
+    X(Ambiguous, "ambiguous")                    \
+    X(FewClaps, "few-claps")                     \
+    X(DeviceProcessing, "device-processing")     \
     X(VoiceDetected, "voice-detected")
 MICIRI_DEFINE_ENUM(RetestReason, MICIRI_ENUM_RetestReason)
 
@@ -117,10 +120,10 @@ MICIRI_DEFINE_ENUM(DrBand, MICIRI_ENUM_DrBand)
 // 喷麦、齿音、口水音共用的轻重三档
 #define MICIRI_ENUM_Severity(X) X(Light, "light") X(Moderate, "moderate") X(Heavy, "heavy")
 MICIRI_DEFINE_ENUM(Severity, MICIRI_ENUM_Severity)
-#define MICIRI_ENUM_DirectionCase(X) \
-    X(Best, "best")                  \
-    X(MaybeReversed, "maybe-reversed") \
-    X(SmallDifference, "small-difference") \
+#define MICIRI_ENUM_DirectionCase(X)           \
+    X(Best, "best")                            \
+    X(MaybeReversed, "maybe-reversed")         \
+    X(SmallDifference, "small-difference")     \
     X(Uncertain, "uncertain")
 MICIRI_DEFINE_ENUM(DirectionCase, MICIRI_ENUM_DirectionCase)
 #define MICIRI_ENUM_DistanceCase(X) \

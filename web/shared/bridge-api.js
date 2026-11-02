@@ -86,14 +86,7 @@ export const RESULT_SECTIONS = [
     "distance",
 ];
 export const RESULT_COMMON = ["tone", "reliability", "retestReason", "stale"];
-export const RESULT_NO_SIGNAL = [
-    "secondsSinceCallback",
-    "zeroSeconds",
-    "maxFrameDbfs",
-    "p10FrameDbfs",
-    "riseDb",
-    "state",
-];
+export const RESULT_NO_SIGNAL = ["zeroSeconds", "maxFrameDbfs", "p10FrameDbfs", "riseDb", "state"];
 export const RESULT_CHANNELS = [
     "floorDbfsL",
     "floorDbfsR",

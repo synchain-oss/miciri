@@ -43,8 +43,7 @@ inline constexpr auto kResultSections =
     names("noSignal", "channels", "gain", "noise", "hum", "deviceProcessing", "reverb", "directRatio", "plosive",
           "sibilance", "click", "direction", "distance");
 inline constexpr auto kResultCommon = names("tone", "reliability", "retestReason", "stale");
-inline constexpr auto kResultNoSignal =
-    names("secondsSinceCallback", "zeroSeconds", "maxFrameDbfs", "p10FrameDbfs", "riseDb", "state");
+inline constexpr auto kResultNoSignal = names("zeroSeconds", "maxFrameDbfs", "p10FrameDbfs", "riseDb", "state");
 inline constexpr auto kResultChannels =
     names("floorDbfsL", "floorDbfsR", "activeDbfsL", "activeDbfsR", "deltaDb", "weakRiseDb", "sumOverFloorDb",
           "diffOverFloorDb", "usedFallback", "kind", "statusL", "statusR", "analysedChannel");

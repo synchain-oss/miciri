@@ -11,13 +11,16 @@ miciri_add_test(NAME contract_bridge_parity SOURCES bridge_parity_test.cpp)
 function(miciri_thresholds_case name expect json)
   set(_in "${CMAKE_CURRENT_BINARY_DIR}/thr-${name}.json")
   file(WRITE "${_in}" "${json}")
-  add_test(NAME thresholds_${name}
-    COMMAND "${CMAKE_COMMAND}" "-DINPUT=${_in}" "-DSCHEMA=${MICIRI_THRESHOLDS_SCHEMA}"
-            "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/thr-${name}.h" -P "${CMAKE_SOURCE_DIR}/tools/gen-thresholds.cmake")
-  set_tests_properties(thresholds_${name} PROPERTIES TIMEOUT 60)
+  set(_args "-DINPUT=${_in}" "-DSCHEMA=${MICIRI_THRESHOLDS_SCHEMA}" "-DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/thr-${name}.h")
+  set(_gen "${CMAKE_SOURCE_DIR}/tools/gen-thresholds.cmake")
   if(expect)
-    set_tests_properties(thresholds_${name} PROPERTIES PASS_REGULAR_EXPRESSION "${expect}")
+    add_test(NAME thresholds_${name}
+      COMMAND "${CMAKE_COMMAND}" ${_args} "-DGENERATOR=${_gen}" "-DEXPECT=${expect}"
+              -P "${CMAKE_CURRENT_SOURCE_DIR}/expect-reject.cmake")
+  else()
+    add_test(NAME thresholds_${name} COMMAND "${CMAKE_COMMAND}" ${_args} -P "${_gen}")
   endif()
+  set_tests_properties(thresholds_${name} PROPERTIES TIMEOUT 60)
 endfunction()
 
 set(_e [=["k":{"value":1,"state":"synthetic","source":"s","date":"2026-11-02"}]=])

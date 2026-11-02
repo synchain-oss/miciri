@@ -7,6 +7,9 @@
 # 生成物是 miciri::thr::<组>::<名字>：数值一律 double，布尔是 bool，数值数组是 std::array<double, N>。value 为 null
 # （还没有值，待标定）的项不生成：代码引用它会编译失败，而不是静默用一个猜出来的数。
 
+# cmake -P 不继承工程的策略。不声明的话 CMake 3.x 把 if(IN_LIST) 当成未知参数，而 4.x 能跑，本机和 CI 的结果就不一样
+cmake_policy(VERSION 3.22)
+
 function(_thr_fail path msg)
   message(FATAL_ERROR "thresholds: ${path}: ${msg}")
 endfunction()
