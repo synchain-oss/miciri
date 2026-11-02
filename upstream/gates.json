@@ -1,0 +1,46 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "source": "rinne",
+      "from": "CLAUDE.md",
+      "fromBlob": "74f10c12c0f44fa5a186889d3b00ca89d200b15c",
+      "mode": "forked"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "source": "rinne",
+      "from": "CONTRIBUTING.md",
+      "fromBlob": "1a9bfe8029935a0fa311233cfa58b185518eeac4",
+      "mode": "forked"
+    },
+    {
+      "path": "scripts/build.ps1",
+      "source": "rinne",
+      "from": "scripts/build.ps1",
+      "fromBlob": "0a9c8f1d6909a3c3093e1e3790d09138062efc5a",
+      "mode": "forked"
+    },
+    {
+      "path": "scripts/gates.ps1",
+      "source": "rinne",
+      "from": "scripts/gates.ps1",
+      "fromBlob": "1de43dccfb99bd4d1a618731edcad3ce1072cc10",
+      "mode": "forked"
+    },
+    {
+      "path": "scripts/lib/Tiers.psm1",
+      "source": "rinne",
+      "from": "scripts/lib/Tiers.psm1",
+      "fromBlob": "fa4d29a4a4b988ed15bb5c59e16f9761c88c093d",
+      "mode": "forked"
+    }
+  ]
+}

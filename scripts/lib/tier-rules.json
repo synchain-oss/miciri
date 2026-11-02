@@ -1,0 +1,18 @@
+{
+  "tiers": ["Quick", "Standard", "Full"],
+  "standard": ["^src/", "^tests/", "^tools/", "^third_party/", "^thresholds\\.json$", "^thresholds\\.schema\\.json$"],
+  "full": [
+    "(^|/)CMakeLists\\.txt$",
+    "\\.cmake$",
+    "^cmake/",
+    "^CMakePresets\\.json$",
+    "^\\.github/workflows/",
+    "^scripts/(build|gates)\\.ps1$",
+    "^scripts/lib/",
+    "^scripts/ci/",
+    "^packaging/",
+    "\\.mm$",
+    "(^|/)mac/",
+    "(^|/)Info\\.plist"
+  ]
+}
