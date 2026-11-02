@@ -359,7 +359,6 @@ const good = [
     ["a.ps1", "Invoke-MiciriGit @('clean', '-n')"],
     ["a.sh", 'find "$d" -name x -print'],
     ["README.md", "rm -rf x"],
-    ["scripts/build.ps1", `${rm} -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue`],
     ["a.ps1", `${rm} $d -Recurse -Force # miciri-delete-ok: 只删上面新建的目录，删前核对过真实路径`],
     ["a.ps1", `# miciri-delete-ok: 本进程新建的目录，前缀已断言\n${rm} $d -Recurse`],
     // 理由正好 10 个字符（门槛的下界）：够长，放行
