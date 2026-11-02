@@ -6,7 +6,7 @@
 //   confidence  可信，或“再测一次”加原因
 //   evidence    证据标记（时间段、频率、电平），给证据波形和详情用
 // 不依赖 JUCE。字段名的 camelCase 就是桥快照里的字段名（见 docs/contracts/RESULT.md 与 BRIDGE.md）。
-// 第 3 组（房间、位置、喷麦、齿音、口水音、方向、距离）先定字段，算法后做；未实现前不要产生这些结果。
+// 房间、位置、喷麦、齿音、口水音、方向、距离这几项先定字段，算法后做；未实现前不要产生这些结果。
 #pragma once
 
 #include <array>
@@ -167,7 +167,7 @@ struct DeviceProcessingVerdict
 };
 using DeviceProcessingResult = Result<DeviceProcessingMeasures, DeviceProcessingVerdict>;
 
-// ---- 第 3 组：只定字段 ----
+// ---- 算法未实现的几项：只定字段 ----
 struct ReverbMeasures
 {
     std::array<double, 4> t20Sec{}; // 500、1k、2k、4k

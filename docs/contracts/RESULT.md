@@ -30,12 +30,12 @@ status: frozen
 | `noise` | `band`（A 加权 SNR 唯一分档依据） | 绝对 dBFS 只作信息，不分档 | 按排序 |
 | `hum` | `kind`（hum、buzz、whistle）、`slight` | 频率、高出本底 dB、占噪声能量 %；占比低于阈值仍报，标“轻微” | 轻微不进 |
 | `deviceProcessing` | `detected` | 只作横幅；极低不上升态下不显示 | 否 |
-| `reverb`、`directRatio` | `band`（`gated`、`lowerBoundOnly`） | 第 3 组，先定字段 | 按决策表 |
-| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 第 3 组，先定字段；档位来自实录 | 按排序 |
+| `reverb`、`directRatio` | `band`（`gated`、`lowerBoundOnly`） | 算法未实现，先定字段 | 按决策表 |
+| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 算法未实现，先定字段；档位来自实录 | 按排序 |
 | `direction` | `kind` | 只回答“当前方向是不是最响最亮”；没测过不算问题 | 差 ≥10 dB 才进 |
 | `distance` | `kind` | 由别的结果的证据合成，没有自己的 measures 之外的阈值 | 按排序 |
 
-第 3 组的算法后做：在算法落地前不得产生这些结果，字段名与枚举先冻结，让界面与桥可以并行开发。
+房间、位置、喷麦、齿音、口水音、方向、距离的算法后做：在算法落地前不得产生这些结果，字段名与枚举先冻结，让界面与桥可以并行开发。
 
 ## 色调
 
