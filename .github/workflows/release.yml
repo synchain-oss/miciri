@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/release.json
+#
+# 发版骨架：推一个 v* tag ⇒ verify-tag → build → package。tag 只打在 prod 上，只由维护者在 preview 批准之后打。
+#   1. verify-tag  tag 形如 vX.Y.Z（可带预发布后缀），被 tag 的提交必须是 origin/prod 历史上的提交。
+#   2. build       以 workflow_call 调用 build.yml（Win、mac、sanitizers、web-smoke）。tag 靠 github 上下文隐式传递：
+#                  release.yml 由 push tag 触发，被调用方拿到的 github.ref 就是 refs/tags/<tag>。with: 留空，因为 tag
+#                  是不可信文本，而工作流检查禁止在 with: 里插值表达式。
+#   3. package     占位：安装包与 mac 包的打包脚本由打包那张卡带来，到那时这一步换成「取回构建产物、打包、核哈希、
+#                  只建草稿 Release」。在那之前它明确判红，免得推了 tag 却看起来发了版。
+# 草稿 Release 由维护者确认后发布。不用第三方 release action：runner 自带 gh CLI，少一个持写权限的第三方依赖。
+# 不设 workflow_dispatch：手动跑既没有 tag 可比对，也没有 tag 可挂 Release。
+# 现状：build 与 package 还没有跑通过（仓里没有 CMakeLists.txt，也没有打包脚本），这份骨架只验证过 actionlint 与加固检查。
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  # tag 推送不取消：每次推送对应确定的提交，取消会让同一次发版的两轮跑互相踩。
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-tag:
+    name: verify-tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # tag 门禁要跟 origin/prod 比祖先关系，要完整的历史。
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Tag shape and branch
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$TAG_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::tag $TAG_NAME is not vX.Y.Z (optionally with a pre-release suffix)"
+            exit 1
+          fi
+          git fetch --quiet origin prod
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/prod; then
+            echo "::error::tag $TAG_NAME points at a commit that is not on prod"
+            exit 1
+          fi
+
+  build:
+    name: build
+    needs: verify-tag
+    permissions:
+      contents: read
+    # with: 留空：tag 通过 github 上下文隐式传递（见文件头）。
+    uses: ./.github/workflows/build.yml
+
+  package:
+    name: package
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Packaging has not landed
+        run: |
+          echo "::error title=package::The packaging scripts have not landed yet, so no installer or draft release can be produced. Replace this step with the packaging card's pipeline."
+          exit 1

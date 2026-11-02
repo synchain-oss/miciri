@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/ci.json
+#
+# 合规（required check：compliance）。工作树：gitleaks、reuse lint、SPDX 头、离线、递归删除、wav 夹具大小、隐私扫描
+# （先跑全部自测）。
+# PR 上另对 BASE..HEAD 逐提交跑 gitleaks 与隐私扫描：推上来的提交经 refs/pull 已经公开，这一步是事后告警，
+# 命中后关 PR、删分支，由维护者联系 GitHub 清理，换新分支重开。推送到长期分支时按推送兜底档复核新提交。
+# 个人针（secret PRIVACY_NEEDLES）是可选的：有就用，没有只跑通用规则并打一条注记，缺它不判红（--needles ci-optional）。
+# 本仓目前没有这个 secret。dependabot 的提交本身由 check-commits 按作者与提交者核对。
+# secret 只交给只跑 node 与 git 的步骤；跑 pip 装来的工具（reuse）与 gitleaks 的步骤一律不带它。
+# 前面的步骤能写 $GITHUB_ENV / $GITHUB_PATH，从而影响后面带 secret 的步骤，所以在它们之前运行的代码只有三类：钉了 sha256 的
+# gitleaks；按哈希装的 Python 包（reuse 只有源码包，它的构建后端 poetry-core 也钉哈希、先单独装好再关掉构建隔离，
+# 其余各项只收 wheel，见 requirements-tools.txt 头注）；本 PR 自己的 node 脚本，它们在带 secret 的步骤里本来就会运行，
+# fork PR 拿不到 secret。没有未钉哈希的代码能在 secret 之前改写环境。
+name: Compliance
+
+on:
+  pull_request:
+    branches: [dev, prod, "feature/**"]
+    # edited：PR 改了 base 时要按新的 base 重算提交区间（改标题、正文也会重跑一次，无害）
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [dev, prod, "feature/**"]
+
+permissions:
+  contents: read
+
+# 同一个 PR 的新运行取代旧运行，可以取消；push 每次复核的是那一次推送带来的提交，取消了那一段就没人再扫，
+# 所以每个推送按自己的提交单独成组，也不取消。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  compliance:
+    name: compliance
+    # 钉 24.04、不跟 ubuntu-latest：换镜像就换了系统 Python，pip 按它挑 wheel；requirements-tools.txt 的哈希按平台登记（brotli 只有 cp312 manylinux 一份），26.04 的 3.14 上对不上
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NEEDLES: ci-optional
+      # gitleaks_<版本>_linux_x64.tar.gz 的 sha256，取自该版本官方的 checksums.txt；升版本时一起改
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Install pinned tools (gitleaks, reuse)
+        run: |
+          set -euo pipefail
+          v=$(tr -d '[:space:]' < .gitleaks-version)
+          f="gitleaks_${v}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$f" "https://github.com/gitleaks/gitleaks/releases/download/v${v}/$f"
+          echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$f" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP/gitleaks" gitleaks
+          echo "MICIRI_GITLEAKS=$RUNNER_TEMP/gitleaks/gitleaks" >> "$GITHUB_ENV"
+          python3 -m venv "$RUNNER_TEMP/py"
+          # 两步装：先按哈希装 reuse 的构建后端，再关掉构建隔离、除 reuse 外只收 wheel
+          awk '/^poetry-core==/{p=1} p{print; if (substr($0, length($0)) != "\\") exit}' requirements-tools.txt \
+            > "$RUNNER_TEMP/build-backend.txt"
+          "$RUNNER_TEMP/py/bin/pip" install --disable-pip-version-check -q --require-hashes --no-deps --only-binary=:all: \
+            -r "$RUNNER_TEMP/build-backend.txt"
+          "$RUNNER_TEMP/py/bin/pip" install --disable-pip-version-check -q --require-hashes --no-build-isolation \
+            --only-binary=:all: --no-binary=reuse -r requirements-tools.txt
+          echo "MICIRI_REUSE=$RUNNER_TEMP/py/bin/reuse" >> "$GITHUB_ENV"
+      - name: Self-test
+        run: node scripts/run-checks.mjs --group compliance --self-test
+      - name: Worktree (SPDX, REUSE, secrets)
+        run: |
+          set -euo pipefail
+          node scripts/run-checks.mjs --group compliance --only spdx
+          node scripts/run-checks.mjs --group compliance --only reuse
+          "$MICIRI_GITLEAKS" dir . --no-banner --redact
+      # 只跑 node、只读仓内文件，不需要 secret 也不带它
+      - name: Worktree (offline, recursive delete, wav fixtures)
+        run: |
+          set -euo pipefail
+          node scripts/run-checks.mjs --group compliance --only offline
+          node scripts/run-checks.mjs --group compliance --only recursive-delete
+          node scripts/run-checks.mjs --group compliance --only wav-size
+      - name: Worktree privacy
+        env:
+          PRIVACY_NEEDLES: ${{ secrets.PRIVACY_NEEDLES }}
+        run: node scripts/run-checks.mjs --group compliance --only privacy --needles "$NEEDLES"
+      - name: Pull request commits (secrets)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: '"$MICIRI_GITLEAKS" git . --no-banner --redact --log-opts="$BASE_SHA..$HEAD_SHA --no-ext-diff --no-textconv"'
+      - name: Pull request commits (privacy)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PRIVACY_NEEDLES: ${{ secrets.PRIVACY_NEEDLES }}
+        run: node scripts/check-privacy.mjs --commits --no-messages --needles "$NEEDLES" "$BASE_SHA..$HEAD_SHA"
+      - name: Pushed commits (secrets)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: '"$MICIRI_GITLEAKS" git . --no-banner --redact --log-opts="$BEFORE..$AFTER --no-ext-diff --no-textconv"'
+      - name: Pushed commits (privacy, fallback tier)
+        if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          PRIVACY_NEEDLES: ${{ secrets.PRIVACY_NEEDLES }}
+        run: |
+          set -euo pipefail
+          node scripts/check-privacy.mjs --commits --no-messages --needles "$NEEDLES" "$BEFORE..$AFTER"
+          node scripts/check-commits.mjs commits --range "$BEFORE..$AFTER" --tier push --needles "$NEEDLES"

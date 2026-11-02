@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/ci.json
+# 标签必须是 .github/labels.json 里登记过的。
+name: 缺陷报告 · Bug report
+description: 出错、崩溃、结论明显不对，或行为与说明不符 · Something is broken or a result looks wrong
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **安全漏洞请不要在这里提**，改用私有漏洞报告（见 SECURITY.md）。
+        Please report security vulnerabilities privately (see SECURITY.md), not here.
+
+        **请不要在 issue 里附任何音频**：不要上传录音、wav、截取的片段或链接。需要数据时，只贴 Miciri 命令行工具导出的数值 JSON（只含数值，不含音频）。
+        **Do not attach audio to an issue**: no recordings, wav files, clips or links. If data is needed, paste only the numeric JSON exported by the Miciri command-line tool (numbers only, no audio).
+  - type: input
+    id: version
+    attributes:
+      label: Miciri 版本 · Version
+      description: 关于面板里的版本号 · From the About panel
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 系统 · OS
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS（Apple Silicon）
+        - 其他 · Other
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: 宿主与版本 · Host (DAW) and version
+      placeholder: Cubase 15
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: 插件格式 · Plugin format
+      options:
+        - VST3
+        - AU
+    validations:
+      required: true
+  - type: input
+    id: audio
+    attributes:
+      label: 采样率与缓冲区 · Sample rate and buffer size
+      placeholder: 48 kHz / 256
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么 · What happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 · Steps to reproduce
+      description: 插件放在哪条轨道的哪一格、做了哪几步测试 · Where the plugin sits and which tests you ran
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望的行为 · Expected behaviour
+  - type: textarea
+    id: numbers
+    attributes:
+      label: 数值 JSON（可选） · Numeric JSON (optional)
+      description: 只贴命令行工具导出的数值 JSON，先删掉个人信息，不要贴音频 · Only the numeric JSON from the command-line tool; remove personal info first; no audio
+      render: json

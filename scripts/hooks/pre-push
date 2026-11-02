@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/ci.json
+#
+# git pre-push hook. 判据都在同目录的 pre-push.mjs 里；这里只负责找到钉版 Node：
+# 先 MICIRI_NODE，再 git config miciri.node，最后 PATH 上的 node（主版本不对时 .mjs 自己拒绝）。
+node=${MICIRI_NODE:-$(git config --get miciri.node)}
+exec "${node:-node}" "$(dirname "$0")/pre-push.mjs" "$@"

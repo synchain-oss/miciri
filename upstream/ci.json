@@ -1,0 +1,431 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": ".actionlint-version",
+      "source": "rinne",
+      "from": ".actionlint-version",
+      "fromBlob": "e6a68e91eca34421e3ebcce45868d2bb4346d3a4",
+      "mode": "adapted"
+    },
+    {
+      "path": ".clang-format",
+      "source": "rinne",
+      "from": ".clang-format",
+      "fromBlob": "dd667b7a5aa4aa56aa7e3f3c6e7fe4e6d54f786d",
+      "mode": "adapted"
+    },
+    {
+      "path": ".clang-format-version",
+      "source": "rinne",
+      "from": ".clang-format-version",
+      "fromBlob": "2ae04bf4e5506b3a36aa0e8351145ef7dc945b4c",
+      "mode": "adapted"
+    },
+    {
+      "path": ".editorconfig",
+      "source": "rinne",
+      "from": ".editorconfig",
+      "fromBlob": "710f894bde3cf9c5e08614f69bfaed6f04eabc1b",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/CODEOWNERS",
+      "source": "rinne",
+      "from": ".github/CODEOWNERS",
+      "fromBlob": "069499c03253527af0d226af261dc1e8017adc29",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug.yml",
+      "source": "rinne",
+      "from": ".github/ISSUE_TEMPLATE/bug.yml",
+      "fromBlob": "a2ecebdf9cb906813dd5e5191c9d6591ddcdba05",
+      "mode": "forked"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "source": "rinne",
+      "from": ".github/ISSUE_TEMPLATE/config.yml",
+      "fromBlob": "f74e066107a23436a93d1265ebc026e24abb233b",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature.yml",
+      "source": "rinne",
+      "from": ".github/ISSUE_TEMPLATE/feature.yml",
+      "fromBlob": "095329bae711e4c043111ebf603ccaf14713e496",
+      "mode": "forked"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/host-report.yml",
+      "source": "rinne",
+      "from": ".github/ISSUE_TEMPLATE/host-report.yml",
+      "fromBlob": "5e862a28b0ca8ba1950c06ba1e86b8e5827b95d8",
+      "mode": "forked"
+    },
+    {
+      "path": ".github/actions-allowlist.json",
+      "source": "rinne",
+      "from": ".github/actions-allowlist.json",
+      "fromBlob": "0fa397cf484da751dffa29b74ffcf6807bed3da0",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/actions-lock.json",
+      "source": "rinne",
+      "from": ".github/actions-lock.json",
+      "fromBlob": "72284c173a5b1c1f7fdec631a9b4bd97f92b4339",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/dependabot.yml",
+      "source": "rinne",
+      "from": ".github/dependabot.yml",
+      "fromBlob": "d630a1e22655eac7fd6dcdfd9c0308f6eeb47fe2",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "source": "rinne",
+      "from": ".github/pull_request_template.md",
+      "fromBlob": "7d52742bb8504d472bc1aff5a63920db5972b090",
+      "mode": "forked"
+    },
+    {
+      "path": ".github/required-checks.json",
+      "source": "rinne",
+      "from": ".github/required-checks.json",
+      "fromBlob": "f2320fb8e3f7d29dfd956fba3dc9fd33debbb7f8",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/branch-gate.yml",
+      "source": "rinne",
+      "from": ".github/workflows/branch-gate.yml",
+      "fromBlob": "79c6cddddac5c66d18c8bd02812e855c292b000e",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/claude-review.yml",
+      "source": "rinne",
+      "from": ".github/workflows/claude-review.yml",
+      "fromBlob": "83a1286979e54d010d48ea38e62d613706a0efea",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/compliance.yml",
+      "source": "rinne",
+      "from": ".github/workflows/compliance.yml",
+      "fromBlob": "d6f0717a032480318b0c87c5f32902fe63541909",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/deepseek-review.yml",
+      "source": "rinne",
+      "from": ".github/workflows/deepseek-review.yml",
+      "fromBlob": "f9edbd17a237354e58f0e560d4e18cd72c072a0f",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/format.yml",
+      "source": "rinne",
+      "from": ".github/workflows/format.yml",
+      "fromBlob": "6b473d213cedc6fef80a7afabc48385f7523108f",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/pr-agent-claude.yml",
+      "source": "rinne",
+      "from": ".github/workflows/pr-agent-claude.yml",
+      "fromBlob": "709cf32b9617267ff74ddc39135741f866fb8342",
+      "mode": "adapted"
+    },
+    {
+      "path": ".github/workflows/review-dispatch.yml",
+      "source": "rinne",
+      "from": ".github/workflows/review-dispatch.yml",
+      "fromBlob": "9acf34fcf4bb4e80b386d0bd0d77abef1b5fe132",
+      "mode": "adapted"
+    },
+    {
+      "path": ".gitignore",
+      "source": "rinne",
+      "from": ".gitignore",
+      "fromBlob": "1fc67b874a2e0c793337d168c8347175e74e614d",
+      "mode": "adapted"
+    },
+    {
+      "path": ".gitleaks-version",
+      "source": "rinne",
+      "from": ".gitleaks-version",
+      "fromBlob": "57b9fc187c0177df8efbe33f380e9805567c89b5",
+      "mode": "adapted"
+    },
+    {
+      "path": ".gitleaks.toml",
+      "source": "rinne",
+      "from": ".gitleaks.toml",
+      "fromBlob": "5ce1e1e640e10bfe8a338048456f3e63359d537f",
+      "mode": "adapted"
+    },
+    {
+      "path": ".node-version",
+      "source": "rinne",
+      "from": ".node-version",
+      "fromBlob": "de889f8c2e71ed4bdfc48f042e6265f8f67f6356",
+      "mode": "adapted"
+    },
+    {
+      "path": ".pluginval-version",
+      "source": "rinne",
+      "from": ".pluginval-version",
+      "fromBlob": "3e7bcf08c2397962ba87478d7fc0fc67534c3837",
+      "mode": "adapted"
+    },
+    {
+      "path": ".prettier-version",
+      "source": "rinne",
+      "from": ".prettier-version",
+      "fromBlob": "1635d0f5a145a413bd7ffcfe68c6a8aef3652e11",
+      "mode": "adapted"
+    },
+    {
+      "path": ".prettierignore",
+      "source": "rinne",
+      "from": ".prettierignore",
+      "fromBlob": "f6bf887d2fc580d78534baa099713c9493d31823",
+      "mode": "adapted"
+    },
+    {
+      "path": ".prettierrc.json",
+      "source": "rinne",
+      "from": ".prettierrc.json",
+      "fromBlob": "eb2edfb2c63478c1e28e4703f9eef8b3cbee9b47",
+      "mode": "adapted"
+    },
+    {
+      "path": "REUSE.toml",
+      "source": "rinne",
+      "from": "REUSE.toml",
+      "fromBlob": "9aaef1b4c1230e4f1b2e851ed012c129b90402f7",
+      "mode": "forked"
+    },
+    {
+      "path": "requirements-tools.txt",
+      "source": "rinne",
+      "from": "requirements-tools.txt",
+      "fromBlob": "c7dd5ae7140b0ed76af799e2621327951b166a1d",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/check-commits.mjs",
+      "source": "rinne",
+      "from": "scripts/check-commits.mjs",
+      "fromBlob": "d12cc9b18370229857fe3004e740e11066238096",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/check-privacy.mjs",
+      "source": "rinne",
+      "from": "scripts/check-privacy.mjs",
+      "fromBlob": "930de6718eed5528853aa33749cbd252e0983862",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/check-required-contexts.mjs",
+      "source": "rinne",
+      "from": "scripts/check-required-contexts.mjs",
+      "fromBlob": "c2fe6a7e9625561ede80e1af5652aae6f899dfa7",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/check-spdx.mjs",
+      "source": "rinne",
+      "from": "scripts/check-spdx.mjs",
+      "fromBlob": "53b8408c617819a995194119b24b6f0ff7d82f7b",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/actions-lock.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/actions-lock.mjs",
+      "fromBlob": "5a4ec1e9c339b8ff5a01b70547b9e0c53f556789",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/commits.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/commits.mjs",
+      "fromBlob": "e648e0377f2a763bd1e2cb99be5f897eeeb7755b",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/hooks.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/hooks.mjs",
+      "fromBlob": "51eabeaff2fac955d2102168d686db48304240c5",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/offline.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/offline.mjs",
+      "fromBlob": "54300f7293925e6b85905db7f97b60beaea6b6b8",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/path-case.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/path-case.mjs",
+      "fromBlob": "94ba091467d36ed721beb57b544fd128a9d801b2",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/pins.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/pins.mjs",
+      "fromBlob": "6e184a0bb4c40451685020086a4b37ebe3b7aaed",
+      "mode": "forked"
+    },
+    {
+      "path": "scripts/checks.d/privacy.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/privacy.mjs",
+      "fromBlob": "eec38ddcaff130b283ca1815c04de3104a2530ef",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/recursive-delete.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/recursive-delete.mjs",
+      "fromBlob": "386994bfed47bdf60e41dc413446b6d17fb940f7",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/required-contexts.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/required-contexts.mjs",
+      "fromBlob": "7476bac55a2f1926f8c112800da89a939d01821e",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/reuse.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/reuse.mjs",
+      "fromBlob": "5b5d10351df7a326017612f7f64d051a422fa3ba",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/review-bot.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/review-bot.mjs",
+      "fromBlob": "a125f88a7d636528f5d26801808956b407d6686e",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/spdx.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/spdx.mjs",
+      "fromBlob": "98ca12b099047857e283cd2a7f912c15da7b9d3a",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/upstream.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/upstream.mjs",
+      "fromBlob": "b52e2d2dd586b9111972d47a726d3de9755505b7",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/checks.d/workflows.mjs",
+      "source": "rinne",
+      "from": "scripts/checks.d/workflows.mjs",
+      "fromBlob": "0efccf29e284011ef5e375b7b07b27f74392dc54",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/hooks/commit-msg",
+      "source": "rinne",
+      "from": "scripts/hooks/commit-msg",
+      "fromBlob": "b697da0de39544771e05160e72b4d400c6b5f454",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/hooks/commit-msg.mjs",
+      "source": "rinne",
+      "from": "scripts/hooks/commit-msg.mjs",
+      "fromBlob": "5766c60543b7fb876060729e144b3188d5fd7403",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/hooks/pre-push",
+      "source": "rinne",
+      "from": "scripts/hooks/pre-push",
+      "fromBlob": "38cc34a1b8667083c6626a27a860c929c29a6425",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/hooks/pre-push.mjs",
+      "source": "rinne",
+      "from": "scripts/hooks/pre-push.mjs",
+      "fromBlob": "5e5be972c4961aab926c8386f508d0fd22d43500",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/lib/check-kit.mjs",
+      "source": "rinne",
+      "from": "scripts/lib/check-kit.mjs",
+      "fromBlob": "7d4f0f52ea35bb39dfc0e47d14f1ec96e1c5b4a4",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/lib/privacy-needles.mjs",
+      "source": "rinne",
+      "from": "scripts/lib/privacy-needles.mjs",
+      "fromBlob": "b34b5f7a09016a89327e261289e0e7b36311b3f4",
+      "mode": "forked"
+    },
+    {
+      "path": "scripts/lib/safe-rm.mjs",
+      "source": "rinne",
+      "from": "scripts/lib/safe-rm.mjs",
+      "fromBlob": "11050a3ac68c043dd4940bccb6d7fa3551fb2996",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/lib/tier-rules.json",
+      "source": "rinne",
+      "from": "scripts/lib/tier-rules.json",
+      "fromBlob": "575dd7e0d5e4bc5df94ec6b60c92986f9cb25f9d",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/lock-actions.mjs",
+      "source": "rinne",
+      "from": "scripts/lock-actions.mjs",
+      "fromBlob": "4a25e11f7b5e266156168b698201fc7e0b382563",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/review-bot.mjs",
+      "source": "rinne",
+      "from": "scripts/review-bot.mjs",
+      "fromBlob": "52ffb771d33af2dad463c508595277a9cd0539da",
+      "mode": "adapted"
+    },
+    {
+      "path": "scripts/run-checks.mjs",
+      "source": "rinne",
+      "from": "scripts/run-checks.mjs",
+      "fromBlob": "e7477d0fc0d96dbb14bd2816175064e9355f65b6",
+      "mode": "adapted"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/ci.json
+#
+# 许可与版权的机读登记（REUSE 3.3）。小节一次建好，以后只往自己负责的那一节里加块；
+# 小节标记由 run-checks 的 reuse 检查核对，不要删改或调换顺序。
+# 同一文件匹配多个块时，后面的块优先，所以兜底块必须放在最前。
+version = 1
+
+# --- section:base ---
+# 兜底：本仓自己写的一切。能写注释的源文件仍须逐个加 SPDX 头，由 check-spdx 把关。
+[[annotations]]
+path = "**"
+SPDX-FileCopyrightText = "2026 Synchain"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# --- section:untagged ---
+# 不能带注释头的自有文件：单行钉版文件、JSON、golden 数据与合成音频夹具。许可与兜底相同，单列出来一眼可查。
+[[annotations]]
+path = [
+  ".*-version",
+  ".juce-commit",
+  ".prettierrc.json",
+  ".github/*.json",
+  ".github/rulesets/*.json",
+  "scripts/ci/mac/*.sha256",
+  "upstream/*.json",
+  "tests/golden/**",
+  "tests/fixtures/**",
+]
+SPDX-FileCopyrightText = "2026 Synchain"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# --- section:juce-web-js ---
+# JUCE 自带的前端辅助脚本（web/js/juce/）随 JUCE 的许可（AGPL-3.0-only），不加 Synchain 版权。
+# 文件入库时在此加块，并把 LICENSES/AGPL-3.0-only.txt 一起带进来。
+
+# --- section:third-party ---
+# 第三方的字体、代码与数据：每一项写明来源、版权与许可，precedence = "override"。入库时在此加块。
