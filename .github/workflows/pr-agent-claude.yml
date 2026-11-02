@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/ci.json
+#
+# 交叉验证用的 pr-agent：Claude Haiku 5.5（effort high），走 Claude API credit（org secret
+# CLAUDE_API_KEY_FOR_PR_REVIEW），按量计费。所有 base 的 PR 都跑，PR 每次推送都重跑；晋升 PR（dev → prod）、draft、
+# fork 与 bot 的 PR 由被调用方跳过。只发评论：不是 required check，不进合并判据。
+# describe: false：describe 会把生成的段落接在 PR 正文后面，而本仓 PR 正文的最后一行必须是签名行（branch-gate 与
+# pr-merge 都核对），所以哪个 base 都不跑。review_labels: false：不打 Review effort / Possible security concern
+# 标签（标签以 .github/labels.json 为唯一真源）。secondary_on_bases 列的是「另有一个 pr-agent 当主审」的 base，
+# 列到的 base 上本调用方让位（不跑 describe）；本仓只有这一个 pr-agent，所以是 []：共享 workflow 里 [] 表示它在所有 base
+# 上都是主审（job 摘要里写 primary），review-bot 检查核对它必须是 []。persistent_comments: false：持久模式会改「最新一条
+# 带 pr-agent 标记的评论」、每次推送原地改评论；这里每次推送发新评论，互不覆盖。
+# 引用钉 40 位 SHA、行尾注明 tag；改 SHA 时重跑 node scripts/lock-actions.mjs，
+# 并复核共享 workflow 仍把不可信数据声明放在 extra_instructions 里（CLAUDE.md 安全铁律 5 的例外靠它成立）。
+name: PR Agent (Claude Haiku 5.5)
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-agent-claude:
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: Synchain-oss/ci-workflows/.github/workflows/pr-agent.yml@070537914c9af4c2742b8fc5c7f63e06daef82ae # v1.3.3
+    with:
+      provider: anthropic
+      base_branches: '["*"]'
+      secondary_on_bases: '[]'
+      describe: false
+      review_labels: false
+      persistent_comments: false
+      # 夹具是判据样例，评审应该看到，不 ignore；只忽略逐字收录的第三方文本与二进制。
+      ignore_globs: '["web/js/juce/**", "LICENSES/**", "third_party/notices/**"]'
+    secrets:
+      api_key: ${{ secrets.CLAUDE_API_KEY_FOR_PR_REVIEW }}

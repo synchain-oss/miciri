@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/ci.json
+# 标签必须是 .github/labels.json 里登记过的。
+name: 宿主实测报告 · Host report
+description: Miciri 在你的 DAW 里实测的结果，能用也欢迎报 · How Miciri behaves in your DAW, working or not
+labels:
+  - host-report
+body:
+  - type: markdown
+    attributes:
+      value: |
+        实测结果会汇总进 DAW 兼容性文档。出了问题请另提缺陷报告，这里只记结果。
+        Results feed the DAW compatibility page. For problems, please also open a bug report.
+
+        **请不要附任何音频**；需要数据时只贴命令行工具导出的数值 JSON。
+        **Do not attach audio**; if data is needed, paste only the numeric JSON from the command-line tool.
+  - type: input
+    id: version
+    attributes:
+      label: Miciri 版本 · Version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 系统 · OS
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS（Apple Silicon）
+        - 其他 · Other
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: 宿主与版本 · Host (DAW) and version
+    validations:
+      required: true
+  - type: dropdown
+    id: format
+    attributes:
+      label: 插件格式 · Plugin format
+      options:
+        - VST3
+        - AU
+    validations:
+      required: true
+  - type: input
+    id: audio
+    attributes:
+      label: 采样率与缓冲区 · Sample rate and buffer size
+      placeholder: 48 kHz / 256
+  - type: checkboxes
+    id: results
+    attributes:
+      label: 结果（勾上正常的项） · Results (tick what works)
+      options:
+        - label: 能扫描并识别（插件在宿主里加载正常） · The plugin scans and loads
+        - label: 实时录音时能完成各项测试 · The tests run during live recording
+        - label: 离线导出与实时播放时音频不变（逐位直通） · Audio is unchanged during offline export and playback (bit-exact passthrough)
+        - label: 旁路后音频不变 · Audio is unchanged when bypassed
+        - label: 保存并重开工程后设置还在 · Settings survive saving and reopening the project
+  - type: textarea
+    id: notes
+    attributes:
+      label: 备注 · Notes
+      description: 放置位置、宿主设置、任何异常 · Placement, host settings, anything unusual

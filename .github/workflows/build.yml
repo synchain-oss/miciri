@@ -1,15 +1,38 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from synchain-oss/rinne; see upstream/build.json
 #
-# Registration stub. GitHub only offers workflow_dispatch for workflows that
-# exist on the default branch, so this file is committed first. The real build
-# pipeline replaces it on the development line; until then it always fails.
+# 完整构建（dev / prod 的 required check：build-win、build-mac、core-sanitizers、web-smoke）。
+# 三种触发共用同一套 job：
+#   pull_request      PR → dev / prod。子 PR（→ feature/**）不跑本 workflow，这是有意的：子 PR 的编译门是本机 gates
+#   workflow_dispatch ref = 要构建的 40 位提交（空着就构建所选分支的 tip）
+#   workflow_call     被 release.yml 调用，构建被 tag 的提交
+# 现在仓里还没有 CMakeLists.txt（CMake 由契约那张卡带来），所以每个 job 的第一步先断言它存在：没有就判红并写明原因，
+# 不能让一个什么都没构建的运行显示成绿。第一个带 CMake 的 PR 合入后，必须对它的 head 手动 dispatch 一次，
+# 因为本文件的构建步骤此前没有跑过；调用约定写在 scripts/build.ps1 的头注释里，对不上就改这里或那里。
+# 四个 job 的名字就是 dev / prod ruleset 里 required check 的 context（见 .github/required-checks.json），不要改名，也不要加 job 级 if。
+# 钉版：JUCE 按 .juce-version 的 tag 浅克隆，build.ps1 再断言它就是 .juce-commit；pluginval 的版本取 .pluginval-version，
+# mac 的 sha256 在 scripts/ci/mac/pluginval-macos.sha256；Windows 的 ninja 与 pluginval 在下面各自核 sha256（ninja 没有钉版文件）。
+# build-win：构建（第一方零 warning）、ctest、DSP golden、分配计数器、pluginval strictness 5 无 GUI。
+# build-mac（macos-15）：同上，再加 AU 的 auval（auval -v 通过，auval -a 里恰好出现一次）与 pluginval 验 VST3 和已装的 AU。
+# core-sanitizers（ubuntu、clang-18）：asan_ubsan 与 tsan 两个配置各自配置、构建、跑全部 ctest；不需要 JUCE。
+# web-smoke：web-preview/tests/run-all.mjs 存在就跑（页面冒烟与 axe 无障碍检查在里面），不存在时打印注记并通过。
 name: Build & Validate
+run-name: Build & Validate ${{ github.event_name }} ${{ inputs.ref || github.sha }}
 
 on:
+  pull_request:
+    branches: [dev, prod]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       ref:
-        description: Git ref to build
+        description: 要构建的提交（40 位 sha）；空着就构建所选分支的 tip
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: 要构建的提交（40 位 sha）；空着就构建被 tag 的提交
         required: false
         type: string
 
@@ -17,15 +40,259 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: false
+  group: build-${{ github.event_name == 'pull_request' && format('pr{0}', github.event.pull_request.number) || inputs.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  stub:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
+  build-win:
+    name: build-win
+    runs-on: windows-2022
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      JUCE_DIR: ${{ github.workspace }}\JUCE
+      WANT_REF: ${{ inputs.ref }}
+      # ninja 没有钉版文件：版本与 sha256 写在这里，升级时一起改（sha256 取自 GitHub 发布资产的 digest）
+      NINJA_VERSION: 1.13.1
+      NINJA_SHA256: 26a40fa8595694dec2fad4911e62d29e10525d2133c9a4230b66397774ae25bf
+      # pluginval 上游既不发校验文件、发布资产也没有 digest，这里登记的是首次下载的值（trust on first use）
+      PLUGINVAL_WIN_SHA256: c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab
     steps:
-      - name: Not available yet
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+
+      - name: Build inputs exist
         run: |
-          echo "The build pipeline has not landed on this branch yet." >&2
-          exit 1
+          if (-not (Test-Path -LiteralPath 'CMakeLists.txt')) {
+            Write-Host '::error title=build-win::No CMakeLists.txt in this tree, so nothing can be built. This job fails instead of passing empty.'
+            exit 1
+          }
+          if ($env:WANT_REF) {
+            $sha = (git rev-parse HEAD).Trim()
+            if ($env:WANT_REF -cnotmatch '^[0-9a-f]{40}$' -or $env:WANT_REF -ne $sha) { Write-Host "::error::checked out $sha, not the requested $($env:WANT_REF)"; exit 1 }
+          }
+
+      - name: Restore JUCE
+        id: juce-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.JUCE_DIR }}
+          key: juce-${{ runner.os }}-${{ hashFiles('.juce-commit') }}
+
+      - name: Clone JUCE (pinned tag)
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        run: |
+          $tag = (Get-Content .juce-version -Raw).Trim()
+          git clone --quiet --depth 1 --branch $tag https://github.com/juce-framework/JUCE.git $env:JUCE_DIR
+
+      - name: Install pinned ninja and pluginval
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'tools'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $pv = (Get-Content .pluginval-version -Raw).Trim()
+          $items = @(
+            @{ Name = 'ninja'; Url = "https://github.com/ninja-build/ninja/releases/download/v$($env:NINJA_VERSION)/ninja-win.zip"; Sha = $env:NINJA_SHA256; Exe = 'ninja.exe'; Var = 'MICIRI_NINJA' },
+            @{ Name = 'pluginval'; Url = "https://github.com/Tracktion/pluginval/releases/download/$pv/pluginval_Windows.zip"; Sha = $env:PLUGINVAL_WIN_SHA256; Exe = 'pluginval.exe'; Var = 'MICIRI_PLUGINVAL' }
+          )
+          foreach ($i in $items) {
+            $zip = Join-Path $dir "$($i.Name).zip"
+            Invoke-WebRequest $i.Url -OutFile $zip
+            $got = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($got -ne $i.Sha) { Write-Error "$($i.Name): sha256 is $got, expected $($i.Sha)"; exit 1 }
+            Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $dir $i.Name)
+            $exe = Get-ChildItem -LiteralPath (Join-Path $dir $i.Name) -Filter $i.Exe -File -Recurse | Select-Object -First 1
+            if (-not $exe) { Write-Error "no $($i.Exe) after unzip"; exit 1 }
+            "$($i.Var)=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          }
+
+      - name: Build (first-party zero warnings)
+        run: pwsh -NoProfile -File scripts/build.ps1 -JucePath "$env:JUCE_DIR"
+
+      - name: ctest
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Test
+
+      - name: DSP golden
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Golden
+
+      - name: Allocation canary
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Canary
+
+      - name: pluginval (strictness 5, no GUI)
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Validate
+
+      - name: Stage
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Stage (Join-Path $env:RUNNER_TEMP 'dist')
+
+      - name: Upload plugins
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Miciri-win64-${{ github.sha }}
+          path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+          overwrite: true
+
+  build-mac:
+    name: build-mac
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      JUCE_DIR: ${{ github.workspace }}/JUCE
+      WANT_REF: ${{ inputs.ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+
+      - name: Build inputs exist
+        run: |
+          set -euo pipefail
+          if [ ! -f CMakeLists.txt ]; then
+            echo '::error title=build-mac::No CMakeLists.txt in this tree, so nothing can be built. This job fails instead of passing empty.'
+            exit 1
+          fi
+          if [ -n "$WANT_REF" ] && [ "$WANT_REF" != "$(git rev-parse HEAD)" ]; then echo "::error::checked out $(git rev-parse HEAD), not the requested $WANT_REF"; exit 1; fi
+
+      - name: Restore JUCE
+        id: juce-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.JUCE_DIR }}
+          key: juce-${{ runner.os }}-${{ hashFiles('.juce-commit') }}
+
+      - name: Clone JUCE (pinned tag)
+        if: steps.juce-cache.outputs.cache-hit != 'true'
+        run: git clone --quiet --depth 1 --branch "$(tr -d '[:space:]' < .juce-version)" https://github.com/juce-framework/JUCE.git "$JUCE_DIR"
+
+      - name: Ensure Ninja
+        run: command -v ninja >/dev/null 2>&1 || brew install ninja
+
+      - name: Script self-tests
+        run: bash scripts/ci/mac.sh --self-test
+
+      - name: Build (first-party zero warnings)
+        run: pwsh -NoProfile -File scripts/build.ps1 -JucePath "$JUCE_DIR"
+
+      - name: ctest
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Test
+
+      - name: DSP golden
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Golden
+
+      - name: Allocation canary
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Canary
+
+      - name: Install pinned pluginval
+        run: bash scripts/ci/mac.sh pluginval-install
+
+      - name: pluginval on VST3 (strictness 5, no GUI)
+        run: |
+          set -euo pipefail
+          bundles=$(find build -type d -name '*.vst3' -not -path '*/_deps/*')
+          if [ -z "$bundles" ]; then echo '::error::no .vst3 in the build tree'; exit 1; fi
+          printf '%s\n' "$bundles" | while IFS= read -r b; do bash scripts/ci/mac.sh pluginval "$b"; done
+
+      - name: auval and pluginval on AU
+        run: |
+          set -euo pipefail
+          comps=$(find build -type d -name '*.component' -not -path '*/_deps/*')
+          if [ -z "$comps" ]; then echo '::error::no .component in the build tree'; exit 1; fi
+          printf '%s\n' "$comps" | while IFS= read -r c; do bash scripts/ci/mac.sh auval "$c"; bash scripts/ci/mac.sh pluginval "$HOME/Library/Audio/Plug-Ins/Components/$(basename "$c")"; done
+
+      - name: Stage
+        run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Stage "$RUNNER_TEMP/dist"
+
+      - name: Upload plugins
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Miciri-macos-arm64-${{ github.sha }}
+          path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+          overwrite: true
+
+  core-sanitizers:
+    name: core-sanitizers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      WANT_REF: ${{ inputs.ref }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+
+      - name: Build inputs exist
+        run: |
+          set -euo pipefail
+          if [ ! -f CMakeLists.txt ]; then
+            echo '::error title=core-sanitizers::No CMakeLists.txt in this tree, so nothing can be built. This job fails instead of passing empty.'
+            exit 1
+          fi
+          if [ -n "$WANT_REF" ] && [ "$WANT_REF" != "$(git rev-parse HEAD)" ]; then echo "::error::checked out $(git rev-parse HEAD), not the requested $WANT_REF"; exit 1; fi
+
+      # GitHub 的 Ubuntu 24.04 镜像把 mmap 随机化放到 32 位，clang 18 的 sanitizer 在这种布局下起不来（unexpected memory mapping）
+      - name: Lower mmap entropy for sanitizers
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+
+      - name: Toolchain
+        run: |
+          clang++-18 --version
+          cmake --version
+
+      - name: asan_ubsan
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-asan_ubsan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DMICIRI_CORE_ONLY=ON -DMICIRI_SANITIZER=asan_ubsan -DMICIRI_WARNINGS_AS_ERRORS=ON
+          cmake --build build-asan_ubsan --parallel
+          ctest --test-dir build-asan_ubsan --output-on-failure --no-tests=error
+
+      - name: tsan
+        run: |
+          set -euo pipefail
+          cmake -S . -B build-tsan -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DMICIRI_CORE_ONLY=ON -DMICIRI_SANITIZER=tsan -DMICIRI_WARNINGS_AS_ERRORS=ON
+          cmake --build build-tsan --parallel
+          ctest --test-dir build-tsan --output-on-failure --no-tests=error
+
+      # 金丝雀：故意有问题的小程序必须被拦住，否则上面的绿不可信。脚本由有 core 的那张卡带来；之前没有就打印注记。
+      - name: Sanitizer canaries must fire
+        run: |
+          set -euo pipefail
+          if [ ! -f tests/sanitizer-canary/run.sh ]; then
+            echo '::notice title=core-sanitizers::tests/sanitizer-canary/run.sh does not exist yet, canaries not run'
+            exit 0
+          fi
+          bash tests/sanitizer-canary/run.sh asan_ubsan
+          bash tests/sanitizer-canary/run.sh tsan
+
+  # 页面冒烟。web-preview/tests/run-all.mjs 随 web 预览到位之前不存在，此时打印注记并通过；到位之后它就是门禁本身。
+  web-smoke:
+    name: web-smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+
+      - name: Web smoke
+        run: |
+          set -euo pipefail
+          if [ ! -f web-preview/tests/run-all.mjs ]; then
+            echo '::notice title=web-smoke::SKIP: web-preview/tests/run-all.mjs does not exist yet, nothing to run'
+            exit 0
+          fi
+          node web-preview/tests/run-all.mjs
