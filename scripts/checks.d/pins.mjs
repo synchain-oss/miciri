@@ -101,7 +101,9 @@ export function checkPins(read) {
     if (!SEMVER.test(entry("reuse")?.version || "")) errors.push("requirements-tools.txt 须钉住 reuse 的版本");
     // Catch2 是钉版依赖：tag 可以被移动、提交不会，所以 GIT_TAG 必须是 40 位提交号（理由写在 cmake/MiciriDeps.cmake 的头注释里）
     const deps = read(CATCH2_FILE);
-    const tag = deps === null ? null : /FetchContent_Declare\(\s*Catch2\b[^)]*?GIT_TAG\s+([^\s)]+)/.exec(deps)?.[1];
+    // 先去掉 CMake 的 # 注释：注释里写的 GIT_TAG 不算数
+    const code = deps?.replace(/#.*$/gm, "") ?? null;
+    const tag = code === null ? null : /FetchContent_Declare\(\s*Catch2\b[^)]*?GIT_TAG\s+([^\s)]+)/.exec(code)?.[1];
     if (deps === null) errors.push(`缺 ${CATCH2_FILE}`);
     else if (!tag || !COMMIT.test(tag))
         errors.push(`${CATCH2_FILE} 的 Catch2 GIT_TAG 必须是 40 位小写提交号，不能是 tag 或分支名`);
@@ -221,6 +223,18 @@ export default {
             ],
             ["Catch2 没有 GIT_TAG", true, with_({ [CATCH2_FILE]: catch2Source("") })],
             ["缺 cmake/MiciriDeps.cmake", true, with_({ [CATCH2_FILE]: null })],
+            [
+                "只有注释里写着 GIT_TAG 的提交号",
+                true,
+                with_({
+                    [CATCH2_FILE]: `FetchContent_Declare(Catch2\n  # GIT_TAG ${CATCH2_SHA})\n  GIT_REPOSITORY https://github.com/catchorg/Catch2.git)\n`,
+                }),
+            ],
+            [
+                "注释里有旧 tag，真正的提交号仍认得出",
+                false,
+                with_({ [CATCH2_FILE]: `# 旧写法：GIT_TAG v3.5.4\n${catch2Source(`GIT_TAG ${CATCH2_SHA}`)}` }),
+            ],
             ["Catch2 GIT_TAG 是 40 位提交号", false, with_({ [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA}`) })],
             ...[".juce-commit", ".juce-version", ".pluginval-version", "scripts/ci/mac/pluginval-macos.sha256"].map(
                 (f) => [`缺构建钉版 ${f}`, true, with_({ [f]: null })],
