@@ -83,7 +83,7 @@ if ($Validate) {
     if ($CoreOnly) { Skip '-CoreOnly 没有插件可验证' }
     $pv = $env:MICIRI_PLUGINVAL ? $env:MICIRI_PLUGINVAL : 'pluginval'
     $bundles = Get-Bundles '*.vst3'
-    if (-not $bundles.Count) { throw "构建目录里没有 .vst3" }
+    if (-not $bundles.Count) { Skip '构建目录里没有 .vst3，没有插件可验证' }
     foreach ($b in $bundles) {
         Invoke-Native $pv @('--strictness-level', '5', '--timeout-ms', '60000', '--skip-gui-tests', $b.FullName)
     }

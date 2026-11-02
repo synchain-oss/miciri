@@ -40,208 +40,6 @@ const SECTION_OK = /GPL|OFL|Apache|section|IEC|ISO|IEEE|ITU|AES|EBU|RFC/i;
 const sectionAllowed = (m, line, ctx) =>
     SECTION_OK.test(line.slice(Math.max(0, m.index - 12), m.index)) ||
     !!ctx.headings?.has(m[0].replace(/\D*(\d+).*/, "$1"));
-// ---- 放行上下文 ------------------------------------------------------------------------
-//
-// 注意：现有规则表里没有规则带 contextAware 旗标，下面的区间函数当前不参与任何判定，整理规则表时连同 scan 里的
-// 区间分支一并删除。
-//
-// 两处编号形态不是编号，是编码的巧合：SVG path 数据里的坐标与 base64 载荷里的字节。
-// 放行只在这两种语法上下文里生效，别处照判。
-//
-// 放行范围要窄，四个条件都收紧：
-//   path 数据：引号里的整段，且整段是合法的 SVG path —— 首命令是 moveto、每个命令的参数个数合法、
-//     只由命令字母与数字组成。J、D、U、R、W、E 不是 path 命令，「真的像编号」的形态在合法 path 里站不住。
-//     引号只在三种语法位置里算数：d 属性、path(…) 函数、路径数组（每个元素都得是 path 数据）。
-//   base64：data URI 里 ;base64, 之后连续的 base64 字符。
-//   两种上下文都不跨行：跨行的形态一律不放行。
-
-// SVG path 的命令字母与各自的参数个数（弧的 7 个参数、闭合命令不要参数）
-const PATH_CMD = "MmZzLlHhVvCcSsQqTtAa";
-const PATH_ARITY = { M: 2, L: 2, H: 1, V: 1, C: 6, S: 4, Q: 4, T: 2, A: 7, Z: 0 };
-const BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-const MAX_PATH_LEN = 512; // path 数据很短；上限挡住引号配对错位时把整段文件当 path 的情形
-
-/**
- * 一段文本是不是 SVG path 数据：命令字母开头、参数个数合法、只由命令字母与数字组成。
- * 首命令必须是 moveto（SVG 规范要求路径以 moveto 开头）：这样「T04 12」这类以别的命令开头的
- * 形态站不住，不会被当成 path 放行。参数个数不对（只有一个数的）不算 path —— 那是编号。
- * movetoFirst 是可关的判据，自测要能单独把它关掉来对照。
- */
-function isPathData(text, { movetoFirst = true } = {}) {
-    const s = text.trim();
-    if (!s || s.length > MAX_PATH_LEN) return false;
-    if (movetoFirst && s[0] !== "M" && s[0] !== "m") return false;
-    if (!PATH_CMD.includes(s[0])) return false;
-    const num = /[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/y;
-    const toks = [];
-    let i = 0;
-    while (i < s.length) {
-        const c = s[i];
-        if (c === "," || /\s/.test(c)) {
-            i++;
-            continue;
-        }
-        if (PATH_CMD.includes(c)) {
-            toks.push(c);
-            i++;
-            continue;
-        }
-        num.lastIndex = i;
-        const m = num.exec(s);
-        if (!m) return false;
-        toks.push(0); // 参数
-        i += m[0].length;
-    }
-    let k = 0;
-    while (k < toks.length) {
-        const cmd = toks[k];
-        if (!cmd) return false; // 数字开头，不是 path
-        const arity = PATH_ARITY[cmd.toUpperCase()];
-        k++;
-        let n = 0;
-        while (k < toks.length && toks[k] === 0) {
-            n++;
-            k++;
-        }
-        if (arity === 0 ? n !== 0 : n === 0 || n % arity !== 0) return false;
-    }
-    return true;
-}
-
-/** 下一个同种引号（跳过被转义的那个）；没有就是 -1。 */
-const nextQuote = (text, i) => {
-    const q = text[i];
-    for (let k = i + 1; k < text.length; k++) {
-        if (text[k] === "\\") {
-            k++;
-            continue;
-        }
-        if (text[k] === q) return k;
-    }
-    return -1;
-};
-
-/** 与 text[i] 处的方括号配对的右括号；引号里的括号不算；没有就是 -1。 */
-const closeBracket = (text, i) => {
-    let depth = 0;
-    for (let k = i; k < text.length; k++) {
-        const c = text[k];
-        if (c === "'" || c === '"') {
-            const q = nextQuote(text, k);
-            if (q < 0) return -1;
-            k = q;
-            continue;
-        }
-        if (c === "[") depth++;
-        else if (c === "]" && --depth === 0) return k;
-    }
-    return -1;
-};
-
-/** 数组里按顶层逗号切开的元素；每项记下去掉空白后的起止（含引号）。 */
-const arrayItems = (text, from, to) => {
-    const items = [];
-    let depth = 0;
-    let start = from;
-    for (let k = from; k <= to; k++) {
-        const c = text[k];
-        if (c === "'" || c === '"') {
-            const q = nextQuote(text, k);
-            if (q < 0) return items;
-            k = q;
-            continue;
-        }
-        if (c === "(" || c === "[") depth++;
-        else if (c === ")" || c === "]") depth--;
-        else if (c === "," && depth === 0) {
-            items.push({ start, end: k });
-            start = k + 1;
-        }
-    }
-    items.push({ start, end: to + 1 });
-    // 去掉元素两头的空白，剩下的才是引号包的整段
-    return items
-        .map((it) => {
-            let s = it.start;
-            let e = it.end;
-            while (s < e && /\s/.test(text[s])) s++;
-            while (e > s && /\s/.test(text[e - 1])) e--;
-            return { start: s, end: e };
-        })
-        .filter((it) => it.end > it.start);
-};
-
-/** 引号里的内容是不是 path 数据；是就把内容区间记进 spans。 */
-const quotedPathSpan = (text, quotePos, spans, opts) => {
-    const close = nextQuote(text, quotePos);
-    if (close < 0) return false;
-    if (!isPathData(text.slice(quotePos + 1, close), opts)) return false;
-    spans.push({ from: quotePos + 1, to: close });
-    return true;
-};
-
-/**
- * 一行里 SVG path 上下文的字符区间（下标相对这一行）。
- * 只认三种语法位置：d 属性（HTML 的 d="…" 与脚本对象里的 d: '…'）、path(…) 函数、路径数组（每个元素都得是 path 数据）。
- * dColon 是可关的判据（对象写法 d: '…'），自测要能单独把它关掉来对照。
- */
-export function pathSpans(line, opts) {
-    const spans = [];
-    if (!line.includes("'") && !line.includes('"')) return spans;
-    const dAttr = opts?.dColon === false ? /\bd[ \t]*=[ \t]*(['"])/g : /\bd[ \t]*[=:][ \t]*(['"])/g;
-    // d 属性与 path(…) 函数：引号里的内容必须是 path 数据
-    for (const re of [dAttr, /\bpath[ \t]*\([ \t]*(['"])/g]) {
-        for (const m of line.matchAll(re)) {
-            quotedPathSpan(line, m.index + m[0].length - 1, spans, opts);
-        }
-    }
-    // 路径数组：['M…', 'M…']，每个元素都得是 path 数据，否则整段不放行
-    let i = 0;
-    while (i < line.length) {
-        if (line[i] !== "[") {
-            i++;
-            continue;
-        }
-        const close = closeBracket(line, i);
-        if (close < 0) break;
-        const here = [];
-        let all = true;
-        for (const it of arrayItems(line, i + 1, close - 1)) {
-            const raw = line.slice(it.start, it.end);
-            const q = raw[0];
-            if ((q !== "'" && q !== '"') || raw[raw.length - 1] !== q) {
-                all = false;
-                break;
-            }
-            if (!quotedPathSpan(line, it.start, here, opts)) {
-                all = false;
-                break;
-            }
-            // 元素必须整个就是一个引号串：'M…' + '…' 这种拼接首尾也是引号，但不是 path 数组的元素
-            if (opts?.wholeElement !== false && here[here.length - 1].to !== it.end - 1) {
-                all = false;
-                break;
-            }
-        }
-        if (all) spans.push(...here);
-        i = close + 1;
-    }
-    return spans;
-}
-
-/** 一行里 base64 上下文的字符区间：data URI 里 ;base64, 之后连续的 base64 字符。 */
-export function base64Spans(line) {
-    const spans = [];
-    for (const m of line.matchAll(/data:[^\s"'<>]*?;base64,/gi)) {
-        let end = m.index + m[0].length;
-        while (end < line.length && BASE64_CHARS.includes(line[end])) end++;
-        spans.push({ from: m.index + m[0].length, to: end });
-    }
-    return spans;
-}
-
-/** 一行里放行上下文的字符区间：path 数据与 base64 载荷。 */
-export const contextSpans = (line, opts) => [...pathSpans(line, opts), ...base64Spans(line)];
 
 // 规则的旗标：verbatimOk 逐字第三方目录里豁免；commentsOnly C/C++ 里只看注释与字符串；
 // binary 二进制文件也扫（只放与格式无关、误报极低的规则）；group "ai" 在 fork 档只告警。
@@ -392,37 +190,18 @@ export const headingsOf = (text) =>
  * 否则按 PR / 提交文本处理，没有任何路径豁免。返回 [{ rule, line, col, match }]。
  */
 export function scan(text, ctx = {}, opts = {}) {
-    const {
-        rules = RULES,
-        personal = [],
-        verbatimDirs = VERBATIM_DIRS,
-        codeFile = CODE_FILE,
-        contextSpans: spansOf = contextSpans,
-    } = opts;
+    const { rules = RULES, personal = [], verbatimDirs = VERBATIM_DIRS, codeFile = CODE_FILE } = opts;
     const p = ctx.path || "";
     const verbatim = !!ctx.path && verbatimDirs.some((d) => p.startsWith(d));
     const visible = ctx.path && codeFile.test(p) ? cVisible(text) : null;
     const all = personal.length ? [...rules, personalRule(personal)] : rules;
-    const aware = all.some((r) => r.contextAware);
     const out = [];
     text.split(/\r?\n/).forEach((line, i) => {
-        // 放行上下文按行算，一行只算一次：C/C++ 里算的是保留注释与字符串后的那份，行长与原行一致
-        const spanCache = new Map();
-        const envFor = (src) => {
-            if (!aware) return undefined;
-            let spans = spanCache.get(src);
-            if (spans === undefined) {
-                spans = spansOf(src);
-                spanCache.set(src, spans);
-            }
-            return { spans };
-        };
         for (const r of all) {
             if (r.verbatimOk && verbatim) continue;
             const src = r.commentsOnly && visible ? visible[i] : line;
-            const env = envFor(src);
             for (const m of src.matchAll(r.re)) {
-                if (r.allow?.(m, src, ctx, env)) continue;
+                if (r.allow?.(m, src, ctx)) continue;
                 out.push({ rule: r, line: i + 1, col: m.index + 1, match: m[0] });
             }
         }

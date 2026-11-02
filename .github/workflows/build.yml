@@ -110,24 +110,32 @@ jobs:
           }
 
       - name: Build (first-party zero warnings)
+        id: build
         run: pwsh -NoProfile -File scripts/build.ps1 -JucePath "$env:JUCE_DIR"
 
+      # 构建通过才往下跑。DSP golden 等步骤失败时后面的步骤照跑，job 仍因那一步变红（不用 continue-on-error）。
       - name: ctest
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Test
 
       - name: DSP golden
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Golden
 
       - name: Allocation canary
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Canary
 
       - name: pluginval (strictness 5, no GUI)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Validate
 
       - name: Stage
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Stage (Join-Path $env:RUNNER_TEMP 'dist')
 
       - name: Upload plugins
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Miciri-win64-${{ github.sha }}
@@ -175,21 +183,28 @@ jobs:
         run: bash scripts/ci/mac.sh --self-test
 
       - name: Build (first-party zero warnings)
+        id: build
         run: pwsh -NoProfile -File scripts/build.ps1 -JucePath "$JUCE_DIR"
 
+      # 构建通过才往下跑。DSP golden 等步骤失败时后面的步骤照跑，job 仍因那一步变红（不用 continue-on-error）。
       - name: ctest
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Test
 
       - name: DSP golden
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Golden
 
       - name: Allocation canary
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Canary
 
       - name: Install pinned pluginval
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: bash scripts/ci/mac.sh pluginval-install
 
       - name: pluginval on VST3 (strictness 5, no GUI)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
           bundles=$(find build -type d -name '*.vst3' -not -path '*/_deps/*')
@@ -197,6 +212,7 @@ jobs:
           printf '%s\n' "$bundles" | while IFS= read -r b; do bash scripts/ci/mac.sh pluginval "$b"; done
 
       - name: auval and pluginval on AU
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
           comps=$(find build -type d -name '*.component' -not -path '*/_deps/*')
@@ -204,9 +220,11 @@ jobs:
           printf '%s\n' "$comps" | while IFS= read -r c; do bash scripts/ci/mac.sh auval "$c"; bash scripts/ci/mac.sh pluginval "$HOME/Library/Audio/Plug-Ins/Components/$(basename "$c")"; done
 
       - name: Stage
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Stage "$RUNNER_TEMP/dist"
 
       - name: Upload plugins
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Miciri-macos-arm64-${{ github.sha }}

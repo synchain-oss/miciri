@@ -194,7 +194,8 @@ const ndjson = (text) =>
         .split(/\r?\n/)
         .filter(Boolean)
         .map((l) => JSON.parse(l));
-const pages = (route, jq = ".[]") => ndjson(gh(["api", "--paginate", route, "--jq", jq]));
+// 每个元素用 @json 转成一行紧凑 JSON：gh 的 --jq 对字符串原样输出，所以评论正文里的换行被转义后仍只占一行
+const pages = (route, jq = ".[] | @json") => ndjson(gh(["api", "--paginate", route, "--jq", jq]));
 
 const THREADS_QUERY = `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){
 reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved isOutdated comments(first:100){nodes{databaseId author{login}}}}}}}}`;
@@ -234,7 +235,7 @@ export function fetchAll(repo, number) {
         reviewComments: pages(`repos/${repo}/pulls/${number}/comments`),
         reviews: pages(`repos/${repo}/pulls/${number}/reviews`),
         threads,
-        checkRuns: pages(`repos/${repo}/commits/${raw.head.sha}/check-runs`, ".check_runs[]"),
+        checkRuns: pages(`repos/${repo}/commits/${raw.head.sha}/check-runs`, ".check_runs[] | @json"),
         required: JSON.parse(fs.readFileSync(path.join(ROOT, ".github/required-checks.json"), "utf8")),
     };
 }
