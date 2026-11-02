@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <string>
 
-#include "contracts/MiniTest.h"
+#include <catch2/catch_test_macros.hpp>
 #include "result/Results.h"
 
 using namespace miciri::core;
@@ -45,7 +45,7 @@ MEASURES_ARE_PLAIN(DirectionMeasures);
 MEASURES_ARE_PLAIN(DistanceMeasures);
 static_assert(!isMeasures<Evidence>, "evidence is variable length and must not be mistaken for measures");
 
-int main()
+TEST_CASE("result contract: names, plain measures and tone mapping")
 {
     checkNames(kSignalStateNames);
     checkNames(kChannelLayoutNames);
@@ -73,7 +73,7 @@ int main()
     CHECK(toString(ChannelPrompt::OneSilentHost) == "one-silent-host");
 
     // 置信度：可信不带原因，再测必须带原因
-    CHECK(trusted().level == Reliability::Trusted && trusted().reason == RetestReason::None);
+    CHECK((trusted().level == Reliability::Trusted && trusted().reason == RetestReason::None));
     CHECK(retest(RetestReason::Overflow).level == Reliability::Retest);
     CHECK(retest(RetestReason::Overflow).reason == RetestReason::Overflow);
 
@@ -131,8 +131,6 @@ int main()
 
     // 默认构造的结果是空证据、可信，measures 全零
     GainResult r;
-    CHECK(r.evidence.marks.empty() && r.confidence.level == Reliability::Trusted);
-    CHECK(r.measures.digitalClipRunsL == 0 && r.measures.flatPlateauPeaksR == 0);
-
-    TEST_EXIT();
+    CHECK((r.evidence.marks.empty() && r.confidence.level == Reliability::Trusted));
+    CHECK((r.measures.digitalClipRunsL == 0 && r.measures.flatPlateauPeaksR == 0));
 }

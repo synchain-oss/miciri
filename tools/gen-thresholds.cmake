@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # thresholds.json 转 C++ 常量头文件。构建时由 cmake/MiciriThresholds.cmake 在配置期调用；也能单独跑（测试用它确认坏输入会被拒）：
-#   cmake -DINPUT=thresholds.json -DSCHEMA=tools/thresholds-schema.json -DOUTPUT=<头文件> -P tools/gen-thresholds.cmake
+#   cmake -DINPUT=thresholds.json -DSCHEMA=thresholds.schema.json -DOUTPUT=<头文件> -P tools/gen-thresholds.cmake
 # 校验口径的真源是 schema：必填字段、允许的字段、state 的取值都从 schema 读，这里不再重复一份。
 # 生成物是 miciri::thr::<组>::<名字>：数值一律 double，布尔是 bool，数值数组是 std::array<double, N>。value 为 null
 # （还没有值，待标定）的项不生成：代码引用它会编译失败，而不是静默用一个猜出来的数。

@@ -19,7 +19,7 @@
 
 **1. 阈值怎么进 C++：配置期用 CMake 脚本生成头文件。**
 `thresholds.json` 每项带值、来源、标定日期、状态；`tools/gen-thresholds.cmake` 在配置期读 JSON（CMake 3.19 起自带解析）、按
-`tools/thresholds-schema.json` 校验，生成 `miciri::thr::<组>::<名>` 的 `constexpr` 常量。考虑过的替代：
+`thresholds.schema.json` 校验，生成 `miciri::thr::<组>::<名>` 的 `constexpr` 常量。考虑过的替代：
 
 - 用 Node 或 Python 生成：构建就依赖一个钉版解释器，而 `scripts/build.ps1`、CI 的构建 job 和 sanitizer job 并不都带它；全局版本不能用于仓内脚本。
 - 运行时读 JSON：core 要带 JSON 解析与文件 I/O，插件要随包携带数据文件，路径问题进入宿主环境；音频线程之外读盘也违背“只在内存里”的原则。
@@ -46,8 +46,6 @@
 ## 没做的
 
 - 网页资源嵌入函数与 WebView2 的取包：属于插件骨架，放在 `src/plugin/` 里，不进共享 CMake。
-- 契约变更的自动检查：`scripts/check-commits.mjs` 守的是 `docs/contracts/RESULT.md`、`THRESHOLDS.md`、`BRIDGE.md` 与根目录的 `thresholds.schema.json`；
-  本仓的 schema 在 `tools/thresholds-schema.json`，守卫的路径需要对应更新。
 
 ## 后果
 

@@ -7,7 +7,7 @@
 include("${CMAKE_CURRENT_LIST_DIR}/../tools/gen-thresholds.cmake")
 
 set(MICIRI_THRESHOLDS_JSON "${CMAKE_SOURCE_DIR}/thresholds.json")
-set(MICIRI_THRESHOLDS_SCHEMA "${CMAKE_SOURCE_DIR}/tools/thresholds-schema.json")
+set(MICIRI_THRESHOLDS_SCHEMA "${CMAKE_SOURCE_DIR}/thresholds.schema.json")
 set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${MICIRI_THRESHOLDS_JSON}" "${MICIRI_THRESHOLDS_SCHEMA}" "${CMAKE_SOURCE_DIR}/tools/gen-thresholds.cmake")
 

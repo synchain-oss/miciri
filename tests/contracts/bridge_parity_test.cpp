@@ -12,7 +12,9 @@
 #include <string>
 #include <vector>
 
-#include "contracts/MiniTest.h"
+#include <catch2/catch_test_macros.hpp>
+#include <cstdio>
+#include <utility>
 #include "plugin/BridgeApi.h"
 
 using Tables = std::map<std::string, std::vector<std::string>>;
@@ -173,7 +175,7 @@ static void mustBeRed(const char* what, const Tables& js, const Tables& cpp)
     CHECK(!diff(js, cpp).empty());
 }
 
-int main()
+TEST_CASE("bridge contract: JS and C++ agree, and breaking either side turns it red")
 {
     const std::string jsText = readFile("web/shared/bridge-api.js");
     const JsContract js = parseJs(jsText);
@@ -230,6 +232,4 @@ int main()
     m = cpp;
     std::swap(m["METER_FIELDS"][0], m["METER_FIELDS"][1]);
     mustBeRed("C++ reorders meter fields", js.tables, m);
-
-    TEST_EXIT();
 }

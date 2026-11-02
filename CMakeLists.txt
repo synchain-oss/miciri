@@ -67,6 +67,7 @@ endif()
 
 if(MICIRI_BUILD_TESTS)
   enable_testing()
+  include(MiciriDeps)
 endif()
 
 add_subdirectory(src/core)

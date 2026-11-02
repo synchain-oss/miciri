@@ -33,7 +33,7 @@ Miciri 是录音检查插件：音频逐位直通，旁路收样本，在工作�
 | `web/app/<区>/` | 各页面 | — |
 | `tools/<名>/` | 命令行工具，如 wav 转 JSON | 有 `CMakeLists.txt` 就加入 |
 | `tests/<区>/` | 测试 | 有 `CMakeLists.txt` 就加入，用 `miciri_add_test` 登记 |
-| `thresholds.json`、`tools/thresholds-schema.json`、`tools/gen-thresholds.cmake` | 阈值数据、schema、生成脚本 | — |
+| `thresholds.json`、`thresholds.schema.json`（都在仓根）、`tools/gen-thresholds.cmake` | 阈值数据、schema、生成脚本 | — |
 | `cmake/` | `MiciriWarnings`（告警、浮点、sanitizer）、`MiciriJuceGuard`、`MiciriThresholds` | — |
 | `upstream/` | 复制来的文件的来源登记 | 见 `upstream/README.md` |
 

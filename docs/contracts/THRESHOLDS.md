@@ -2,7 +2,7 @@ status: frozen
 
 # 阈值契约
 
-数据在仓根 `thresholds.json`，格式由 `tools/thresholds-schema.json` 规定，C++ 经 `src/core/config/Thresholds.h` 读取。
+数据在仓根 `thresholds.json`，格式由 `thresholds.schema.json` 规定，C++ 经 `src/core/config/Thresholds.h` 读取。
 代码里不写魔法数：要用的数先进 `thresholds.json`。
 
 ## 条目

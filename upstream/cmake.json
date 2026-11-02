@@ -27,6 +27,13 @@
       "from": "cmake/RinneJuceGuard.cmake",
       "fromBlob": "2612e51f77e14a9a7c4a969012b3f685cb466d2c",
       "mode": "adapted"
+    },
+    {
+      "path": "cmake/MiciriDeps.cmake",
+      "source": "rinne",
+      "from": "tests/CMakeLists.txt",
+      "fromBlob": "4fc60795e272d6e87229f093879ed79e8779e435",
+      "mode": "forked"
     }
   ]
 }
