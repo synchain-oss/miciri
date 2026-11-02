@@ -12,7 +12,7 @@ status: frozen
 |---|---|---|
 | `measures` | 连续量：dB、Hz、秒、次数、比值 | double 精度，只含算术类型（`isMeasures` 静态断言）；**golden 只锁这一块** |
 | `verdict` | 档位判定 | 由 measures 加 `thresholds.json` 的阈值得出；改阈值只动 verdict，不动 measures 与 golden |
-| `confidence` | `Reliability`（`trusted` 或 `retest`）加 `RetestReason` | `trusted` 时原因必为 `none` |
+| `confidence` | `Reliability`（`trusted` 或 `retest`）加 `RetestReason` | `trusted` 时原因必为 `none`；`retest` 的原因不会是 `none`（构造时 `none` 换成 `ambiguous`），`isConsistent` 检查这两条 |
 | `evidence` | `EvidenceMark` 列表：时间段、频率、电平 | 给证据波形与详情用；时间是相对该步开始的采样计时 |
 
 `AllResults` 是 Session 持有的全部结果，没做过的步骤是空。过期由步骤状态（`StepStatus::Stale`）表达，结果本身不改。

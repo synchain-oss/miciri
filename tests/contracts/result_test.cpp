@@ -76,6 +76,11 @@ TEST_CASE("result contract: names, plain measures and tone mapping")
     CHECK((trusted().level == Reliability::Trusted && trusted().reason == RetestReason::None));
     CHECK(retest(RetestReason::Overflow).level == Reliability::Retest);
     CHECK(retest(RetestReason::Overflow).reason == RetestReason::Overflow);
+    CHECK(retest(RetestReason::None).reason == RetestReason::Ambiguous);
+    CHECK(isConsistent(trusted()));
+    CHECK(isConsistent(retest(RetestReason::None)));
+    CHECK(!isConsistent(Confidence{Reliability::Retest, RetestReason::None}));
+    CHECK(!isConsistent(Confidence{Reliability::Trusted, RetestReason::Overflow}));
 
     // 无信号：没收到音频三种是红（主按钮禁用），底噪极低是琥珀（主按钮可点）
     for (auto s : {SignalState::NoCallback, SignalState::AllZeroFromStart, SignalState::AllZeroAfterSignal})

@@ -33,7 +33,7 @@
       },
       "allOf": [
         {
-          "if": { "properties": { "state": { "const": "synthetic" } } },
+          "if": { "properties": { "state": { "not": { "const": "pending" } } } },
           "then": { "properties": { "value": { "not": { "type": "null" } }, "date": { "type": "string" } } }
         },
         {

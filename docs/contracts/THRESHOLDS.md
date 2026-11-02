@@ -19,7 +19,7 @@ status: frozen
 | `date` | 标定日期 `YYYY-MM-DD`；`pending` 必须是 `null` |
 | `note` | 可选，一句话说明单位以外的口径 |
 
-规则：`synthetic` 必须有值与日期；`null` 只允许 `pending`；单位写在键名后缀（`_s`、`_ms`、`_db`、`_dbfs`、`_hz`、`_us`、`_frac`、`_pct` 等）。
+规则：除 `pending` 外的状态都必须有值与日期；`null` 与空日期只允许 `pending`；单位写在键名后缀（`_s`、`_ms`、`_db`、`_dbfs`、`_hz`、`_us`、`_frac`、`_pct` 等）。
 合成验证不等于实录标定：所有 `synthetic` 的值都还要在实录上复核，复核后由标定的 PR 把它们改成带新日期的值。
 
 ## 怎么进 C++

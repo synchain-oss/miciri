@@ -28,9 +28,14 @@ constexpr Confidence trusted()
 {
     return {};
 }
+// 再测必须带原因：传入 None 时退化为 Ambiguous，保证界面总有一句话可说
 constexpr Confidence retest(RetestReason why)
 {
-    return {Reliability::Retest, why};
+    return {Reliability::Retest, why == RetestReason::None ? RetestReason::Ambiguous : why};
+}
+constexpr bool isConsistent(Confidence c)
+{
+    return (c.level == Reliability::Trusted) == (c.reason == RetestReason::None);
 }
 
 enum class EvidenceKind : std::uint8_t

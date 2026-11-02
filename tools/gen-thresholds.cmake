@@ -2,7 +2,8 @@
 #
 # thresholds.json 转 C++ 常量头文件。构建时由 cmake/MiciriThresholds.cmake 在配置期调用；也能单独跑（测试用它确认坏输入会被拒）：
 #   cmake -DINPUT=thresholds.json -DSCHEMA=thresholds.schema.json -DOUTPUT=<头文件> -P tools/gen-thresholds.cmake
-# 校验口径的真源是 schema：必填字段、允许的字段、state 的取值都从 schema 读，这里不再重复一份。
+# 必填字段、允许的字段、state 的取值从 schema 读；按状态的规则（pending 以外都要带值与日期）在这里实现，
+# schema 的 allOf 是同一条规则的声明式写法，改规则时两处一起改。
 # 生成物是 miciri::thr::<组>::<名字>：数值一律 double，布尔是 bool，数值数组是 std::array<double, N>。value 为 null
 # （还没有值，待标定）的项不生成：代码引用它会编译失败，而不是静默用一个猜出来的数。
 
@@ -99,13 +100,16 @@ function(miciri_generate_thresholds input schema output)
         _thr_fail("${path}" "source must be a non-empty string")
       endif()
       string(JSON dtype TYPE "${e}" date)
-      if(state STREQUAL "synthetic")
+      # 只有 pending 可以没有日期；其余状态（synthetic，以及以后追加的 calibrated 等）都要带标定日期
+      if(state STREQUAL "pending")
+        if(NOT dtype STREQUAL "NULL")
+          _thr_fail("${path}" "pending entry must have date null")
+        endif()
+      else()
         string(JSON date GET "${e}" date)
         if(NOT dtype STREQUAL "STRING" OR NOT date MATCHES "^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$")
-          _thr_fail("${path}" "synthetic entry needs a date (YYYY-MM-DD)")
+          _thr_fail("${path}" "${state} entry needs a date (YYYY-MM-DD)")
         endif()
-      elseif(NOT dtype STREQUAL "NULL")
-        _thr_fail("${path}" "pending entry must have date null")
       endif()
 
       string(JSON vtype TYPE "${e}" value)
