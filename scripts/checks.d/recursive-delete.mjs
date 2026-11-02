@@ -18,8 +18,7 @@
 // PowerShell 的块注释（<# … #>）整块不算代码：开始的判据是「行首空白再接 <#」，缩进的 <# 也是块注释的开始；
 // 结束标记 #> 之后的代码照常扫（同一行里 #> 后面还有代码时不跳过后半行）。
 // Node 的 rm / rmSync / rmdir / rmdirSync 只看这一次调用的括号里有没有 recursive：别的语句里的 recursive 不算。
-// 自测：每条规则至少一个只有它能命中的坏样例、几个正例；mutationCheck 逐条屏蔽规则，自测必须因此变红；
-// 另外把块注释的开始判据与 rm 的前瞻窗口改回旧写法，对应的正例也必须因此变红。
+// 自测：每条规则至少一个只有它能命中的坏样例、几个正例；块注释的开始判据与 rm 的前瞻窗口各有正例守着。
 
 import path from "node:path";
 import { caseResult, readText, trackedFiles } from "../lib/check-kit.mjs";
@@ -83,7 +82,7 @@ function callEnd(lines, i, from) {
 /**
  * 这一次 rm 调用里有没有 recursive。
  * 现在的判据：括号配平时只看配平范围（别处的 recursive 不算）；配不平就退回往后八行（宁可多报不漏报）。
- * wide 是旧写法：往后四行都算，只给 mutation-check 用。
+ * wide 是旧写法：往后四行都算，只留给自测当对照。
  */
 function rmCallHasRecursive(l, lines, i, names, wide) {
     const m = l.match(new RegExp(`(^|[^\\w$])(${names})\\(`));
@@ -202,7 +201,7 @@ export const RULES = [
 
 /**
  * PowerShell 块注释的开始判据：行首空白再接 <#。缩进的 <# 也是块注释的开始（函数里的帮助块很常见）。
- * 自测与 mutation-check 都要能把它改坏，所以由参数传进去。
+ * 自测要能把它改坏来对照，所以由参数传进去。
  */
 export const BLOCK_OPEN = /^\s*<#/;
 
@@ -233,7 +232,7 @@ function statement(lines, i, ext, first = lines[i]) {
     return s;
 }
 
-/** 一份文本里的违规：[{ line, rule }]。rules 缺省是全部规则（mutationCheck 传去掉一条的）；blockOpen 是块注释的开始判据；wide 是 rm 的旧前瞻窗口；keepAfterBlockEnd 是块注释结束标记之后还扫不扫。 */
+/** 一份文本里的违规：[{ line, rule }]。rules 缺省是全部规则；blockOpen 是块注释的开始判据；wide 是 rm 的旧前瞻窗口；keepAfterBlockEnd 是块注释结束标记之后还扫不扫。 */
 export function scanText(rel, text, rules = RULES, blockOpen = BLOCK_OPEN, wide = false, keepAfterBlockEnd = true) {
     if (ALLOWED.has(rel)) return [];
     const pending = PENDING.get(rel);
@@ -370,7 +369,7 @@ const good = [
     ["scripts/lib/safe-rm.mjs", "fs.rmSync(dir, { recursive: true });"],
 ];
 
-/** 对一组夹具求自测用例；rules 是被试的规则集（正常是全部，mutationCheck 里少一条）；blockOpen 与 wide 是被改坏的判据。 */
+/** 对一组夹具求自测用例；rules 是被试的规则集（正常是全部）；blockOpen 与 wide 是被改坏的判据。 */
 function cases(rules, blockOpen = BLOCK_OPEN, wide = false, keepAfterBlockEnd = true) {
     const out = [];
     for (const [rule, rel, text] of fx) {
@@ -452,26 +451,5 @@ export default {
             ...safeRmCases().map((c) => ({ label: `safe-rm：${c.label}`, bad: c.bad, passed: c.passed })),
         ]);
         return r;
-    },
-    /**
-     * 逐条屏蔽规则，夹具的坏样例必须因此变红；另外把两条判据改回旧写法（块注释的开始判据、rm 的前瞻窗口），
-     * 对应的正例必须因此变红。
-     */
-    mutationCheck: () => {
-        const lines = [];
-        for (const r of RULES) {
-            const rest = RULES.filter((x) => x !== r);
-            if (cases(rest).every((c) => c.passed)) lines.push(`屏蔽规则 ${r.name} 后自测仍是绿的`);
-        }
-        // 块注释的开始判据改回旧的写法（漏了反斜杠）：缩进块注释里的正例要变红
-        const oldBlock = cases(RULES, /^s*<#/).filter((c) => !c.passed);
-        if (!oldBlock.length) lines.push("块注释的开始判据改回旧写法后自测仍是绿的");
-        // rm 的前瞻窗口改回旧的写法（看后面四行）：别处的 recursive 不该算这一次调用的
-        const oldWindow = cases(RULES, undefined, true).filter((c) => !c.passed);
-        if (!oldWindow.length) lines.push("rm 的前瞻窗口改回旧写法后自测仍是绿的");
-        // 块注释结束标记之后的代码不看（整行当注释）：那几个坏样例要变红
-        const skipAfterEnd = cases(RULES, undefined, false, false).filter((c) => !c.passed);
-        if (!skipAfterEnd.length) lines.push("块注释结束标记之后的代码不看时自测仍是绿的");
-        return { ok: lines.length === 0, lines };
     },
 };

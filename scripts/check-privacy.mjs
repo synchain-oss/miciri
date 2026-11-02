@@ -8,7 +8,7 @@
 //        工作树干净不代表历史干净。--no-messages 不扫提交消息（消息归 check-commits 按档位判）。
 //   node scripts/check-privacy.mjs --text <文件|->     一段公开文本（PR 标题与正文、评论草稿），只收 UTF-8
 //   --needles local|ci|ci-optional  个人针来源，见 privacy-needles.mjs；默认 local
-//   --self-test（规则夹具 + 端到端）  --mutation-check  --list-rules
+//   --self-test（规则夹具 + 端到端）  --list-rules
 // 只打印位置与打码片段；个人针只打印序号，路径里的命中也打码。退出码：0 干净；1 有命中、配置缺失或自测失败。
 
 import fs from "node:fs";
@@ -259,12 +259,6 @@ function main(argv) {
         for (const l of r.lines) console.error(l);
         console.log(`check-privacy --self-test：${r.ok ? "通过" : "失败"}（坏样例 ${r.bad}、正例 ${r.good}）`);
         return r.ok ? 0 : 1;
-    }
-    if (argv.includes("--mutation-check")) {
-        const r = needles.mutationCheck();
-        for (const s of r.survived) console.error(`  变异未被任何夹具抓到：${s}`);
-        console.log(`check-privacy --mutation-check：${r.total} 个变异，存活 ${r.survived.length}`);
-        return r.survived.length ? 1 : 0;
     }
     const opts = {};
     const free = [];

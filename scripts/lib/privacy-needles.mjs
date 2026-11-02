@@ -67,7 +67,7 @@ const MAX_PATH_LEN = 512; // path 数据很短；上限挡住引号配对错位�
  * 一段文本是不是 SVG path 数据：命令字母开头、参数个数合法、只由命令字母与数字组成。
  * 首命令必须是 moveto（SVG 规范要求路径以 moveto 开头）：这样「T04 12」这类以别的命令开头的
  * 形态站不住，不会被当成 path 放行。参数个数不对（只有一个数的）不算 path —— 那是编号。
- * movetoFirst 是可关的判据，变异检查要能单独把它关掉（见 mutationCheck）。
+ * movetoFirst 是可关的判据，自测要能单独把它关掉来对照。
  */
 function isPathData(text, { movetoFirst = true } = {}) {
     const s = text.trim();
@@ -185,7 +185,7 @@ const quotedPathSpan = (text, quotePos, spans, opts) => {
 /**
  * 一行里 SVG path 上下文的字符区间（下标相对这一行）。
  * 只认三种语法位置：d 属性（HTML 的 d="…" 与脚本对象里的 d: '…'）、path(…) 函数、路径数组（每个元素都得是 path 数据）。
- * dColon 是可关的判据（对象写法 d: '…'），变异检查要能单独把它关掉（见 mutationCheck）。
+ * dColon 是可关的判据（对象写法 d: '…'），自测要能单独把它关掉来对照。
  */
 export function pathSpans(line, opts) {
     const spans = [];
