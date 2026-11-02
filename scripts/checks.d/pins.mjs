@@ -103,7 +103,8 @@ export function checkPins(read) {
     const deps = read(CATCH2_FILE);
     const tag = deps === null ? null : /FetchContent_Declare\(\s*Catch2\b[^)]*?GIT_TAG\s+([^\s)]+)/.exec(deps)?.[1];
     if (deps === null) errors.push(`缺 ${CATCH2_FILE}`);
-    else if (!tag || !COMMIT.test(tag)) errors.push(`${CATCH2_FILE} 的 Catch2 GIT_TAG 必须是 40 位小写提交号，不能是 tag 或分支名`);
+    else if (!tag || !COMMIT.test(tag))
+        errors.push(`${CATCH2_FILE} 的 Catch2 GIT_TAG 必须是 40 位小写提交号，不能是 tag 或分支名`);
     return errors;
 }
 
