@@ -40,12 +40,10 @@ const SECTION_OK = /GPL|OFL|Apache|section|IEC|ISO|IEEE|ITU|AES|EBU|RFC/i;
 const sectionAllowed = (m, line, ctx) =>
     SECTION_OK.test(line.slice(Math.max(0, m.index - 12), m.index)) ||
     !!ctx.headings?.has(m[0].replace(/\D*(\d+).*/, "$1"));
-// 编译器的告警等级开关（等级 0–4，前面紧挨着斜杠或连字符）不是编号；开关必须单独成词：再往前是行首、空白、
-// 引号、括号或等号。路径里的一段（x/ 加 W 加数字）、裸写与括号里的写法照判
-const warnLevelAllowed = (m, line) =>
-    /^W[0-4]$/.test(m[0]) && /(?:^|[\s"'(=])[/-]$/.test(line.slice(Math.max(0, m.index - 2), m.index));
-
 // ---- 放行上下文 ------------------------------------------------------------------------
+//
+// 注意：现有规则表里没有规则带 contextAware 旗标，下面的区间函数当前不参与任何判定，整理规则表时连同 scan 里的
+// 区间分支一并删除。
 //
 // 两处编号形态不是编号，是编码的巧合：SVG path 数据里的坐标与 base64 载荷里的字节。
 // 放行只在这两种语法上下文里生效，别处照判。
@@ -244,25 +242,6 @@ export function base64Spans(line) {
 
 /** 一行里放行上下文的字符区间：path 数据与 base64 载荷。 */
 export const contextSpans = (line, opts) => [...pathSpans(line, opts), ...base64Spans(line)];
-
-// 编号形态在命中串的末尾（bracket-id 的命中是「括号 + 编号」，编号在末尾）
-const NUM_FORM = /[A-Z]\d{1,3}[a-z]?$/i;
-
-/**
- * 规则命中落在放行上下文里就放行。判据是整个编号形态都在区间里：区间起点紧跟引号或分号，
- * 而编号形态不含引号与分号，所以形态的起点也在区间内。
- */
-const contextAllowed = (m, line, ctx, env) => {
-    const { spans = [] } = env || {};
-    const f = NUM_FORM.exec(m[0]);
-    if (!f) return false;
-    const start = m.index + f.index;
-    const end = start + f[0].length;
-    return spans.some((s) => start >= s.from && end <= s.to);
-};
-
-// 告警等级开关照旧；path 与 base64 上下文里的编号形态另放行
-const upstreamWAllowed = (m, line, ctx, env) => warnLevelAllowed(m, line) || contextAllowed(m, line, ctx, env);
 
 // 规则的旗标：verbatimOk 逐字第三方目录里豁免；commentsOnly C/C++ 里只看注释与字符串；
 // binary 二进制文件也扫（只放与格式无关、误报极低的规则）；group "ai" 在 fork 档只告警。
@@ -679,7 +658,7 @@ function sampleCases() {
     ];
 }
 
-/** 跑夹具；opts 可以替换规则或豁免（变异检查用）。返回每条夹具的结果。 */
+/** 跑夹具；opts 可以替换规则或豁免（自测用）。返回每条夹具的结果。 */
 export function runCases(opts = {}) {
     return [...sampleCases(), ...CASES].map(([want, input, path]) => {
         const o = { personal: [FAKE_NEEDLE], ...opts };

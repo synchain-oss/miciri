@@ -72,7 +72,7 @@ function Invoke-Build([string[]]$Arguments) {
 }
 function Get-Gates {
     @(
-        @{ Id = 'G1'; Tier = 'Quick'; Name = '预检（身份、gh 账号、hooks、Node）'; Run = {
+        @{ Id = 'G1'; Tier = 'Quick'; Name = '预检（身份、hooks、Node）'; Run = {
                 $bad = @()
                 if ("$(git -C $Root config user.name)".Trim() -ne 'DLsnows') { $bad += 'user.name 不是 DLsnows' }
                 if ("$(git -C $Root config user.email)".Trim() -ne 'noreply@synchain.ca') { $bad += 'user.email 不是 noreply@synchain.ca' }
@@ -82,38 +82,41 @@ function Get-Gates {
                 $v = Invoke-Node @('--version')
                 $want = (Get-Content -LiteralPath (Join-Path $Root '.node-version') -Raw).Trim().Split('.')[0]
                 if ($v.Code -ne 0 -or "$($v.Lines[0])" -notmatch "^v$want\.") { $bad += "Node 主版本应为 $want（设置 MICIRI_NODE）" }
-                $skip = ''
-                if (Get-Command gh -ErrorAction SilentlyContinue) {
-                    $who = Invoke-Tool 'gh' @('api', 'user', '--jq', '.login')
-                    if ($who.Code -eq 0 -and "$($who.Lines[0])".Trim() -ne 'DLsnows') { $bad += 'gh 当前账号不是 DLsnows' }
-                    elseif ($who.Code -ne 0) { $skip = 'gh 查不到账号（离线？）' }
-                } else { $skip = '没有 gh' }
                 if ($bad) { return New-Result 'FAIL' ($bad -join '；') }
-                if ($skip) { return New-Result 'PASS' '' @("账号检查跳过：$skip") }
                 New-Result 'PASS'
             } },
-        @{ Id = 'G2'; Tier = 'Quick'; Name = '格式（clang-format、prettier）'; Run = {
-                $notes = @(); $bad = @()
-                $cxx = @(git -C $Root ls-files -z '*.c' '*.cc' '*.cpp' '*.h' '*.hpp' '*.mm' | ForEach-Object { $_ -split "`0" } | Where-Object { $_ -and $_ -notmatch '^third_party/' })
-                if ($cxx.Count) {
-                    $cf = Get-Setting 'MICIRI_CLANG_FORMAT' 'miciri.clangFormat'
-                    $r = Invoke-Tool ($cf ? $cf : 'clang-format') (@('--dry-run', '--Werror', '--style=file') + $cxx)
-                    if ($r.Code -ne 0) { $bad += 'clang-format' ; $notes += ($r.Lines | Select-Object -First 10) }
-                } else { $notes += '没有 C++ 源，clang-format 跳过' }
-                $pt = Get-Setting 'MICIRI_PRETTIER' 'miciri.prettier'
-                if ($pt) {
-                    $r = Invoke-Node @($pt, '--check', '.')
-                    if ($r.Code -ne 0) { $bad += 'prettier'; $notes += ($r.Lines | Select-Object -First 10) }
-                } else { $notes += 'prettier 没配置（MICIRI_PRETTIER），未跑；CI 会跑' }
-                if ($bad) { return New-Result 'FAIL' ($bad -join '、') $notes }
-                New-Result 'PASS' '' $notes
+        @{ Id = 'G1b'; Tier = 'Quick'; Name = 'gh 账号是 DLsnows'; Run = {
+                if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return New-Result 'SKIP' '没有 gh' }
+                $who = Invoke-Tool 'gh' @('api', 'user', '--jq', '.login')
+                if ($who.Code -ne 0) { return New-Result 'SKIP' 'gh 查不到账号（离线？）' }
+                if ("$($who.Lines[0])".Trim() -ne 'DLsnows') { return New-Result 'FAIL' 'gh 当前账号不是 DLsnows' }
+                New-Result 'PASS'
             } },
-        @{ Id = 'G3'; Tier = 'Quick'; Name = '合规与隐私（SPDX、REUSE、离线、隐私、gitleaks）'; Run = {
+        @{ Id = 'G2'; Tier = 'Quick'; Name = 'clang-format'; Run = {
+                $cxx = @(git -C $Root ls-files -z '*.c' '*.cc' '*.cpp' '*.h' '*.hpp' '*.mm' | ForEach-Object { $_ -split "`0" } | Where-Object { $_ -and $_ -notmatch '^third_party/' })
+                if (-not $cxx.Count) { return New-Result 'SKIP' '仓里还没有 C++ 源文件' }
+                $cf = Get-Setting 'MICIRI_CLANG_FORMAT' 'miciri.clangFormat'
+                $r = Invoke-Tool ($cf ? $cf : 'clang-format') (@('--dry-run', '--Werror', '--style=file') + $cxx)
+                if ($r.Code -eq -1) { return New-Result 'SKIP' '没找到 clang-format（设置 MICIRI_CLANG_FORMAT）' }
+                if ($r.Code -ne 0) { return New-Result 'FAIL' 'clang-format' ($r.Lines | Select-Object -First 10) }
+                New-Result 'PASS'
+            } },
+        @{ Id = 'G2b'; Tier = 'Quick'; Name = 'prettier'; Run = {
+                $pt = Get-Setting 'MICIRI_PRETTIER' 'miciri.prettier'
+                if (-not $pt) { return New-Result 'SKIP' 'prettier 没配置（MICIRI_PRETTIER）；CI 会跑' }
+                $r = Invoke-Node @($pt, '--check', '.')
+                if ($r.Code -ne 0) { return New-Result 'FAIL' 'prettier' ($r.Lines | Select-Object -First 10) }
+                New-Result 'PASS'
+            } },
+        @{ Id = 'G3'; Tier = 'Quick'; Name = '合规与隐私（SPDX、REUSE、离线、隐私）'; Run = {
                 $r = Invoke-Node @('scripts/run-checks.mjs', '--group', 'compliance', '--needles', 'local')
                 if ($r.Code -ne 0) { return New-Result 'FAIL' 'compliance 组' ($r.Lines | Select-Object -Last 25) }
+                New-Result 'PASS'
+            } },
+        @{ Id = 'G3b'; Tier = 'Quick'; Name = 'gitleaks'; Run = {
                 $gl = Get-Setting 'MICIRI_GITLEAKS' 'miciri.gitleaks'
                 $g = Invoke-Tool ($gl ? $gl : 'gitleaks') @('dir', '.', '--no-banner', '--redact')
-                if ($g.Code -eq -1) { return New-Result 'PASS' '' @('gitleaks 没找到（MICIRI_GITLEAKS），未跑；CI 会跑') }
+                if ($g.Code -eq -1) { return New-Result 'SKIP' '没找到 gitleaks（设置 MICIRI_GITLEAKS）；CI 会跑' }
                 if ($g.Code -ne 0) { return New-Result 'FAIL' 'gitleaks' ($g.Lines | Select-Object -Last 15) }
                 New-Result 'PASS'
             } },

@@ -35,7 +35,7 @@ const ALLOWED = new Set([
  * 待整改、暂时放行的行：自测收尾删临时目录的那一处，整改要等并行改动该文件的变更合入之后再做（改成经 TempDir.psm1）。
  * 只放行匹配这条正则的行，文件里别的递归删除照判。整改完从这里删掉；每多一项都要写明原因。
  */
-const PENDING = new Map([["scripts/build.ps1", /Remove-Item -LiteralPath \$tmp -Recurse -Force/]]);
+const PENDING = new Map();
 
 const EXEMPT = /(#|\/\/|<#|\/\*|::)\s*miciri-delete-ok:\s*\S.{9,}/;
 const PS = ["ps1", "psm1"];
