@@ -37,6 +37,35 @@ export function requirementEntries(text) {
         });
 }
 
+/**
+ * requirements-tools.txt 的写法：pip 的 --require-hashes 要求每个条目都带哈希，续行符必须是行尾最后一个字符。
+ * 只认两种行：`名字==版本 \` 与 `    --hash=sha256:<64 位十六进制>`（后面还有哈希时行尾带 `\`），其余只许空行和注释。
+ * 只数哈希个数、不看行结构的话，字面量 `\n`、漏掉的续行符都会混过去，到 CI 上 pip 才报错。
+ */
+export function requirementShapeErrors(text) {
+    const errors = [];
+    let open = false;
+    text.split(/\r?\n/).forEach((raw, i) => {
+        const at = `第 ${i + 1} 行`;
+        if (!raw.trim() || raw.trim().startsWith("#")) {
+            if (open) errors.push(`${at}：续行符后面不能是空行或注释`);
+            open = false;
+            return;
+        }
+        const cont = raw.endsWith("\\");
+        const body = raw.replace(/ ?\\$/, "");
+        const isReq = /^[A-Za-z0-9._-]+(?:\[[^\]]*\])?==\S+$/.test(body);
+        const isHash = /^ +--hash=sha256:[0-9a-f]{64}$/.test(body);
+        if (!isReq && !isHash) errors.push(`${at}：不是「名字==版本 \\」或「    --hash=sha256:<64 位十六进制>」的写法`);
+        else if (isReq && open) errors.push(`${at}：上一行的续行符后面不该是新条目`);
+        else if (isReq && !cont) errors.push(`${at}：条目后面要带哈希，行尾缺续行符`);
+        else if (isHash && !open) errors.push(`${at}：哈希行必须接在条目或另一个哈希之后`);
+        open = cont;
+    });
+    if (open) errors.push("文件以续行符结尾");
+    return errors;
+}
+
 /** read(rel) 返回文件文本或 null。 */
 export function checkPins(read) {
     const errors = [];
@@ -61,6 +90,8 @@ export function checkPins(read) {
             `scripts/ci/mac/pluginval-macos.sha256 登记的是 ${macPluginval[1]}，与 .pluginval-version 的 ${value[".pluginval-version"] || "（没有）"} 不一致`,
         );
     }
+    for (const e of requirementShapeErrors(read("requirements-tools.txt") || ""))
+        errors.push(`requirements-tools.txt ${e}`);
     const req = requirementEntries(read("requirements-tools.txt") || "");
     const entry = (name) => req.find((e) => e.name === name);
     if (entry("clang-format")?.version !== cf) errors.push("requirements-tools.txt 的 clang-format 版本不一致");
@@ -68,6 +99,7 @@ export function checkPins(read) {
     return errors;
 }
 
+const H = "a1".repeat(32);
 const GOOD = {
     ".gitleaks-version": "8.30.1\n",
     ".clang-format-version": "18.1.8\n",
@@ -79,7 +111,7 @@ const GOOD = {
     ".pluginval-version": "v1.0.4\n",
     "scripts/ci/mac/pluginval-macos.sha256": `v1.0.4 ${"3c".repeat(32)}\n`,
     ".clang-format": "# SPDX\n# clang-format 18.1.8：说明\nBasedOnStyle: LLVM\n",
-    "requirements-tools.txt": "clang-format==18.1.8\nreuse==6.2.0\n",
+    "requirements-tools.txt": `clang-format==18.1.8 \\\n    --hash=sha256:${H}\nreuse==6.2.0 \\\n    --hash=sha256:${H}\n`,
 };
 
 export default {
@@ -96,7 +128,9 @@ export default {
     },
     selfTest() {
         const with_ = (patch) => checkPins((f) => (f in patch ? patch[f] : (GOOD[f] ?? null)));
-        const req = (cf, reuse) => ({ "requirements-tools.txt": `clang-format==${cf}\n${reuse}\n` });
+        const hashed = (entry) => `${entry} \\\n    --hash=sha256:${H}\n`;
+        const req = (cf, reuse) => ({ "requirements-tools.txt": `${hashed(`clang-format==${cf}`)}${hashed(reuse)}` });
+        const raw = (text) => ({ "requirements-tools.txt": text });
         const cases = [
             ["齐全且一致", false, with_({})],
             ["版本号带 v 前缀", true, with_({ ".gitleaks-version": "v8.30.1\n" })],
@@ -105,15 +139,45 @@ export default {
             ["clang-format 两处版本不一致", true, with_(req("18.1.7", "reuse==6.2.0"))],
             ["reuse 未钉版", true, with_(req("18.1.8", "reuse"))],
             [
-                "带哈希的写法",
+                "带多个哈希的写法",
                 false,
                 with_(
-                    req(
-                        "18.1.8 \\\n    --hash=sha256:aa \\\n    --hash=sha256:bb",
-                        "reuse==6.2.0 \\\n    --hash=sha256:cc",
+                    raw(
+                        `clang-format==18.1.8 \\\n    --hash=sha256:${H} \\\n    --hash=sha256:${H}\n${hashed("reuse[charset-normalizer]==6.2.0")}`,
                     ),
                 ),
             ],
+            [
+                "条目间有注释与空行",
+                false,
+                with_(raw(`# 说明\n${hashed("clang-format==18.1.8")}\n# 依赖\n${hashed("reuse==6.2.0")}`)),
+            ],
+            [
+                "续行符写成字面量 \\n",
+                true,
+                with_(raw(`clang-format==18.1.8 \\n    --hash=sha256:${H}\n${hashed("reuse==6.2.0")}`)),
+            ],
+            ["条目没有哈希", true, with_(raw(`clang-format==18.1.8\n${hashed("reuse==6.2.0")}`))],
+            [
+                "哈希行漏了续行符",
+                true,
+                with_(
+                    raw(
+                        `clang-format==18.1.8 \\\n    --hash=sha256:${H}\n    --hash=sha256:${H}\n${hashed("reuse==6.2.0")}`,
+                    ),
+                ),
+            ],
+            [
+                "哈希不是 64 位",
+                true,
+                with_(raw(`clang-format==18.1.8 \\\n    --hash=sha256:aa\n${hashed("reuse==6.2.0")}`)),
+            ],
+            [
+                "续行符后面是空行",
+                true,
+                with_(raw(`clang-format==18.1.8 \\\n\n    --hash=sha256:${H}\n${hashed("reuse==6.2.0")}`)),
+            ],
+            ["文件以续行符结尾", true, with_(raw(`${hashed("clang-format==18.1.8")}reuse==6.2.0 \\\n`))],
             ["JUCE 提交号不是 40 位", true, with_({ ".juce-commit": "d6181bde\n" })],
             ["JUCE 提交号是大写", true, with_({ ".juce-commit": `${"D6181BDE".repeat(5)}\n` })],
             ["JUCE 版本不是 x.y.z", true, with_({ ".juce-version": "8.0\n" })],

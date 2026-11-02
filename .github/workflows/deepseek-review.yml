@@ -14,6 +14,8 @@
 # （它只在 PR 事件里还原）。共享 workflow 自 v1.3.0 起在「Prepare PR context for the reviewer」步骤里自己做：
 # 先删掉 PR head 里的这些路径，再从 base 分支检出，清单与 action 的 SENSITIVE_PATHS 相同；所以工作区里的 CLAUDE.md
 # 与 .claude/ 是 base 的版本，extra_prompt 要照这个说，升 SHA 时照着复核这一步。
+# extra_prompt 里的 .ot-review/（pr.diff、pr.json）是共享 workflow 写 PR 材料的目录，目录名是它的约定、不随调用方改名；
+# 这里的 .miciri-review/ 只属于 claude-review.yml 的 review-bot。升共享 workflow 的 SHA 时核对它写的目录名。
 # focus 必须与 claude-review.yml 的「重点（按优先级）」一节逐字相同（docs-truth 的 review-bot 检查核对）。
 # 共享 workflow 把 extra_prompt 放在 prompt 最后，extra_prompt 又以不可信数据声明收尾，所以声明就是整段 prompt 的
 # 结尾，合 CLAUDE.md 安全铁律里「prompt 末尾必须带不可信数据声明」那一条（review-bot 检查核对 extra_prompt 的最后一节）。

@@ -60,7 +60,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$f" -C "$RUNNER_TEMP/gitleaks" gitleaks
           echo "MICIRI_GITLEAKS=$RUNNER_TEMP/gitleaks/gitleaks" >> "$GITHUB_ENV"
           python3 -m venv "$RUNNER_TEMP/py"
-          # 两步装，与本机 bootstrap-tools.ps1 相同：先按哈希装 reuse 的构建后端，再关掉构建隔离、除 reuse 外只收 wheel
+          # 两步装：先按哈希装 reuse 的构建后端，再关掉构建隔离、除 reuse 外只收 wheel
           awk '/^poetry-core==/{p=1} p{print; if (substr($0, length($0)) != "\\") exit}' requirements-tools.txt \
             > "$RUNNER_TEMP/build-backend.txt"
           "$RUNNER_TEMP/py/bin/pip" install --disable-pip-version-check -q --require-hashes --no-deps --only-binary=:all: \
