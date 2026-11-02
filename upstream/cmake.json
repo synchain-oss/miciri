@@ -1,0 +1,32 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": "CMakeLists.txt",
+      "source": "rinne",
+      "from": "CMakeLists.txt",
+      "fromBlob": "d7a2c8a0a893e7c3143807253099462c0d03c7b7",
+      "mode": "forked"
+    },
+    {
+      "path": "cmake/MiciriWarnings.cmake",
+      "source": "rinne",
+      "from": "cmake/RinneWarnings.cmake",
+      "fromBlob": "f3787864edf6e15afa3e9d4d761f20de2d4576f3",
+      "mode": "forked"
+    },
+    {
+      "path": "cmake/MiciriJuceGuard.cmake",
+      "source": "rinne",
+      "from": "cmake/RinneJuceGuard.cmake",
+      "fromBlob": "2612e51f77e14a9a7c4a969012b3f685cb466d2c",
+      "mode": "adapted"
+    }
+  ]
+}

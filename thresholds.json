@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "no_signal": {
+    "no_callback_s": {
+      "value": 2.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "wall clock, the only wall-clock threshold; read by the editor timer"
+    },
+    "strict_zero_window_s": { "value": 1.0, "state": "pending", "source": "规格起始值", "date": null },
+    "low_flat_window_s": {
+      "value": 6.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "observation window after the user is asked to speak"
+    },
+    "frame_ms": { "value": 100, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "abs_dbfs": {
+      "value": -70.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "absolute level still needs real interface noise floors"
+    },
+    "rise_db": {
+      "value": 6.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "max frame minus P10 of non-zero frames"
+    }
+  },
+  "channel_check": {
+    "frame_ms": { "value": 20, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "floor_percentile": {
+      "value": 5,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "per channel, over pause frames"
+    },
+    "floor_min_pause_s": { "value": 1.0, "state": "pending", "source": "规格起始值", "date": null },
+    "active_over_floor_db": { "value": 10, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "min_active_s": { "value": 0.5, "state": "pending", "source": "规格起始值", "date": null },
+    "one_quiet_delta_db": { "value": 20, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "one_quiet_weak_rise_db": { "value": 3.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "one_sided_delta_db": {
+      "value": 40.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "catches crosstalk when the converter is very quiet"
+    },
+    "ident_diff_over_floor_db": { "value": 3.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "ident_rel_db": { "value": -30.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "ident_fallback_rel_db": {
+      "value": -40.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "no pause available"
+    },
+    "anti_sum_over_floor_db": { "value": 3.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "anti_diff_over_floor_db": { "value": 10.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "anti_fallback_sum_rel_db": {
+      "value": -40.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "no pause available"
+    },
+    "anti_fallback_diff_rel_db": {
+      "value": -20.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "no pause available"
+    }
+  },
+  "gain": {
+    "true_peak_oversample_le_96k": { "value": 4, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "true_peak_oversample_gt_96k": { "value": 2, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "true_peak_rate_split_hz": { "value": 96000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "clip_digital_threshold": { "value": 0.999, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "clip_digital_min_run_us": {
+      "value": 62.5,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "min run = max(clip_digital_min_run_samples, round(us * fs))"
+    },
+    "clip_digital_min_run_samples": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_tol_rel": {
+      "value": 0.0005,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "relative to the plateau median"
+    },
+    "flat_min_ms": { "value": 0.1, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_min_samples": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_min_peaks": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_level_floor_frac": {
+      "value": 0.5,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "only excursions above this fraction of the global peak are examined"
+    },
+    "flat_top_cap_frac": { "value": 0.01, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_sigma_k": {
+      "value": 3.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "tolerance = max(flat_tol_rel * level, k * sigma of the noise floor)"
+    },
+    "flat_knee_drop_frac": { "value": 0.01, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_knee_within_ms": { "value": 0.1, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "tp_too_quiet_below_dbfs": { "value": -18.0, "state": "pending", "source": "规格起始值", "date": null },
+    "tp_quiet_below_dbfs": { "value": -12.0, "state": "pending", "source": "规格起始值", "date": null },
+    "tp_loud_above_dbfs": { "value": -6.0, "state": "pending", "source": "规格起始值", "date": null },
+    "tp_too_loud_above_dbfs": { "value": -3.0, "state": "pending", "source": "规格起始值", "date": null },
+    "target_peak_dbfs": { "value": -9.0, "state": "pending", "source": "规格起始值", "date": null },
+    "clip_advice_drop_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null }
+  },
+  "noise": {
+    "frame_ms": { "value": 100, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "percentile": {
+      "value": 10,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "of A-weighted frame power"
+    },
+    "snr_bad_below_db": { "value": 35.0, "state": "pending", "source": "规格起始值", "date": null },
+    "snr_good_above_db": { "value": 45.0, "state": "pending", "source": "规格起始值", "date": null }
+  },
+  "hum": {
+    "welch_window_s": { "value": 2.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "welch_overlap": { "value": 0.5, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "analysis_rate_max_hz": { "value": 48000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "local_median_halfwidth_hz": { "value": 5.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "peak_over_median_db": { "value": 6.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "stable_segment_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
+    "stable_fraction": { "value": 0.5, "state": "pending", "source": "规格起始值", "date": null },
+    "min_stable_harmonics": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "count_harmonics_up_to": { "value": 10, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "harmonic_window_min_hz": {
+      "value": 1.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "search window = max(min_hz, frac * k)"
+    },
+    "harmonic_window_frac": { "value": 0.05, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "f0_candidates_hz": { "value": [50.0, 60.0], "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "f0_accept_hz": { "value": 0.35, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "harmonic_max_hz": { "value": 3000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "buzz_above_hz": { "value": 1000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "whistle_min_hz": { "value": 2000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "whistle_over_median_db": { "value": 15.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "slight_energy_share": {
+      "value": 0.0909,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "only marks the result as slight; it never suppresses a detection"
+    }
+  },
+  "device_processing": {
+    "zero_run_ms": { "value": 50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "interior_only": {
+      "value": true,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "leading and trailing zero runs do not count"
+    },
+    "false_alarm_floor_16bit_dbfs": {
+      "value": -107.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "show nothing when the noise floor is below this"
+    }
+  },
+  "reverb": {
+    "bands_hz": { "value": [500.0, 1000.0, 2000.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "fit_start_db": { "value": -5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "fit_end_db": { "value": -25.0, "state": "pending", "source": "规格起始值", "date": null },
+    "band_pnr_min_db": {
+      "value": 35.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "synthetic checks used 30; the final value comes from real recordings"
+    },
+    "fit_r2_min": { "value": 0.95, "state": "pending", "source": "规格起始值", "date": null },
+    "repeat_max_over_min": { "value": 1.4, "state": "pending", "source": "规格起始值", "date": null },
+    "gate_tail_drop_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "gate_tail_drop_ms": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "dry_below_s": { "value": 0.25, "state": "pending", "source": "规格起始值", "date": null },
+    "normal_below_s": { "value": 0.45, "state": "pending", "source": "规格起始值", "date": null },
+    "boomy_below_s": { "value": 0.7, "state": "pending", "source": "规格起始值", "date": null }
+  },
+  "direct_ratio": {
+    "band_hz": { "value": [1000.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "direct_window_start_ms": { "value": -2.5, "state": "pending", "source": "规格起始值", "date": null },
+    "direct_window_end_ms": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null },
+    "low_below_db": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "high_above_db": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null }
+  },
+  "plosive": {
+    "event_band_hz": { "value": [20.0, 200.0], "state": "pending", "source": "规格起始值", "date": null },
+    "recording_band_hz": {
+      "value": [20.0, 120.0],
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "band to compare on real recordings"
+    },
+    "moderate_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "heavy_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "low_f0_sensitivity_below_hz": {
+      "value": null,
+      "state": "pending",
+      "source": "待实录标定",
+      "date": null,
+      "note": "sensitivity drops at low fundamentals"
+    }
+  },
+  "sibilance": {
+    "mid_high_band_hz": { "value": [3000.0, 6000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "high_band_hz": { "value": [6000.0, 12000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "reference_band_hz": { "value": [200.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "min_effective_bandwidth_hz": {
+      "value": 10000.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "below this the high band is switched off"
+    },
+    "off_axis_try_deg": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "moderate_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "heavy_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null }
+  },
+  "click": {
+    "highpass_hz": { "value": 2000.0, "state": "pending", "source": "规格起始值", "date": null },
+    "fricative_min_ms": { "value": 30.0, "state": "pending", "source": "规格起始值", "date": null },
+    "analysis_window_s": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "residual_median_multiple": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "moderate_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "heavy_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null }
+  },
+  "direction": {
+    "repeat_trigger_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
+    "priority_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "small_difference_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
+    "brightness_num_band_hz": { "value": [3000.0, 10000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "brightness_den_band_hz": { "value": [300.0, 1000.0], "state": "pending", "source": "规格起始值", "date": null }
+  }
+}

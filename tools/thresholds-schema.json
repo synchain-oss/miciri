@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Miciri thresholds",
+  "description": "thresholds.json: schema_version plus groups; every group maps names to entries. state synthetic = checked on synthetic signals on the given date; pending = starting value from the spec, or no value yet, waiting for real recordings. tools/gen-thresholds.cmake reads required, properties and the state enum from here.",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": { "schema_version": { "const": 1 } },
+  "additionalProperties": { "$ref": "#/definitions/group" },
+  "definitions": {
+    "group": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/definitions/entry" }
+    },
+    "entry": {
+      "type": "object",
+      "required": ["value", "state", "source", "date"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "array", "minItems": 1, "items": { "type": "number" } },
+            { "type": "null" }
+          ]
+        },
+        "state": { "enum": ["synthetic", "pending"] },
+        "source": { "type": "string", "minLength": 1 },
+        "date": { "oneOf": [{ "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" }, { "type": "null" }] },
+        "note": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "synthetic" } } },
+          "then": { "properties": { "value": { "not": { "type": "null" } }, "date": { "type": "string" } } }
+        },
+        {
+          "if": { "properties": { "state": { "const": "pending" } } },
+          "then": { "properties": { "date": { "type": "null" } } }
+        }
+      ]
+    }
+  }
+}
