@@ -151,8 +151,12 @@ ChannelsResult analyseChannels(const std::vector<double>& leftIn, const std::vec
 
     const AnalysedChannel louder = activeL >= activeR ? AnalysedChannel::Left : AnalysedChannel::Right;
     const double delta = std::fabs(m.deltaDb);
-    if (delta >= thr::channel_check::one_quiet_delta_db &&
-        (m.weakRiseDb < thr::channel_check::one_quiet_weak_rise_db || delta >= thr::channel_check::one_sided_delta_db))
+    // 没有停顿时读不到底噪，weakRiseDb 是拿信号自己的 P5 当底噪量的，持续信号上接近 0，不能据此说“弱的一路只有底噪”。
+    // 回退时只认两路差达到 one_sided_delta_db；更小的差分不出是弱路只有底噪还是声像偏了，按真立体声处理（不提示）。
+    const bool oneSided = delta >= thr::channel_check::one_sided_delta_db;
+    const bool weakIsFloor = floorUsable && delta >= thr::channel_check::one_quiet_delta_db &&
+                             m.weakRiseDb < thr::channel_check::one_quiet_weak_rise_db;
+    if (oneSided || weakIsFloor)
     {
         const bool leftWeak = activeL < activeR;
         setStatuses(v, ChannelCase::OneDominant, leftWeak ? ChannelStatus::FloorOnly : ChannelStatus::Signal,
