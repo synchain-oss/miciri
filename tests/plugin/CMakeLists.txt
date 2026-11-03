@@ -21,6 +21,9 @@ miciri_add_test(NAME plugin_passthrough
 get_property(_ui_sources GLOBAL PROPERTY MICIRI_PLUGIN_UI_SOURCES)
 # JUCE 前端桥脚本的资源测试：用与插件相同的暂存函数（src/plugin/CMakeLists.txt）把脚本编进测试自己的二进制数据，
 # 再让 ResourceProvider 按页面路径取。它和编辑器开关共用这个可执行文件（同样需要 ResourceProvider 与 JUCE 的 gui_extra）。
+if(NOT COMMAND miciri_stage_juce_frontend)
+  message(FATAL_ERROR "miciri_stage_juce_frontend 定义在 src/plugin/CMakeLists.txt，那个目录要先于 tests/ 加入")
+endif()
 miciri_stage_juce_frontend("${CMAKE_CURRENT_BINARY_DIR}/juce-frontend" _juce_frontend_file)
 juce_add_binary_data(MiciriJuceFrontendTestData
   NAMESPACE MiciriJuceFrontendTestData
