@@ -322,6 +322,13 @@
       "source": "合成验证",
       "date": "2026-11-02",
       "note": "show nothing when the noise floor is below this"
+    },
+    "evidence_max_marks": {
+      "value": 64,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "upper bound on zero-run marks kept as evidence; the counts stay exact"
     }
   },
   "reverb": {

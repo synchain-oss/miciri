@@ -62,6 +62,7 @@ DeviceProcessingResult analyseDeviceProcessing(const std::vector<double>& input,
     }
 
     std::vector<EvidenceMark> marks;
+    const auto maxMarks = static_cast<std::size_t>(thr::device_processing::evidence_max_marks);
     std::size_t longest = 0;
     for (std::size_t i = begin; i < end;)
     {
@@ -77,8 +78,11 @@ DeviceProcessingResult analyseDeviceProcessing(const std::vector<double>& input,
         {
             ++result.measures.zeroRuns;
             longest = std::max(longest, j - i);
-            marks.push_back({EvidenceKind::ZeroRun, static_cast<double>(i) / sampleRate,
-                             static_cast<double>(j) / sampleRate, static_cast<double>(j - i) / sampleRate * 1e3, -1});
+            // 次数与最长零段照实计数；证据标记只留最早的若干个，长录音加激进门限时不让 JSON 无限变大
+            if (marks.size() < maxMarks)
+                marks.push_back({EvidenceKind::ZeroRun, static_cast<double>(i) / sampleRate,
+                                 static_cast<double>(j) / sampleRate, static_cast<double>(j - i) / sampleRate * 1e3,
+                                 -1});
         }
         i = j;
     }

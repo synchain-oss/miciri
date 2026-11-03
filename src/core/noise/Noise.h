@@ -37,7 +37,8 @@ private:
 };
 NoiseResult analyseNoise(const std::vector<double>& samples, double sampleRate, const NoiseContext& ctx = {});
 
-// 说话的 A 加权活跃电平：50 ms 帧，取落在最响帧 15 dB 以内、且比帧 P10 高 10 dB 以上的帧的平均功率。
+// 说话的 A 加权活跃电平：50 ms 帧，取落在第 95 百分位帧电平 15 dB 以内、且比帧 P10 高 10 dB 以上的帧的平均功率。
+// 参照第 95 百分位而不是最响的一帧，是为了不让一声咳嗽或碰麦把“说话电平”拽高。
 class SpeechLevelAnalyser
 {
 public:

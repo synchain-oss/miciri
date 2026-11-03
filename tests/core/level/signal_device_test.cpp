@@ -193,3 +193,22 @@ TEST_CASE("device processing: NaN and Inf count as zero, so they neither split a
     sparse[static_cast<std::size_t>(0.1 * kFs)] = std::numeric_limits<double>::infinity();
     CHECK_FALSE(core::analyseDeviceProcessing(sparse, kFs).verdict.detected);
 }
+
+TEST_CASE("device processing: the counts stay exact while the evidence marks are capped")
+{
+    core::DeviceProcessingContext context;
+    context.noiseFloorDbfs = -60.0;
+    std::vector<double> x;
+    for (int i = 0; i < 100; ++i)
+    {
+        x = concat(x, std::vector<double>(static_cast<std::size_t>(0.1 * kFs), 0.1));
+        x = concat(x, zeros(0.06));
+    }
+    x = concat(x, std::vector<double>(static_cast<std::size_t>(0.1 * kFs), 0.1));
+    const core::DeviceProcessingResult r = core::analyseDeviceProcessing(x, kFs, context);
+    CHECK(r.verdict.detected);
+    CHECK(r.measures.zeroRuns == 100);
+    CHECK(r.measures.longestZeroMs == within(60.0, 0.03));
+    CHECK(r.evidence.marks.size() == 64);
+    CHECK(r.evidence.marks.front().startSec < r.evidence.marks.back().startSec);
+}
