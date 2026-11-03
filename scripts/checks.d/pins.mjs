@@ -6,6 +6,8 @@
 // 构建用的钉版文件（JUCE、pluginval）与工具钉版一样是必需的，缺一个就判红。mac 的 pluginval 包 sha256 也在这里：
 // 它登记的是 .pluginval-version 所指那个 tag 的包，两者对不上就判红。
 // 新增钉版依赖（例如 Catch2、pocketfft）的那一张卡，同一个 PR 在这里加它的判据。
+// axe 无障碍冒烟的 npm 工具链（playwright、axe-core）钉在 web-preview/tests/axe/ 的 package.json 与 package-lock.json：
+// 版本必须是确切版本、锁文件里每个包都带 sha512 完整性哈希并来自 npm 官方源，build.yml 里只许 `npm ci --ignore-scripts`。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -14,6 +16,11 @@ import { caseResult } from "../lib/check-kit.mjs";
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const CATCH2_FILE = "cmake/MiciriDeps.cmake";
 const COMMIT = /^[0-9a-f]{40}$/;
+const AXE_DIR = "web-preview/tests/axe";
+const AXE_PACKAGES = ["axe-core", "playwright"];
+const BUILD_WORKFLOW = ".github/workflows/build.yml";
+const INTEGRITY = /^sha512-[A-Za-z0-9+/]+={0,2}$/;
+const NPM_REGISTRY = "https://registry.npmjs.org/";
 
 export const PINS = {
     ".gitleaks-version": SEMVER,
@@ -69,6 +76,74 @@ export function requirementShapeErrors(text) {
     return errors;
 }
 
+/** 解析 JSON：失败返回 null。 */
+function parseJson(text) {
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * axe 工具链的钉版：package.json 里全是确切版本（不许 ^ ~ 范围、tag、git 地址），两个必需的包都在；
+ * package-lock.json 是 lockfileVersion 3，根的依赖与 package.json 一致，每个包都带 sha512 完整性哈希、
+ * 来自 npm 官方源，直接依赖的锁定版本等于钉的版本；build.yml 里的 npm 命令只许 `npm ci` 且带 --ignore-scripts，
+ * 并且确实装了（删掉安装步骤会让 axe 退回跳过）、web-smoke 要求 axe 必须运行（MICIRI_REQUIRE_AXE）。
+ */
+export function checkAxePins(read) {
+    const errors = [];
+    const pkgText = read(`${AXE_DIR}/package.json`);
+    const lockText = read(`${AXE_DIR}/package-lock.json`);
+    if (pkgText === null) errors.push(`缺 ${AXE_DIR}/package.json`);
+    if (lockText === null) errors.push(`缺 ${AXE_DIR}/package-lock.json`);
+    const pkg = pkgText === null ? null : parseJson(pkgText);
+    const lock = lockText === null ? null : parseJson(lockText);
+    if (pkgText !== null && !pkg) errors.push(`${AXE_DIR}/package.json 不是合法 JSON`);
+    if (lockText !== null && !lock) errors.push(`${AXE_DIR}/package-lock.json 不是合法 JSON`);
+    if (pkg) {
+        for (const kind of ["dependencies", "devDependencies", "optionalDependencies"])
+            for (const [name, ver] of Object.entries(pkg[kind] || {}))
+                if (!SEMVER.test(ver))
+                    errors.push(`${AXE_DIR}/package.json 的 ${name} 必须钉确切版本 x.y.z，现在是 ${ver}`);
+        for (const name of AXE_PACKAGES)
+            if (!pkg.dependencies?.[name]) errors.push(`${AXE_DIR}/package.json 的 dependencies 里缺 ${name}`);
+    }
+    if (lock) {
+        const where = `${AXE_DIR}/package-lock.json`;
+        if (lock.lockfileVersion !== 3) errors.push(`${where} 必须是 lockfileVersion 3`);
+        const packages = lock.packages || {};
+        if (pkg && JSON.stringify(packages[""]?.dependencies ?? {}) !== JSON.stringify(pkg.dependencies ?? {}))
+            errors.push(`${where} 根的依赖与 package.json 不一致（改了 package.json 要重新生成锁文件）`);
+        for (const [key, p] of Object.entries(packages)) {
+            if (key === "") continue;
+            if (!INTEGRITY.test(p.integrity || "")) errors.push(`${where} 的 ${key} 没有 sha512 完整性哈希`);
+            if (!String(p.resolved || "").startsWith(NPM_REGISTRY))
+                errors.push(`${where} 的 ${key} 不是来自 ${NPM_REGISTRY}`);
+        }
+        for (const [name, ver] of Object.entries(pkg?.dependencies ?? {}))
+            if (packages[`node_modules/${name}`]?.version !== ver)
+                errors.push(`${where} 里 ${name} 的锁定版本与 package.json 钉的 ${ver} 不一致`);
+    }
+    const wf = read(BUILD_WORKFLOW);
+    if (wf !== null) {
+        const code = wf.replace(/^\s*#.*$/gm, "").replace(/\s#.*$/gm, "");
+        const npmLines = code.split(/\r?\n/).filter((l) => /\bnpm\s+\S/.test(l));
+        const isCi = (l) => /\bnpm\s+ci\b/.test(l);
+        for (const l of npmLines) {
+            // 同一行里每一处 npm 调用都要核对：不能在 npm ci 后面用 && 夹带别的 npm 命令
+            const others = [...l.matchAll(/\bnpm\s+(\S+)/g)].filter((m) => m[1] !== "ci");
+            if (others.length > 0) errors.push(`${BUILD_WORKFLOW} 里只许 npm ci（要按锁文件装）：${l.trim()}`);
+            else if (!/--ignore-scripts\b/.test(l))
+                errors.push(`${BUILD_WORKFLOW} 的 npm ci 必须带 --ignore-scripts：${l.trim()}`);
+        }
+        if (!npmLines.some(isCi)) errors.push(`${BUILD_WORKFLOW} 里没有 npm ci：axe 工具链没有安装步骤`);
+        if (!/^\s*MICIRI_REQUIRE_AXE:\s*['"]?1['"]?\s*$/m.test(code))
+            errors.push(`${BUILD_WORKFLOW} 必须设 MICIRI_REQUIRE_AXE: '1'，否则缺包时 axe 会悄悄跳过`);
+    } else errors.push(`缺 ${BUILD_WORKFLOW}`);
+    return errors;
+}
+
 /** read(rel) 返回文件文本或 null。 */
 export function checkPins(read) {
     const errors = [];
@@ -107,6 +182,7 @@ export function checkPins(read) {
     if (deps === null) errors.push(`缺 ${CATCH2_FILE}`);
     else if (!tag || !COMMIT.test(tag))
         errors.push(`${CATCH2_FILE} 的 Catch2 GIT_TAG 必须是 40 位小写提交号，不能是 tag 或分支名`);
+    errors.push(...checkAxePins(read));
     return errors;
 }
 
@@ -115,7 +191,44 @@ const CATCH2_SHA = "b5373dadca40b7edc8570cf9470b9b1cb1934d40";
 /** cmake/MiciriDeps.cmake 的 FetchContent_Declare(Catch2 …) 写法；tagLine 为空时就是没有 GIT_TAG。 */
 const catch2Source = (tagLine) =>
     `FetchContent_Declare(Catch2\n  GIT_REPOSITORY https://github.com/catchorg/Catch2.git\n  ${tagLine})\n`;
+/** axe 钉版夹具：packages 里每个包的写法可以按需改坏。 */
+const AXE_INTEGRITY = `sha512-${"Ab1+/".repeat(17)}==`;
+const axePackage = (over = {}) => ({
+    version: "1.2.3",
+    resolved: `${NPM_REGISTRY}x/-/x-1.2.3.tgz`,
+    integrity: AXE_INTEGRITY,
+    ...over,
+});
+const axePkgJson = (deps = { "axe-core": "4.14.0", playwright: "1.64.1" }) =>
+    JSON.stringify({ name: "x", private: true, dependencies: deps });
+const axeLockJson = ({ deps = { "axe-core": "4.14.0", playwright: "1.64.1" }, version = 3, pkgs = {} } = {}) =>
+    JSON.stringify({
+        name: "x",
+        lockfileVersion: version,
+        packages: {
+            "": { name: "x", dependencies: deps },
+            "node_modules/axe-core": axePackage({ version: "4.14.0" }),
+            "node_modules/playwright": axePackage({ version: "1.64.1" }),
+            ...pkgs,
+        },
+    });
+const BUILD_GOOD = [
+    "jobs:",
+    "  web-smoke:",
+    "    steps:",
+    "      # npm install 只出现在注释里，不算数",
+    "      - name: Install",
+    '        run: (cd "$D" && npm ci --ignore-scripts --no-audit --no-fund)',
+    "      - name: Web smoke",
+    "        env:",
+    "          MICIRI_REQUIRE_AXE: '1'",
+    "        run: node web-preview/tests/run-all.mjs",
+    "",
+].join("\n");
 const GOOD = {
+    [`${AXE_DIR}/package.json`]: axePkgJson(),
+    [`${AXE_DIR}/package-lock.json`]: axeLockJson(),
+    [BUILD_WORKFLOW]: BUILD_GOOD,
     [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA}`),
     ".gitleaks-version": "8.30.1\n",
     ".clang-format-version": "18.1.8\n",
@@ -129,6 +242,101 @@ const GOOD = {
     ".clang-format": "# SPDX\n# clang-format 18.1.8：说明\nBasedOnStyle: LLVM\n",
     "requirements-tools.txt": `clang-format==18.1.8 \\\n    --hash=sha256:${H}\nreuse==6.2.0 \\\n    --hash=sha256:${H}\n`,
 };
+
+const AXE_PKG = `${AXE_DIR}/package.json`;
+const AXE_LOCK = `${AXE_DIR}/package-lock.json`;
+const buildWith = (run) => BUILD_GOOD.replace("npm ci --ignore-scripts --no-audit --no-fund", run);
+/** axe 钉版的自测用例：[标签, 是否应判红, 错误表]。 */
+function axeCases(with_) {
+    const range = { "axe-core": "^4.14.0", playwright: "1.64.1" };
+    const only = { playwright: "1.64.1" };
+    return [
+        ["axe 钉版齐全", false, with_({})],
+        [
+            "axe 依赖写成 ^ 范围",
+            true,
+            with_({ [AXE_PKG]: axePkgJson(range), [AXE_LOCK]: axeLockJson({ deps: range }) }),
+        ],
+        ["axe 依赖写成 latest", true, with_({ [AXE_PKG]: axePkgJson({ ...only, "axe-core": "latest" }) })],
+        ["缺 axe-core", true, with_({ [AXE_PKG]: axePkgJson(only), [AXE_LOCK]: axeLockJson({ deps: only }) })],
+        ["缺 package.json", true, with_({ [AXE_PKG]: null })],
+        ["缺 package-lock.json", true, with_({ [AXE_LOCK]: null })],
+        ["package.json 不是合法 JSON", true, with_({ [AXE_PKG]: "{" })],
+        ["锁文件是 lockfileVersion 2", true, with_({ [AXE_LOCK]: axeLockJson({ version: 2 }) })],
+        [
+            "锁文件里某个包没有完整性哈希",
+            true,
+            with_({ [AXE_LOCK]: axeLockJson({ pkgs: { "node_modules/y": axePackage({ integrity: undefined }) } }) }),
+        ],
+        [
+            "锁文件里的哈希是 sha1",
+            true,
+            with_({
+                [AXE_LOCK]: axeLockJson({
+                    pkgs: { "node_modules/y": axePackage({ integrity: `sha1-${"a".repeat(27)}=` }) },
+                }),
+            }),
+        ],
+        [
+            "锁文件里的包来自别的源",
+            true,
+            with_({
+                [AXE_LOCK]: axeLockJson({
+                    pkgs: { "node_modules/y": axePackage({ resolved: "https://example.invalid/y.tgz" }) },
+                }),
+            }),
+        ],
+        [
+            "锁文件里的包是 git 地址",
+            true,
+            with_({
+                [AXE_LOCK]: axeLockJson({
+                    pkgs: { "node_modules/y": axePackage({ resolved: "git+https://github.com/o/y.git#abc" }) },
+                }),
+            }),
+        ],
+        [
+            "锁文件根的依赖与 package.json 不一致",
+            true,
+            with_({ [AXE_LOCK]: axeLockJson({ deps: { "axe-core": "4.13.0", playwright: "1.64.1" } }) }),
+        ],
+        [
+            "锁定版本与钉的版本不一致",
+            true,
+            with_({
+                [AXE_LOCK]: axeLockJson({ pkgs: { "node_modules/playwright": axePackage({ version: "1.64.0" }) } }),
+            }),
+        ],
+        ["build.yml 用 npm install", true, with_({ [BUILD_WORKFLOW]: buildWith("npm install --ignore-scripts") })],
+        [
+            "build.yml 的 npm ci 没带 --ignore-scripts",
+            true,
+            with_({ [BUILD_WORKFLOW]: buildWith("npm ci --no-audit") }),
+        ],
+        [
+            "build.yml 里装了别的 npm 命令",
+            true,
+            with_({ [BUILD_WORKFLOW]: buildWith("npm ci --ignore-scripts && npm run build") }),
+        ],
+        ["build.yml 没有 npm ci（安装步骤被删）", true, with_({ [BUILD_WORKFLOW]: buildWith("true") })],
+        [
+            "build.yml 只在注释里写 npm ci",
+            true,
+            with_({ [BUILD_WORKFLOW]: buildWith("true # npm ci --ignore-scripts") }),
+        ],
+        [
+            "build.yml 没设 MICIRI_REQUIRE_AXE",
+            true,
+            with_({ [BUILD_WORKFLOW]: BUILD_GOOD.replace("MICIRI_REQUIRE_AXE: '1'", "FOO: '1'") }),
+        ],
+        [
+            "build.yml 把 MICIRI_REQUIRE_AXE 设成 0",
+            true,
+            with_({ [BUILD_WORKFLOW]: BUILD_GOOD.replace("MICIRI_REQUIRE_AXE: '1'", "MICIRI_REQUIRE_AXE: '0'") }),
+        ],
+        ["缺 build.yml", true, with_({ [BUILD_WORKFLOW]: null })],
+    ];
+}
 
 export default {
     name: "pins",
@@ -239,6 +447,8 @@ export default {
             ...[".juce-commit", ".juce-version", ".pluginval-version", "scripts/ci/mac/pluginval-macos.sha256"].map(
                 (f) => [`缺构建钉版 ${f}`, true, with_({ [f]: null })],
             ),
+            // axe 工具链：确切版本、sha512、官方源、npm ci --ignore-scripts、axe 必须运行
+            ...axeCases(with_),
         ].map(([label, bad, errors]) => ({ label, bad, passed: bad ? errors.length > 0 : errors.length === 0 }));
         return caseResult(cases);
     },
