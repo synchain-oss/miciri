@@ -1,0 +1,130 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": "web/shared/tokens.css",
+      "source": "rinne",
+      "from": "web/shared/tokens.css",
+      "fromBlob": "8b580623d65130ca5ed25d516fab3210abee4f56",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/base.css",
+      "source": "rinne",
+      "from": "web/shared/base.css",
+      "fromBlob": "05bc499b264085d60cc3811f4e292279e3234f18",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/shell-fit.js",
+      "source": "rinne",
+      "from": "web/shared/shell-fit.js",
+      "fromBlob": "8306351d978bde5c5552bfda8ef5352809440e8d",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/hit.js",
+      "source": "rinne",
+      "from": "web/shared/hit.js",
+      "fromBlob": "3253a15666b41f8e4832075069b62047892c76c7",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/glow.js",
+      "source": "rinne",
+      "from": "web/shared/glow.js",
+      "fromBlob": "0d2a6708f189ed9e81af89e9232bee4d05fc71a1",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/scale-ui.js",
+      "source": "rinne",
+      "from": "web/shared/scale-ui.js",
+      "fromBlob": "4c975ecfa5e64066a9d137191762d80833d05814",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/i18n.js",
+      "source": "rinne",
+      "from": "web/shared/i18n.js",
+      "fromBlob": "3f9c3f246b237fd272342788f8e82835ff2722c5",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/dom.js",
+      "source": "rinne",
+      "from": "web/shared/dom.js",
+      "fromBlob": "e317da02bf7361c8b0e6053e52545f163f21c8f5",
+      "mode": "adapted"
+    },
+    {
+      "path": "web/shared/design-box.js",
+      "source": "rinne",
+      "from": "web/shared/design-box.js",
+      "fromBlob": "288084cf6fa11b10864e44e146d2e7114e314452",
+      "mode": "forked"
+    },
+    {
+      "path": "web/shared/bridge.js",
+      "source": "rinne",
+      "from": "web/shared/bridge.js",
+      "fromBlob": "6bd45f4c27f4d670e732d511582d529dac73e2c9",
+      "mode": "forked"
+    },
+    {
+      "path": "web/shared/modal.js",
+      "source": "rinne",
+      "from": "web/shared/modal.js",
+      "fromBlob": "7df78fb287973f7b0043bcaf857408d292e7911a",
+      "mode": "forked"
+    },
+    {
+      "path": "web/shared/toast.js",
+      "source": "rinne",
+      "from": "web/shared/toast.js",
+      "fromBlob": "a4f8ea0ca90fb724d047652e88c0e33c7df188bf",
+      "mode": "forked"
+    },
+    {
+      "path": "web/shared/shell-scale-confirm.js",
+      "source": "rinne",
+      "from": "web/shared/shell-scale-confirm.js",
+      "fromBlob": "fe2a09bb85bed6c8017f2764a27616076dfe9e45",
+      "mode": "forked"
+    },
+    {
+      "path": "web-preview/tests/lib/browser.mjs",
+      "source": "rinne",
+      "from": "web-preview/tests/lib/browser.mjs",
+      "fromBlob": "e0c5a8abc8241e0d8dde264512615fbe27c96c52",
+      "mode": "adapted"
+    },
+    {
+      "path": "web-preview/tests/lib/harness.mjs",
+      "source": "rinne",
+      "from": "web-preview/tests/lib/harness.mjs",
+      "fromBlob": "d6f6cb4c30e3d5f8d7f7fcddc84a986ac2f81e03",
+      "mode": "adapted"
+    },
+    {
+      "path": "web-preview/tests/lib/static-server.mjs",
+      "source": "rinne",
+      "from": "web-preview/tests/lib/static-server.mjs",
+      "fromBlob": "995443e89154878b3c1565bd57fb54baaad9c4bc",
+      "mode": "adapted"
+    },
+    {
+      "path": "web-preview/tests/run-all.mjs",
+      "source": "rinne",
+      "from": "web-preview/tests/run-all.mjs",
+      "fromBlob": "5f920de92deefb7363d0527b6131f69bd9700292",
+      "mode": "forked"
+    }
+  ]
+}

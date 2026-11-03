@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Miciri 预览</title>
+        <style>
+            /* 预览器自己的样式：故意不引 tokens.css，一眼能看出它不属于插件画面 */
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                background: rgb(24 24 28);
+            }
+            body {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: auto;
+            }
+            iframe {
+                display: block;
+                border: 0;
+                flex: none;
+            }
+        </style>
+    </head>
+    <body>
+        <iframe id="frame" title="Miciri"></iframe>
+        <script type="module" src="./preview.js"></script>
+    </body>
+</html>

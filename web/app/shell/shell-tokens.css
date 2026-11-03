@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 外壳自己的派生 token：全部由 tokens.css 的家族 token 派生。设计盒尺寸与 design-box.js 逐值对拍。 */
+:root {
+    --design-w: 1120px;
+    --design-h: 700px;
+    /* 文字：在最深的渐变处（左上 #b5acc9 加玻璃）也 ≥4.5:1。--txt-2/--txt-3 在那里不够，所以向 --txt-1 靠拢。 */
+    --txt-ui: color-mix(in srgb, var(--txt-2) 50%, var(--txt-1));
+    /* 状态文字用的语义 ink：各色 ink 向 --txt-1 靠拢 55%，仍可辨色相，又保证对比度 */
+    --ink-green: color-mix(in srgb, var(--sem-green-ink) 45%, var(--txt-1));
+    --ink-amber: color-mix(in srgb, var(--sem-amber-ink) 45%, var(--txt-1));
+    --ink-red: color-mix(in srgb, var(--sem-red-ink) 45%, var(--txt-1));
+    --ink-gray: color-mix(in srgb, var(--sem-gray-ink) 45%, var(--txt-1));
+    --ink-violet: color-mix(in srgb, var(--sem-violet-ink) 45%, var(--txt-1));
+    --icon-green: var(--sem-green-ink);
+    /* 目标区（−12..−6 dB）的淡绿 */
+    --zone-ok: rgba(var(--sem-green), 0.3);
+    --zone-ok-edge: rgba(var(--sem-green), 0.85);
+    /* 竖管液柱前沿高光：--t2-meter-liquid-hl 转 90 度 */
+    --meter-hl-v: inset 0 3px 0 rgba(226, 220, 244, 0.85), inset 1px 0 0 rgba(255, 255, 255, 0.45);
+    /* 远距离模式的不透明色块：语义色 58% 混 --light-solid */
+    --remote-violet: color-mix(in srgb, rgb(var(--sem-violet)) 58%, var(--light-solid));
+    --remote-green: color-mix(in srgb, rgb(var(--sem-green)) 58%, var(--light-solid));
+    --remote-red: color-mix(in srgb, rgb(var(--sem-red)) 58%, var(--light-solid));
+    --remote-edge: rgba(var(--wh), 0.55);
+    --remote-bar-h: 28px;
+    --focus-on-glass: var(--sem-violet-title);
+    --focus-on-dark: var(--acc-cta);
+    --lt-h: 356px;
+    /* 远距离模式的字号：都是 --fs-260（26px）的倍数。指令 52px ≥48，念的字 65px ≥64，倒计时 130px */
+    --fs-remote-cmd: calc(var(--fs-260) * 2);
+    --fs-remote-word: calc(var(--fs-260) * 2.5);
+    --fs-remote-count: calc(var(--fs-260) * 5);
+    --fs-remote-aux: calc(var(--fs-260) * 1.4);
+    --fs-remote-sub: calc(var(--fs-200) * 1.2);
+    --fs-big: calc(var(--fs-260) * 2);
+}

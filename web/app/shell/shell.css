@@ -1,0 +1,232 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 外壳布局：设计盒、四个区域、模态层、提示条。设计盒内的坐标是设计 px，整体缩放由 shell-fit.js 用 zoom 完成。 */
+
+html,
+body {
+    height: 100%;
+}
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+#shell {
+    position: relative;
+    flex: none;
+    width: var(--design-w);
+    height: var(--design-h);
+    font-size: var(--fs-120);
+}
+#shell[data-keep-ftr="1"] .ftr {
+    z-index: 65;
+}
+
+/* 左栏与主区是后面的页面往里填的挂载点；页眉中间的 .mc-steps 同理 */
+.lcol {
+    position: absolute;
+    left: 14px;
+    top: 58px;
+    bottom: 42px;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+}
+.main {
+    position: absolute;
+    left: 286px;
+    right: 14px;
+    top: 58px;
+    bottom: 42px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-10);
+    min-height: 0;
+}
+.mc-steps {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+}
+
+/* 模态里的按钮行；提示条的位置（深色玻璃本体在 .sc-toast） */
+.mc-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-8);
+    margin-top: var(--sp-16);
+}
+.mc-toast {
+    right: 20px;
+    bottom: 44px;
+}
+
+.ftr__hint {
+    font-size: var(--fs-110);
+    color: var(--txt-ui);
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 560px;
+}
+
+.ftr__lock {
+    font-size: var(--fs-110);
+    color: var(--txt-ui);
+    white-space: nowrap;
+}
+.ftr__lock[hidden] {
+    display: none;
+}
+
+/* 页眉、品牌、语言切换 */
+.hdr {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-18);
+    padding: 0 var(--sp-20) 0 var(--sp-18);
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
+    flex: none;
+    white-space: nowrap;
+}
+.brand svg {
+    stroke: var(--txt-1);
+}
+.brand__name {
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-170);
+    color: var(--txt-1);
+    letter-spacing: 0.01em;
+}
+.brand__cn {
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-140);
+    color: var(--txt-ui);
+}
+.lang {
+    flex: none;
+}
+
+/* 页脚、展开菜单、版本钮、帮助钮 */
+.ftr {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 8px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-12);
+}
+.layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 60;
+}
+.layer > * {
+    pointer-events: auto;
+}
+
+.ftr__right {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-10);
+}
+.scalesel {
+    position: relative;
+}
+.scalesel .sc-select {
+    min-width: 74px;
+    padding-block: var(--sp-4);
+}
+/* 展开菜单（缩放、话筒类型共用）：深色玻璃，向上展开；深色玻璃只用于模态、详情面板、toast、引导说明框和展开菜单 */
+.menu {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 6px);
+    z-index: 70;
+    min-width: 200px;
+    padding: var(--sp-4);
+    margin: 0;
+    list-style: none;
+    border-radius: var(--r-sm);
+    background: var(--dark-menu);
+    border: 1px solid rgba(var(--wh), 0.16);
+    box-shadow: var(--dark-toast-shadow);
+    color: var(--txt-dark-2);
+}
+.menu[data-align="left"] {
+    left: 0;
+    right: 0;
+    min-width: 0;
+}
+.menu li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-10);
+    padding: var(--sp-5) var(--sp-8);
+    border-radius: var(--r-micro);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-105);
+    cursor: pointer;
+}
+.menu li svg {
+    flex: none;
+    stroke: var(--txt-dark-0);
+}
+.menu li[aria-selected="true"] {
+    background: rgba(var(--wh), 0.14);
+    color: var(--txt-dark-0);
+}
+.menu li[aria-disabled="true"] {
+    color: var(--txt-dark-dim);
+    cursor: not-allowed;
+}
+.menu li:hover:not([aria-disabled="true"]),
+.menu li:focus-visible:not([aria-disabled="true"]) {
+    background: rgba(var(--wh), 0.1);
+}
+.menu li small {
+    font-family: var(--ff-sans);
+    font-size: var(--fs-110);
+    color: var(--sem-amber-ink-dark);
+}
+.ver {
+    padding: var(--sp-4) var(--sp-8);
+    border-radius: var(--r-pill);
+    background: transparent;
+    border: 0;
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    letter-spacing: var(--mono-ls-ui);
+    color: var(--txt-ui);
+}
+.help {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    border: 0;
+    display: grid;
+    place-items: center;
+    background: var(--acc-chip-violet);
+    color: var(--txt-dark-0);
+    box-shadow: var(--sh-sm);
+}
+.help svg {
+    stroke: var(--txt-dark-0);
+}
