@@ -1,0 +1,7 @@
+pocketfft, C++ header-only edition (pocketfft_hdronly.h), copied unmodified.
+Repository: https://github.com/mreineck/pocketfft
+Branch: cpp
+Commit: 4d865cba24359b05b37da4e75aee24498c3b78e7
+License: BSD-3-Clause (see LICENSE.md and LICENSES/BSD-3-Clause.txt)
+Used for: Welch spectra in the mains hum check. Multithreading is switched off by the includer
+(POCKETFFT_NO_MULTITHREADING) so no analysis code ever starts a thread.
