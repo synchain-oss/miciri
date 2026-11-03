@@ -37,6 +37,23 @@ export function checkDict(zh, en) {
     return errors;
 }
 
+/** 去掉行尾的 // 注释；引号里的 // 不算注释（按引号配对逐字符扫，认反斜杠转义）。 */
+export function stripLineComment(line) {
+    let quote = null;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (quote) {
+            if (c === "\\") i++;
+            else if (c === quote) quote = null;
+        } else if (c === '"' || c === "'" || c === "`") {
+            quote = c;
+        } else if (c === "/" && line[i + 1] === "/") {
+            return line.slice(0, i);
+        }
+    }
+    return line;
+}
+
 /**
  * 页面层源码（非词条文件）里，字符串字面量不得夹全角标点：面向用户的标点要随语言走，必须在词条里。
  * 先去掉整行注释与行尾注释再扫；只用在外壳页面层，开发者向的报错文案不在此列。
@@ -45,7 +62,7 @@ export function checkDict(zh, en) {
 export function findFullwidthLiterals(src) {
     const hits = [];
     for (const raw of src.split("\n")) {
-        const line = raw.replace(/\s\/\/.*$/, "");
+        const line = stripLineComment(raw);
         if (/^\s*(\/\/|\*|\/\*)/.test(line)) continue;
         for (const m of line.matchAll(/"[^"\n]*"|`[^`\n]*`|'[^'\n]*'/g)) {
             if (FULLWIDTH_PUNCT.test(m[0])) hits.push(raw.trim());
@@ -101,6 +118,7 @@ run.check(checkDict({ a: "共 {n} 项" }, { a: "items" }).length > 0, "反例：
 run.check(checkDict({ a: "好" }, { a: "好 ok" }).length > 0, "反例：en 里有汉字应当被查出");
 run.check(checkDict({ a: "好" }, { a: "Contact：x" }).length > 0, "反例：en 里有全角冒号应当被查出");
 run.check(findFullwidthLiterals('el("span", { text: `：${C}` });').length > 0, "反例：字面量里的全角冒号应当被查出");
+run.check(findFullwidthLiterals('const a = "a // b：c";').length > 0, "反例：字符串里带 // 的字面量不能被当成注释截掉");
 run.check(
     findFullwidthLiterals('// 注释里的，没关系\nconst a = "ok"; // 行尾，也没关系').length === 0,
     "正例：注释里的全角标点不算",

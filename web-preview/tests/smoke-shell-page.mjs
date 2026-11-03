@@ -63,8 +63,8 @@ try {
 
     // ---- ① 加载 ----
     await page.goto(`${server.url}/web-preview/index.html`);
-    await page.waitFor(`${FD}?.documentElement.dataset.ready === "1" || ${FD}?.documentElement.dataset.bootError`, {
-        label: "首个快照应用后 data-ready 应为 1",
+    await page.waitFor(`!!${FD}?.documentElement.dataset.bootError || ${FD}?.documentElement.dataset.ready === "1"`, {
+        label: "首个快照应用后 data-ready 应为 1，或出现 data-boot-error",
     });
     run.eq(await page.eval(`${FD}.documentElement.dataset.bootError ?? null`), null, "不应有启动错误");
     run.eq(await page.eval(`${FD}.documentElement.dataset.firstFrame`), "1", "应有首帧信号");
@@ -96,8 +96,8 @@ try {
     run.eq(await page.eval(`${q('[data-lang="zh"]')}.getAttribute("aria-pressed")`), "false", "中文钮应为未按下");
     run.eq(
         await page.eval(`${q("#scale-btn")}.getAttribute("aria-label")`),
-        T.en["shell.scale.aria"],
-        "aria-label 也应换成英文",
+        `${T.en["shell.scale.aria"]} 1×`,
+        "aria-label 也应换成英文，并带上可见的档位",
     );
     run.check((await calls()).includes('setLang:["en"]'), "桥应收到 setLang en");
     await click('[data-lang="zh"]');
@@ -285,6 +285,15 @@ try {
     // ---- ④ 关于窗与可访问名 ----
     await click('[data-part="version"]');
     run.eq(await shown("about"), true, "点版本钮应打开关于窗");
+    // 许可证按钮：桥调用抛错要出提示条（先等上一条提示消失，免得误把旧提示当成这次的）
+    await page.waitFor(`${q('[data-part="toast"]')}.hidden`, { label: "上一条提示条应已消失" });
+    await stub("showLicense", `() => { throw new Error("native-missing"); }`);
+    await click('[data-part="about"] button[data-t="about.license"]');
+    await page.waitFor(
+        `(() => { const t = ${q('[data-part="toast"]')}; return !!t && !t.hidden && t.dataset.state === "shell.err.generic"; })()`,
+        { label: "许可证按钮的桥调用抛错应弹通用错误提示" },
+    );
+    await unstub();
     run.eq(
         await text('[data-part="about-contact"]'),
         "联系：contact@synchain.ca",
@@ -306,6 +315,13 @@ try {
         ),
         0,
         "所有按钮都应有可访问名",
+    );
+    run.eq(
+        await page.eval(
+            `[...${FD}.querySelectorAll("button[aria-label]")].filter((b) => { const v = b.textContent.trim().toLowerCase(); return v && !b.getAttribute("aria-label").toLowerCase().includes(v); }).map((b) => b.dataset.part || b.id)`,
+        ),
+        [],
+        "带可见文字的按钮，aria-label 必须包含可见文字（语音控制按可见标签点按钮）",
     );
 
     // ---- ⑤ 旧 rect 语义：缩放锁在 100% ----
@@ -332,8 +348,8 @@ try {
         })();`,
     });
     await lp.goto(`${server.url}/web-preview/index.html?scale=0.8`);
-    await lp.waitFor(`${FD}?.documentElement.dataset.ready === "1" || ${FD}?.documentElement.dataset.bootError`, {
-        label: "旧语义页面的首个快照应用后 data-ready 应为 1",
+    await lp.waitFor(`!!${FD}?.documentElement.dataset.bootError || ${FD}?.documentElement.dataset.ready === "1"`, {
+        label: "旧语义页面的首个快照应用后 data-ready 应为 1，或出现 data-boot-error",
     });
     await lp.waitFor(`document.getElementById("frame").style.width === "1120px"`, {
         label: "旧语义下宿主按存档 0.8 开窗，外壳应请回 100%",

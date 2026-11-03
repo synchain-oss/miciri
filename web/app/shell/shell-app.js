@@ -102,13 +102,13 @@ export function createShell(o) {
         type: "button",
         class: "sc-select",
         id: "scale-btn",
-        data: { glow: "1", part: "scale-button", "t-aria": "shell.scale.aria" },
+        data: { glow: "1", part: "scale-button" },
     });
     const scaleWrap = el("div", { class: "scalesel" }, scaleBtn);
     const versionBtn = el("button", {
         type: "button",
         class: "ver",
-        data: { glow: "1", part: "version", "t-aria": "shell.about.aria" },
+        data: { glow: "1", part: "version" },
         on: { click: () => openAbout() },
     });
     const helpBtn = el(
@@ -166,13 +166,13 @@ export function createShell(o) {
         setUiScale: async (f) => receipt(await bridge.setUiScale(f)),
         commitUiScale: async () => receipt(await bridge.commitUiScale()),
     };
-    const scaleFailed = () => showToast("shell.err.generic");
+    const bridgeFailed = () => showToast("shell.err.generic");
     const confirm = createScaleConfirm({
         host: layers.modal,
         inert: bgNodes,
         returnTo: () => scaleBtn,
-        onKeep: () => scaleUi.keep().catch(scaleFailed),
-        onCancel: () => scaleUi.revert().catch(scaleFailed),
+        onKeep: () => scaleUi.keep().catch(bridgeFailed),
+        onCancel: () => scaleUi.revert().catch(bridgeFailed),
     });
     const currentScale = () => (state && Number.isFinite(state.uiScale) && state.uiScale > 0 ? state.uiScale : 1);
     const scaleUi = createScaleUi({
@@ -185,7 +185,7 @@ export function createShell(o) {
             root.setAttribute("data-keep-ftr", s.confirming ? "1" : "0");
             confirm.update({ ...s, t });
         },
-        onError: scaleFailed,
+        onError: bridgeFailed,
     });
     installMenu({
         btn: scaleBtn,
@@ -218,7 +218,7 @@ export function createShell(o) {
         type: "button",
         class: "sc-btn sc-btn--dark",
         data: { glow: "1", t: "about.license" },
-        on: { click: () => bridge.showLicense && bridge.showLicense() },
+        on: { click: () => openLicense() },
     });
     const about = createModal({
         host: layers.modal,
@@ -242,14 +242,29 @@ export function createShell(o) {
     function openAbout() {
         about.show();
     }
+    // 桥上没有这个函数（原生侧还没登记）、调用抛错或回执 ok:false，都要让用户知道，不留未处理的 rejection
+    function openLicense() {
+        if (typeof bridge.showLicense !== "function") {
+            showToast("shell.err.generic");
+            return;
+        }
+        Promise.resolve()
+            .then(() => bridge.showLicense())
+            .then(receipt)
+            .catch(bridgeFailed);
+    }
 
     // ---- 渲染 ----
     function render() {
         t = makeT(lang);
         applyI18n(root, lang);
         for (const b of langButtons) b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
-        scaleBtn.replaceChildren(el("span", { class: "sc-num", text: `${currentScale()}×` }));
+        // 带可见文字的按钮，无障碍名称要包含可见文字（语音控制按可见标签点按钮，WCAG 2.5.3），所以这两个钮手写 aria-label
+        const scaleText = `${currentScale()}×`;
+        scaleBtn.replaceChildren(el("span", { class: "sc-num", text: scaleText }));
+        scaleBtn.setAttribute("aria-label", `${t("shell.scale.aria")} ${scaleText}`);
         versionBtn.textContent = t("shell.version", { v: SHELL_VERSION });
+        versionBtn.setAttribute("aria-label", t("shell.about.aria", { v: SHELL_VERSION }));
         aboutContact.textContent = t("about.contact", { mail: CONTACT });
     }
 
@@ -277,7 +292,7 @@ export function createShell(o) {
         state = next;
         if (LANGS.includes(next.lang)) lang = next.lang;
         // 旧 rect 语义下宿主按存档档位开窗时请回 100%：只改窗口、不提交，存档原样留着
-        enforceZoomLock(currentScale(), (f) => scaleBridge.setUiScale(f).catch(scaleFailed));
+        enforceZoomLock(currentScale(), (f) => scaleBridge.setUiScale(f).catch(bridgeFailed));
         render();
         for (const cb of listeners) cb(state);
     }
