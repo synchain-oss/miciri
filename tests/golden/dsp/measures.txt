@@ -238,9 +238,9 @@ gated_48000.gain.digitalClipRunsL 0
 gated_48000.gain.digitalClipRunsR 0
 gated_48000.gain.flatPlateauPeaksL 0
 gated_48000.gain.flatPlateauPeaksR 0
-gated_48000.noise.noiseDbfs -66.1309794
-gated_48000.noise.noiseDbfsA -66.7623918
-gated_48000.noise.snrDb 36.5199792
+gated_48000.noise.noiseDbfs -66.073032
+gated_48000.noise.noiseDbfsA -66.686117
+gated_48000.noise.snrDb 36.4437044
 gated_48000.noise.noisePeakDbfs -20.7938071
 gated_48000.hum.fundamentalHz 0
 gated_48000.hum.overFloorDb 0

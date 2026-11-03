@@ -35,10 +35,14 @@ double estimateFloorDbfs(const std::vector<double>& samples, double sampleRate)
 }
 } // namespace
 
-DeviceProcessingResult analyseDeviceProcessing(const std::vector<double>& samples, double sampleRate,
+DeviceProcessingResult analyseDeviceProcessing(const std::vector<double>& input, double sampleRate,
                                                const DeviceProcessingContext& ctx)
 {
     DeviceProcessingResult result;
+    // NaN 与 Inf 按 0 处理，和其他分析一致；否则一个坏样本会把零段劈成两半，也会让 16 bit 格点判断失效
+    std::vector<double> samples(input.size());
+    for (std::size_t i = 0; i < input.size(); ++i)
+        samples[i] = dsp::finiteOrZero(input[i]);
     const std::size_t n = samples.size();
     // 先乘后除：44.1 kHz 上 50 ms 恰为 2205 个样本，先乘 1e-3 会因舍入变成 2206
     const auto minRun =

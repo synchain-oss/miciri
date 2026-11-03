@@ -15,7 +15,8 @@ namespace miciri::core
 {
 struct NoiseContext
 {
-    // 说话时 A 加权的活跃电平（dBFS），来自 SpeechLevelAnalyser。没有它就算不出 SNR。
+    // 说话时 A 加权的活跃电平（dBFS），来自 SpeechLevelAnalyser。没有它就算不出 SNR：
+    // snrDb 保持 0、档位为 fair 并要求再测，所以读 snrDb 之前先看 confidence。
     std::optional<double> speechLevelDbfsA;
 };
 

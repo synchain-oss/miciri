@@ -22,6 +22,9 @@ std::uint16_t readU16(const unsigned char* p)
 constexpr std::uint16_t kFormatPcm = 1;
 constexpr std::uint16_t kFormatFloat = 3;
 constexpr std::uint16_t kFormatExtensible = 0xFFFE;
+// 分析针对 44.1 到 192 kHz 验证；放宽到 8 到 384 kHz，伪造的文件头不能让抽取核长失控
+constexpr double kMinSampleRate = 8000.0;
+constexpr double kMaxSampleRate = 384000.0;
 constexpr std::size_t kExtensibleSubFormatOffset = 24; // fmt 块内：子格式 GUID 的前两个字节就是格式标签
 } // namespace
 
@@ -57,11 +60,18 @@ bool parseWav(const std::vector<unsigned char>& bytes, WavData& out, std::string
             dataSize = size < available ? size : available; // 文件被截断时读到哪算哪
             break;
         }
+        if (size > available)
+            break; // 声明的长度超出文件：后面没有可信的块了，也避免 32 位上 pos 回绕
         pos += 8 + size + (size & 1U);
     }
     if (data == nullptr || channelCount == 0 || out.sampleRate <= 0.0)
     {
         error = "missing fmt or data chunk";
+        return false;
+    }
+    if (out.sampleRate < kMinSampleRate || out.sampleRate > kMaxSampleRate)
+    {
+        error = "unsupported sample rate";
         return false;
     }
     const bool integer = format == kFormatPcm && (bits == 8 || bits == 16 || bits == 24 || bits == 32);

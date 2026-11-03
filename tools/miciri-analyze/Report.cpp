@@ -180,7 +180,7 @@ std::string analyseToJson(const WavData& wav)
                                Obj()
                                    .add("noiseDbfs", nz.measures.noiseDbfs)
                                    .add("noiseDbfsA", nz.measures.noiseDbfsA)
-                                   .add("snrDb", nz.measures.snrDb)
+                                   .add("snrDb", noiseContext.speechLevelDbfsA ? nz.measures.snrDb : std::nan(""))
                                    .add("noisePeakDbfs", nz.measures.noisePeakDbfs),
                                Obj().add("band", toString(nz.verdict.band))));
 

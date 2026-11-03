@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "core/level/Synth.h"
+#include "level/Level.h"
 #include "noise/Noise.h"
 
 using namespace miciri;
@@ -139,4 +140,29 @@ TEST_CASE("noise does not depend on how the audio is cut into blocks, and surviv
         x[501] = HUGE_VAL;
         CHECK(std::isfinite(core::analyseNoise(x, fs, context).measures.noiseDbfsA));
     }
+}
+
+TEST_CASE("strictly zero frames are not a quiet floor: a gated recording keeps its real noise reading")
+{
+    const double fs = 48000.0;
+    std::vector<double> live = voice(fs, 8.0, fromDb(-20.0), 41, 0.5);
+    mix(live, lowpassNoise(fs, live.size(), fromDb(-60.0), 2000.0, 42));
+    std::vector<double> gated = live;
+    for (double startSec : {1.0, 3.0, 5.0}) // 三段半秒的严格零，占全长近两成，超过 P10 的份额
+        std::fill_n(gated.begin() + static_cast<std::ptrdiff_t>(startSec * fs), static_cast<std::size_t>(0.5 * fs),
+                    0.0);
+
+    const core::NoiseResult reference = core::analyseNoise(live, fs);
+    const core::NoiseResult r = core::analyseNoise(gated, fs);
+    CHECK(r.measures.noiseDbfs > -100.0);
+    CHECK(r.measures.noiseDbfs == within(reference.measures.noiseDbfs, 1.5));
+    CHECK(r.measures.noiseDbfsA == within(reference.measures.noiseDbfsA, 1.5));
+    CHECK(r.measures.noisePeakDbfs == within(reference.measures.noisePeakDbfs, 0.5));
+
+    // 底噪读数没有被拖到 -300 dB，所以设备处理看得见这三段零
+    core::DeviceProcessingContext context;
+    context.noiseFloorDbfs = r.measures.noiseDbfs;
+    const core::DeviceProcessingResult device = core::analyseDeviceProcessing(gated, fs, context);
+    CHECK(device.measures.zeroRuns == 3);
+    CHECK(device.verdict.detected);
 }

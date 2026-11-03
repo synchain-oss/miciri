@@ -3,6 +3,7 @@
 // 无信号诊断与设备处理：各个状态的最小例子，零段长度的边界，首尾零段与 16 bit 量化零的误报防护。
 #include <catch2/catch_test_macros.hpp>
 
+#include <limits>
 #include <map>
 
 #include "core/level/Synth.h"
@@ -170,4 +171,25 @@ TEST_CASE("no-signal: a quiet talker who speaks most of the time is not mistaken
         CHECK(core::analyseNoSignal(whiteNoise(x.size(), fromDb(-90.0), 1), fs).verdict.state ==
               core::SignalState::VeryLowNoise);
     }
+}
+
+TEST_CASE("device processing: NaN and Inf count as zero, so they neither split a zero run nor defeat the 16-bit guard")
+{
+    core::DeviceProcessingContext context;
+    context.noiseFloorDbfs = -60.0;
+    const std::vector<double> body(static_cast<std::size_t>(kFs), 0.1);
+    std::vector<double> gap = zeros(0.06);
+    gap[1000] = std::numeric_limits<double>::quiet_NaN();
+    gap[2000] = std::numeric_limits<double>::infinity();
+    const core::DeviceProcessingResult r = core::analyseDeviceProcessing(concat(concat(body, gap), body), kFs, context);
+    CHECK(r.verdict.detected);
+    CHECK(r.measures.zeroRuns == 1);
+    CHECK(r.measures.longestZeroMs == within(60.0, 0.03));
+
+    // 16 bit 量化零的防护也不被一个 Inf 破坏
+    std::vector<double> sparse = zeros(2.2);
+    for (std::size_t i = 0; i <= 10; ++i)
+        sparse[i * static_cast<std::size_t>(kFs / 5)] = (i % 2 ? 1.0 : -1.0) / 32768.0;
+    sparse[static_cast<std::size_t>(0.1 * kFs)] = std::numeric_limits<double>::infinity();
+    CHECK_FALSE(core::analyseDeviceProcessing(sparse, kFs).verdict.detected);
 }

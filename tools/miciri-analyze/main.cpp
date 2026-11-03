@@ -19,7 +19,9 @@ int main(int argc, char** argv)
         std::fprintf(stderr,
                      "usage: miciri-analyze <file.wav>\n"
                      "Reads a wav file as one recording and prints the level, noise, hum and device-processing\n"
-                     "measures as JSON on stdout. Share this JSON when reporting a problem, never the audio.\n");
+                     "measures as JSON on stdout. Share this JSON when reporting a problem, never the audio.\n"
+                     "Meant for recordings of seconds to a few minutes: the hum check keeps one spectrum per two\n"
+                     "seconds of audio in memory. snrDb is null when no speech was found.\n");
         return argc == 2 ? 0 : 2;
     }
     std::ifstream in(argv[1], std::ios::binary);

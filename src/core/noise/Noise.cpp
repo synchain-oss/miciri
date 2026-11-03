@@ -51,11 +51,25 @@ NoiseResult NoiseAnalyser::finish() const
         result.confidence = retest(RetestReason::TooShort);
         return result;
     }
-    const std::vector<double> weightedDb = toDb(weighted_.frames());
-    const std::vector<double> plainDb = toDb(plain_.frames());
+    const std::vector<double> plainPower = plain_.frames();
+    const std::vector<double> weightedPower = weighted_.frames();
+    // 整帧严格零不计入底噪：门限或降噪把一段压成零时，那不是“底噪很低”，只会把 P10 拖到 -300 dB，
+    // 还会让设备处理把真正的零段当成量化零而漏报。以未加权的帧为准，A 加权滤波器在零段里的拖尾不算。
+    std::vector<double> livePlain;
+    std::vector<double> liveWeighted;
+    for (std::size_t i = 0; i < plainPower.size(); ++i)
+    {
+        if (plainPower[i] > 0.0)
+        {
+            livePlain.push_back(plainPower[i]);
+            liveWeighted.push_back(weightedPower[i]);
+        }
+    }
     NoiseMeasures& m = result.measures;
-    m.noiseDbfsA = dsp::percentile(weightedDb, thr::noise::percentile);
-    m.noiseDbfs = dsp::percentile(plainDb, thr::noise::percentile);
+    m.noiseDbfsA =
+        liveWeighted.empty() ? dsp::powerToDb(0.0) : dsp::percentile(toDb(liveWeighted), thr::noise::percentile);
+    m.noiseDbfs = livePlain.empty() ? dsp::powerToDb(0.0) : dsp::percentile(toDb(livePlain), thr::noise::percentile);
+    const std::vector<double> plainDb = toDb(plainPower);
     m.noisePeakDbfs = *std::max_element(plainDb.begin(), plainDb.end());
 
     if (ctx_.speechLevelDbfsA)

@@ -189,6 +189,7 @@ TEST_CASE("report: a stereo recording gets every section, in the wire names")
                             "\"truePeakDbfsL\"", "\"snrDb\"", "\"fundamentalHz\"", "\"longestZeroMs\""})
         CHECK(contains(json, key));
     CHECK(contains(json, "\"kind\":\"true-stereo\""));
+    CHECK_FALSE(contains(json, "\"snrDb\":null")); // 有说话，SNR 是量出来的数
     CHECK(contains(json, "\"state\":\"ok\""));
     CHECK_FALSE(contains(json, "nan"));
     CHECK_FALSE(contains(json, "inf"));
@@ -209,6 +210,7 @@ TEST_CASE("report: a mono recording has no channel check and says what it found"
     CHECK_FALSE(contains(json, "\"channelCheck\""));
     CHECK(contains(json, "\"channels\":1"));
     CHECK(contains(json, "\"kind\":\"hum\""));
+    CHECK(contains(json, "\"snrDb\":null")); // 没有说话，SNR 没有定义，不能写成 0 dB
 }
 
 TEST_CASE("report: strictly silent audio is reported, not rejected")
@@ -221,4 +223,35 @@ TEST_CASE("report: strictly silent audio is reported, not rejected")
     CHECK(looksBalanced(json));
     CHECK(contains(json, "\"state\":\"all-zero-from-start\""));
     CHECK_FALSE(contains(json, "nan"));
+}
+
+TEST_CASE("wav: a forged sample rate or chunk length is refused instead of being trusted")
+{
+    const std::vector<double> x = sine(48000.0, 440.0, 0.5, 0.05);
+    tools::WavData wav;
+    std::string error;
+    for (std::uint32_t rate : {0U, 100U, 7999U, 384001U, 4000000000U})
+    {
+        INFO("rate " << rate);
+        error.clear();
+        CHECK_FALSE(tools::parseWav(makeWav({x}, rate, 16), wav, error));
+        CHECK_FALSE(error.empty());
+    }
+    for (std::uint32_t rate : {8000U, 44100U, 192000U, 384000U})
+    {
+        INFO("rate " << rate);
+        CHECK(tools::parseWav(makeWav({x}, rate, 16), wav, error));
+    }
+
+    // 在 data 之前放一个声称有 4 GB 的块：不再往下找，当作没有 data
+    std::vector<unsigned char> forged = makeWav({x}, 48000, 16);
+    forged.resize(36);
+    putTag(forged, "LIST");
+    put32(forged, 0xFFFFFFF0U);
+    putTag(forged, "data");
+    put32(forged, 8);
+    forged.resize(forged.size() + 8, 0);
+    error.clear();
+    CHECK_FALSE(tools::parseWav(forged, wav, error));
+    CHECK_FALSE(error.empty());
 }
