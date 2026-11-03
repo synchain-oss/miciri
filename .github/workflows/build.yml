@@ -15,7 +15,7 @@
 # build-win：构建（第一方零 warning）、ctest、DSP golden、分配计数器、pluginval strictness 5 无 GUI。
 # build-mac（macos-15）：同上，再加 AU 的 auval（auval -v 通过，auval -a 里恰好出现一次）与 pluginval 验 VST3 和已装的 AU。
 # core-sanitizers（ubuntu、clang-18）：asan_ubsan 与 tsan 两个配置各自配置、构建、跑全部 ctest；不需要 JUCE。
-# web-smoke：web-preview/tests/run-all.mjs 存在就跑（页面冒烟与 axe 无障碍检查在里面），不存在时打印注记并通过。
+# web-smoke：先按 web-preview/tests/axe/ 的锁文件装钉版 playwright、axe-core 与 chromium，再跑 web-preview/tests/run-all.mjs（页面冒烟与 axe 无障碍检查在里面；axe 缺包即失败），run-all 不存在时打印注记并通过。
 name: Build & Validate
 run-name: Build & Validate ${{ github.event_name }} ${{ inputs.ref || github.sha }}
 
@@ -302,7 +302,26 @@ jobs:
         with:
           node-version-file: .node-version
 
+      # axe 的工具链：playwright 与 axe-core 的版本和完整性哈希钉在 web-preview/tests/axe/package-lock.json，
+      # npm ci 校验 sha512，--ignore-scripts 不跑任何包脚本；装在 runner 的临时目录，不进工作区。
+      # chromium 的版本由钉死的 playwright 决定（它的 browsers.json）；浏览器压缩包只靠 HTTPS 下载，没有可钉的哈希。
+      - name: Install axe toolchain (pinned)
+        env:
+          MICIRI_AXE_DEPS: ${{ runner.temp }}/axe-deps
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/pw-browsers
+        run: |
+          set -euo pipefail
+          mkdir -p "$MICIRI_AXE_DEPS"
+          cp web-preview/tests/axe/package.json web-preview/tests/axe/package-lock.json "$MICIRI_AXE_DEPS/"
+          (cd "$MICIRI_AXE_DEPS" && npm ci --ignore-scripts --no-audit --no-fund)
+          "$MICIRI_AXE_DEPS/node_modules/.bin/playwright" install --with-deps chromium
+
+      # MICIRI_REQUIRE_AXE=1：axe 缺包时判失败而不是跳过，免得安装步骤被删后它悄悄空转
       - name: Web smoke
+        env:
+          MICIRI_AXE_DEPS: ${{ runner.temp }}/axe-deps
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/pw-browsers
+          MICIRI_REQUIRE_AXE: '1'
         run: |
           set -euo pipefail
           if [ ! -f web-preview/tests/run-all.mjs ]; then

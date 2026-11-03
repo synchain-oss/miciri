@@ -1,0 +1,11 @@
+{
+  "name": "miciri-web-axe-deps",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pinned toolchain for the axe accessibility smoke (web-preview/tests/smoke-axe-page.mjs). Not shipped, not a runtime dependency.",
+  "license": "GPL-3.0-or-later",
+  "dependencies": {
+    "axe-core": "4.14.0",
+    "playwright": "1.64.1"
+  }
+}
