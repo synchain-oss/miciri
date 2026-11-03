@@ -7,7 +7,7 @@
   },
   "dev": {
     "ruleset": "dev",
-    "status": "pending",
+    "status": "required",
     "strict": true,
     "contexts": [
       "branch-gate",
@@ -22,7 +22,7 @@
   },
   "prod": {
     "ruleset": "prod",
-    "status": "pending",
+    "status": "required",
     "strict": false,
     "contexts": [
       "branch-gate",

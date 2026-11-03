@@ -31,6 +31,46 @@
         "require_extra_approval_for_unattributed_changes": false,
         "allowed_merge_methods": ["merge"]
       }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          {
+            "context": "branch-gate",
+            "integration_id": 15368
+          },
+          {
+            "context": "clang-format",
+            "integration_id": 15368
+          },
+          {
+            "context": "docs-truth",
+            "integration_id": 15368
+          },
+          {
+            "context": "compliance",
+            "integration_id": 15368
+          },
+          {
+            "context": "web-smoke",
+            "integration_id": 15368
+          },
+          {
+            "context": "build-win",
+            "integration_id": 15368
+          },
+          {
+            "context": "build-mac",
+            "integration_id": 15368
+          },
+          {
+            "context": "core-sanitizers",
+            "integration_id": 15368
+          }
+        ]
+      }
     }
   ],
   "bypass_actors": []
