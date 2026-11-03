@@ -70,6 +70,15 @@ body {
     max-width: 560px;
 }
 
+.ftr__lock {
+    font-size: var(--fs-110);
+    color: var(--txt-ui);
+    white-space: nowrap;
+}
+.ftr__lock[hidden] {
+    display: none;
+}
+
 /* 页眉、品牌、语言切换 */
 .hdr {
     position: absolute;

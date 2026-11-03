@@ -5,7 +5,9 @@
 //   ② 语言：切到 EN 后文字、html lang、按钮按下态都变，桥收到 setLang，再切回；
 //   ③ 缩放：下拉 7 档、放不下的置灰；选档立刻缩放并弹确认窗；Esc 回退并把焦点还给缩放钮；
 //      确认态里再选档重置倒计时、回退目标不变；保存提交且不再回退；确认期间页脚仍点得到；
-//   ④ 关于窗与可访问名：版本钮开关、焦点回收、所有按钮有名字、对话框有 aria-modal 与标题。
+//      ③b 保存或回退的桥调用抛错、回执 ok:false 时，确认窗已关，必须有提示条且不留未处理的 rejection；
+//   ④ 关于窗与可访问名：版本钮开关、焦点回收、所有按钮有名字、对话框有 aria-modal 与标题，联系行整句来自词条；
+//   ⑤ 旧 rect 语义（注入脚本模拟）：宿主按存档档位开窗时只请求一次回 100%、不提交，档位表只剩一档，显示锁定提示。
 // 10 秒超时的逐秒行为由 smoke-scale-ui.mjs 用假定时器覆盖，这里不等真实 10 秒。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
 //
@@ -81,6 +83,7 @@ try {
     run.eq(await text('[data-part="footer"] .ftr__hint'), T.zh["shell.hint"], "默认应显示快照里的语言（zh）");
     run.eq(await text('[data-part="version"]'), "Synchain 0.1.0", "页脚应显示版本");
     run.eq(await text("#scale-btn"), "1×", "缩放钮应显示当前档位");
+    run.eq(await page.eval(`${q('[data-part="scale-lock"]')}.hidden`), true, "新语义下不应显示 100% 锁定提示");
     for (const part of ["header", "steps", "left", "main", "footer"]) {
         run.eq(await page.eval(`!!${q(`[data-part="${part}"]`)}`), true, `应有挂载点 ${part}`);
     }
@@ -224,9 +227,69 @@ try {
     run.eq(await text("#scale-btn"), "0.8×", "缩放钮应显示新档位");
     run.eq(await active(), "scale-btn", "保存后焦点应回到缩放钮");
 
+    // ---- ③b 保存或回退的桥调用失败 ----
+    // 两条路都在确认窗关闭之后才发桥调用：失败时必须有提示条，且不留未处理的 rejection（页面异常会记进 page.errors）。
+    const toastKey = () =>
+        page.eval(
+            `(() => { const t = ${q('[data-part="toast"]')}; return t && !t.hidden ? t.dataset.state : null; })()`,
+        );
+    const stub = (name, body) =>
+        page.eval(
+            `(() => { const m = ${MOCK}; m.__orig ??= {}; m.__orig[${JSON.stringify(name)}] ??= m[${JSON.stringify(name)}]; m[${JSON.stringify(name)}] = ${body}; })()`,
+        );
+    const unstub = () => page.eval(`(() => { const m = ${MOCK}; Object.assign(m, m.__orig || {}); })()`);
+    const openConfirm = async (id) => {
+        await click("#scale-btn");
+        await click(`[data-part="scale-menu"] [data-id="${id}"]`);
+        await page.waitFor(
+            `!!${q('[data-part="scale-confirm"]')} && !${q('[data-part="scale-confirm"]')}.closest("[hidden]")`,
+            { label: "确认窗应出现" },
+        );
+    };
+    const confirmClosed = () =>
+        page.waitFor(`${q('[data-part="scale-confirm"]')}.closest("[hidden]") !== null`, { label: "确认窗应关闭" });
+    run.eq(await toastKey(), null, "失败场景开始前不应有提示条");
+
+    await openConfirm("0.65");
+    await stub("commitUiScale", `() => { throw new Error("native-missing"); }`);
+    await click('[data-part="confirm-keep"]');
+    await confirmClosed();
+    await page.waitFor(
+        `(() => { const t = ${q('[data-part="toast"]')}; return !!t && !t.hidden && t.dataset.state === "shell.err.generic"; })()`,
+        { label: "保存时桥调用抛错应弹通用错误提示" },
+    );
+    run.check((await text('[data-part="toast"]')).includes(T.zh["shell.err.generic"]), "提示条应显示通用错误文案");
+    await unstub();
+
+    await openConfirm("0.5");
+    await stub("commitUiScale", `() => ({ ok: false, reason: "scale-locked" })`);
+    await click('[data-part="confirm-keep"]');
+    await confirmClosed();
+    await page.waitFor(
+        `(() => { const t = ${q('[data-part="toast"]')}; return !!t && !t.hidden && t.dataset.state === "shell.err.scaleLocked"; })()`,
+        { label: "保存回执 scale-locked 应弹缩放被锁提示" },
+    );
+    await unstub();
+
+    await openConfirm("0.65");
+    await stub("setUiScale", `() => { throw new Error("native-missing"); }`);
+    await click('[data-part="confirm-cancel"]');
+    await confirmClosed();
+    await page.waitFor(
+        `(() => { const t = ${q('[data-part="toast"]')}; return !!t && !t.hidden && t.dataset.state === "shell.err.generic"; })()`,
+        { label: "回退时桥调用抛错应弹通用错误提示" },
+    );
+    await unstub();
+    await page.eval(`${MOCK}.setUiScale(0.8)`); // 把假宿主的窗口放回已提交的档位，后面的步骤不受影响
+
     // ---- ④ 关于窗与可访问名 ----
     await click('[data-part="version"]');
     run.eq(await shown("about"), true, "点版本钮应打开关于窗");
+    run.eq(
+        await text('[data-part="about-contact"]'),
+        "联系：contact@synchain.ca",
+        "关于窗的联系行应整句来自词条（中文全角冒号）",
+    );
     run.check((await text('[data-part="about"]')).includes("contact@synchain.ca"), "关于窗应写对外邮箱");
     run.check(
         await page.eval(
@@ -243,6 +306,62 @@ try {
         ),
         0,
         "所有按钮都应有可访问名",
+    );
+
+    // ---- ⑤ 旧 rect 语义：缩放锁在 100% ----
+    // 无头 Chromium 是新语义，这里在文档创建时注入一段脚本，让 shell-fit 的探针量出旧语义（rect 宽不含 zoom），
+    // 并让假宿主按存档的 0.8 开窗：外壳应只请求一次 setUiScale(1)、不提交、档位表只剩 1 档、显示锁定提示。
+    const lp = await browser.newPage();
+    await lp.send("Emulation.setDeviceMetricsOverride", {
+        width: 1400,
+        height: 1000,
+        deviceScaleFactor: 1,
+        mobile: false,
+        screenWidth: 1400,
+        screenHeight: 1000,
+    });
+    await lp.send("Page.addScriptToEvaluateOnNewDocument", {
+        source: `(() => {
+            const orig = Element.prototype.getBoundingClientRect;
+            Element.prototype.getBoundingClientRect = function () {
+                const r = orig.call(this);
+                if (this.getAttribute("aria-hidden") === "true" && this.style.zoom === "2")
+                    return new DOMRect(r.x, r.y, this.offsetWidth, this.offsetHeight);
+                return r;
+            };
+        })();`,
+    });
+    await lp.goto(`${server.url}/web-preview/index.html?scale=0.8`);
+    await lp.waitFor(`${FD}?.documentElement.dataset.ready === "1" || ${FD}?.documentElement.dataset.bootError`, {
+        label: "旧语义页面的首个快照应用后 data-ready 应为 1",
+    });
+    await lp.waitFor(`document.getElementById("frame").style.width === "1120px"`, {
+        label: "旧语义下宿主按存档 0.8 开窗，外壳应请回 100%",
+    });
+    const lcalls = await lp.eval(`${MOCK}.calls.map((c) => c.name + ":" + JSON.stringify(c.args))`);
+    run.eq(
+        lcalls.filter((x) => x.startsWith("setUiScale")),
+        ["setUiScale:[1]"],
+        "旧语义下只应请求一次回到 100%",
+    );
+    run.check(!lcalls.includes("commitUiScale:[]"), "请回 100% 不应提交，存档的档位要原样留着");
+    run.eq(
+        await lp.eval(
+            `(() => { const e = ${FD}.querySelector('[data-part="scale-lock"]'); return [e.hidden, e.textContent]; })()`,
+        ),
+        [false, T.zh["common.scale.lockedLegacy"]],
+        "旧语义下应显示锁定提示",
+    );
+    await lp.eval(`${FD}.getElementById("scale-btn").click()`);
+    run.eq(
+        await lp.eval(`${FD}.querySelectorAll('[data-part="scale-menu"] [role=option]').length`),
+        1,
+        "旧语义下档位表只剩 100% 一档",
+    );
+    run.eq(
+        lp.errors.filter((e) => !/\.woff2/.test(e)),
+        [],
+        "旧语义页面不应有页面异常",
     );
 
     // ---- 全程 ----

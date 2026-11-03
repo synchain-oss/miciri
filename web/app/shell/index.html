@@ -6,12 +6,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>Miciri</title>
         <style>
-            /* 开窗占位：样式表到位之前先铺渐变，避免白闪 */
+            /* 开窗占位：样式表到位之前先铺渐变，避免白闪。色标须与 tokens.css 的 --page-gradient 逐字一致（冒烟核对） */
             html,
             body {
                 margin: 0;
                 height: 100%;
-                background: linear-gradient(157deg, #b5acc9 0%, #fde8ed 100%);
+                background: linear-gradient(157deg, #b5acc9 0%, #ccbfd5 32%, #e3d2e0 64%, #fde8ed 100%);
             }
         </style>
         <link rel="stylesheet" href="../../shared/tokens.css" />

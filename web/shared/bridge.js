@@ -105,14 +105,34 @@ function isJuceHost(juce) {
     return Array.isArray(fns) && fns.length > 0;
 }
 
-function makeJuceBackend() {
+/**
+ * JUCE 前端辅助脚本（封装 native 函数调用）的默认位置，相对本文件。它不在本仓的 web/ 里写：
+ * 由插件在打包页面资源时放进来（同一路径），所以页面代码只认这个固定位置。
+ */
+const JUCE_HELPER = "../js/juce/index.js";
+
+function makeJuceBackend(helperPath) {
     const em = makeEmitter();
     wireEvents(window.__JUCE__.backend, em);
-    const nativePromise = import("../js/juce/index.js");
+    // 第一次调用时才加载；失败不缓存（补上文件后重试能恢复），并换成说得清原因的错误：
+    // 裸的模块解析错误只会让每个桥调用都以「Failed to fetch」之类的话失败，查不到是哪个文件缺了。
+    let helper = null;
+    const loadHelper = () => {
+        if (!helper) {
+            helper = import(helperPath).catch((cause) => {
+                helper = null;
+                throw new Error(
+                    `bridge：加载不了 JUCE 前端辅助脚本（${helperPath}），真宿主的桥调用都发不出去。请确认插件已把它打包进页面资源。`,
+                    { cause },
+                );
+            });
+        }
+        return helper;
+    };
     const call =
         (name) =>
         async (...args) => {
-            const { getNativeFunction } = await nativePromise;
+            const { getNativeFunction } = await loadHelper();
             return getNativeFunction(name)(...args);
         };
     const registered = new Set((window.__JUCE__.initialisationData || {}).__juce__functions || []);
@@ -153,14 +173,15 @@ function findInjectedMock(win) {
 
 /**
  * 工厂，界面只调这一个。
- * @param {{mockBackend?: object}} [opts] mockBackend 仅在非真 JUCE 宿主时使用。
+ * @param {{mockBackend?: object, juceHelper?: string}} [opts] mockBackend 仅在非真 JUCE 宿主时使用；
+ *   juceHelper 是真宿主分支加载辅助脚本的路径（相对本文件），缺省为约定位置，只给测试覆盖。
  * @returns {{isPreview: boolean, on: Function}} 另含名表里全部桥函数（均为 async）。
  */
 export function createBridge(opts = {}) {
     const win = typeof window !== "undefined" ? window : undefined;
     const juce = win ? win.__JUCE__ : undefined;
     const mockBackend = opts.mockBackend || findInjectedMock(win);
-    if (isJuceHost(juce)) return makeJuceBackend();
+    if (isJuceHost(juce)) return makeJuceBackend(opts.juceHelper || JUCE_HELPER);
     if (mockBackend) {
         if (juce) {
             console.warn(

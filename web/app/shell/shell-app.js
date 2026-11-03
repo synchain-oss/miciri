@@ -21,7 +21,7 @@ import { installMenu } from "../../shared/menu.js";
 import { createToast } from "../../shared/toast.js";
 import { createScaleUi } from "../../shared/scale-ui.js";
 import { createScaleConfirm } from "../../shared/shell-scale-confirm.js";
-import { installShellFit } from "../../shared/shell-fit.js";
+import { enforceZoomLock, installShellFit, zoomLocked } from "../../shared/shell-fit.js";
 import strings from "./shell-strings.js";
 import commonStrings from "../../shared/strings-common.js";
 
@@ -121,11 +121,17 @@ export function createShell(o) {
         },
         icon(HELP, 13),
     );
+    // 旧 rect 语义的系统上缩放锁在 100%，这行提示在安装 shell-fit 之后按判定结果显示
+    const lockHint = el("span", {
+        class: "ftr__lock",
+        hidden: true,
+        data: { part: "scale-lock", t: "common.scale.lockedLegacy" },
+    });
     const footer = el(
         "footer",
         { id: "ftr", class: "ftr", data: { part: "footer" } },
         el("span", { class: "ftr__hint", data: { t: "shell.hint" } }),
-        el("div", { class: "ftr__right" }, scaleWrap, versionBtn, helpBtn),
+        el("div", { class: "ftr__right" }, lockHint, scaleWrap, versionBtn, helpBtn),
     );
 
     const layers = {
@@ -149,21 +155,24 @@ export function createShell(o) {
 
     // ---- 缩放：档位下拉、10 秒确认回退 ----
     const bgNodes = [header, left, main];
-    const scaleBridge = {
-        setUiScale: async (f) => {
-            const r = await bridge.setUiScale(f);
-            if (r && r.ok === false)
-                showToast(r.reason === "scale-locked" ? "shell.err.scaleLocked" : "shell.err.generic");
-            return r;
-        },
-        commitUiScale: () => bridge.commitUiScale(),
+    const errKey = (e) => (e && e.reason === "scale-locked" ? "shell.err.scaleLocked" : "shell.err.generic");
+    // 回执 ok:false 在这里变成提示条；抛错（比如原生侧还没登记这个函数）继续往外抛，由调用方的 catch 收尾。
+    // 保存和回退都在确认窗关闭之后才发桥调用，失败时用户只能靠提示条知道，所以两条路都必须接住。
+    const receipt = (r) => {
+        if (r && r.ok === false) showToast(errKey(r));
+        return r;
     };
+    const scaleBridge = {
+        setUiScale: async (f) => receipt(await bridge.setUiScale(f)),
+        commitUiScale: async () => receipt(await bridge.commitUiScale()),
+    };
+    const scaleFailed = () => showToast("shell.err.generic");
     const confirm = createScaleConfirm({
         host: layers.modal,
         inert: bgNodes,
         returnTo: () => scaleBtn,
-        onKeep: () => scaleUi.keep(),
-        onCancel: () => scaleUi.revert(),
+        onKeep: () => scaleUi.keep().catch(scaleFailed),
+        onCancel: () => scaleUi.revert().catch(scaleFailed),
     });
     const currentScale = () => (state && Number.isFinite(state.uiScale) && state.uiScale > 0 ? state.uiScale : 1);
     const scaleUi = createScaleUi({
@@ -176,7 +185,7 @@ export function createShell(o) {
             root.setAttribute("data-keep-ftr", s.confirming ? "1" : "0");
             confirm.update({ ...s, t });
         },
-        onError: () => showToast("shell.err.generic"),
+        onError: scaleFailed,
     });
     installMenu({
         btn: scaleBtn,
@@ -220,17 +229,14 @@ export function createShell(o) {
         returnTo: () => versionBtn,
         initialFocus: () => aboutClose,
     });
+    // 联系行整句走词条（标点随语言），邮箱作占位符填入
+    const aboutContact = el("p", { class: "sc-modal__body", data: { part: "about-contact" } });
     about.panel.setAttribute("aria-labelledby", aboutTitle.id);
     about.panel.append(
         aboutTitle,
         el("p", { class: "sc-modal__body", data: { t: "about.body" } }),
         el("p", { class: "sc-modal__body", data: { t: "about.gpl" } }),
-        el(
-            "p",
-            { class: "sc-modal__body" },
-            el("span", { data: { t: "about.contact" } }),
-            el("span", { text: `：${CONTACT}`, class: "sc-num" }),
-        ),
+        aboutContact,
         el("div", { class: "mc-modal__actions" }, aboutLicense, aboutClose),
     );
     function openAbout() {
@@ -244,6 +250,7 @@ export function createShell(o) {
         for (const b of langButtons) b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
         scaleBtn.replaceChildren(el("span", { class: "sc-num", text: `${currentScale()}×` }));
         versionBtn.textContent = t("shell.version", { v: SHELL_VERSION });
+        aboutContact.textContent = t("about.contact", { mail: CONTACT });
     }
 
     async function chooseLang(next) {
@@ -269,11 +276,14 @@ export function createShell(o) {
         if (!next || typeof next !== "object") return;
         state = next;
         if (LANGS.includes(next.lang)) lang = next.lang;
+        // 旧 rect 语义下宿主按存档档位开窗时请回 100%：只改窗口、不提交，存档原样留着
+        enforceZoomLock(currentScale(), (f) => scaleBridge.setUiScale(f).catch(scaleFailed));
         render();
         for (const cb of listeners) cb(state);
     }
 
     const fit = installShellFit({ el: root, box: DESIGN.shell });
+    lockHint.hidden = !zoomLocked();
     installGlow(doc);
     render();
 
@@ -293,7 +303,7 @@ export function createShell(o) {
         showToast,
         openAbout,
         onBridgeError(e) {
-            showToast(e && e.reason === "scale-locked" ? "shell.err.scaleLocked" : "shell.err.generic");
+            showToast(errKey(e));
         },
         fit,
     };

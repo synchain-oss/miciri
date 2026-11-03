@@ -16,7 +16,7 @@ export default {
         "about.title": "关于 Miciri",
         "about.body": "Miciri 帮你检查录音：增益、距离、方向、房间和噪声。它只测量，不改变你的声音，也不会发出声音。",
         "about.gpl": "Miciri 是自由软件，按 GNU 通用公共许可证（GPL）发布，不提供任何担保。",
-        "about.contact": "联系",
+        "about.contact": "联系：{mail}",
         "about.license": "查看许可证",
     },
     en: {
@@ -32,7 +32,7 @@ export default {
         "about.body":
             "Miciri helps you check a recording: gain, distance, direction, room and noise. It only measures; it never changes your sound and makes no sound of its own.",
         "about.gpl": "Miciri is free software released under the GNU General Public License (GPL), with no warranty.",
-        "about.contact": "Contact",
+        "about.contact": "Contact: {mail}",
         "about.license": "View license",
     },
 };

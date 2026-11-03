@@ -122,4 +122,39 @@ try {
 }
 run.check(msg.includes("mock"), "既没有真宿主也没有 mock 时应抛错并给出指引");
 
+// ---- 真宿主分支：JUCE 前端辅助脚本缺失时给出明确错误 ----
+// 用 window 上的占位对象走真宿主分支；辅助脚本路径用 juceHelper 覆盖，测试不依赖 web/js/juce/ 是否已入库。
+{
+    const warn = console.warn;
+    console.warn = () => {}; // 名表里有而占位对象没登记的函数会各告警一次，这里不关心
+    globalThis.window = {
+        __JUCE__: {
+            backend: { addEventListener() {} },
+            initialisationData: { __juce__functions: ["setLang"] },
+        },
+    };
+    try {
+        const missing = createBridge({ juceHelper: "../js/juce/__absent__.js" });
+        run.eq(missing.isPreview, false, "有 native 函数登记时应走真宿主分支");
+        let msg = "";
+        try {
+            await missing.setLang("en");
+        } catch (e) {
+            msg = String((e && e.message) || e);
+        }
+        run.check(
+            msg.includes("JUCE 前端辅助脚本") && msg.includes("__absent__.js"),
+            `辅助脚本缺失时，桥调用应给出点明文件的错误，实得：${msg || "（没有抛错）"}`,
+        );
+        // 正例：辅助脚本在位时调用原样转给 getNativeFunction
+        const helper =
+            "data:text/javascript,export const getNativeFunction = (n) => async (...a) => ({ ok: true, n, a });";
+        const present = createBridge({ juceHelper: helper });
+        run.eq(await present.setLang("en"), { ok: true, n: "setLang", a: ["en"] }, "辅助脚本在位时应转发调用");
+    } finally {
+        delete globalThis.window;
+        console.warn = warn;
+    }
+}
+
 run.finish();

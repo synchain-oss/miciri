@@ -19,8 +19,8 @@ function normLang(lang) {
 }
 
 /**
- * 合并若干份词条表，返回新的 { zh, en, fr }。
- * 每份都必须带齐三个语言；同一个键出现在两份里就抛错，错误信息带上键和语言。
+ * 合并若干份词条表，返回新的 { zh, en }。
+ * 每份都必须带齐 zh 和 en 两种语言；同一个键出现在两份里就抛错，错误信息带上键和语言。
  */
 export function mergeDicts(...parts) {
     const merged = { zh: {}, en: {} };
