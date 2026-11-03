@@ -63,7 +63,8 @@ double MiciriEditor::observeCallbackAgeSec()
 juce::var MiciriEditor::buildSnapshot()
 {
     const auto device = processor_.deviceInfo();
-    const auto ageSec = lastAgeSec_;
+    // 页面刚就绪时定时器还没来得及刷新，所以这里先读一次心跳，首份快照就不会带旧的回调年龄。
+    const auto ageSec = observeCallbackAgeSec();
     const bool noCallback = ageSec > thr::no_signal::no_callback_s;
 
     const auto layoutIndex = device.numChannels >= 2 ? core::ChannelLayout::Stereo : core::ChannelLayout::Mono;
