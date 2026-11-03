@@ -64,6 +64,22 @@ target_link_libraries(Miciri PRIVATE
   juce::juce_gui_extra)
 target_compile_definitions(Miciri PUBLIC ${MICIRI_PLUGIN_DEFINITIONS})
 
+# JUCE 的前端桥脚本：页面里的 bridge.js 在真实宿主中按页面根下的 js/juce/index.js 取它。文件不进本仓，
+# 配置期从 JUCE 检出里复制到构建目录，按同样的扁平名编进二进制，ResourceProvider 照常按页面路径提供。
+# stage_dir 是构建目录里的暂存目录，复制后的文件路径写进 out_var。测试也用这个函数，保证两边是同一份映射。
+# 常量放在函数里：函数在调用者的作用域里运行，tests/ 下调用时看不到本目录的变量。
+function(miciri_stage_juce_frontend stage_dir out_var)
+  set(_rel "modules/juce_gui_extra/native/javascript/index.js")
+  set(_page_path "js/juce/index.js")
+  set(_src "${_miciri_juce_dir}/${_rel}")
+  if(NOT EXISTS "${_src}" OR IS_DIRECTORY "${_src}")
+    message(FATAL_ERROR "找不到 JUCE 的前端桥脚本 ${_rel}（JUCE_PATH 要指向 JUCE 8.0.8 的检出）")
+  endif()
+  string(REPLACE "/" "__" _flat "${_page_path}")
+  configure_file("${_src}" "${stage_dir}/${_flat}" COPYONLY)
+  set(${out_var} "${stage_dir}/${_flat}" PARENT_SCOPE)
+endfunction()
+
 set(_web_root "${CMAKE_SOURCE_DIR}/web")
 set(_web_stage "${CMAKE_CURRENT_BINARY_DIR}/web-assets")
 file(GLOB_RECURSE _web_files CONFIGURE_DEPENDS RELATIVE "${_web_root}"
@@ -78,6 +94,8 @@ foreach(_rel IN LISTS _web_files)
   list(APPEND _web_staged "${_web_stage}/${_flat}")
 endforeach()
 if(_web_staged)
+  miciri_stage_juce_frontend("${_web_stage}" _juce_frontend)
+  list(APPEND _web_staged "${_juce_frontend}")
   juce_add_binary_data(MiciriWebData
     NAMESPACE MiciriWebData
     HEADER_NAME MiciriWebData.h
