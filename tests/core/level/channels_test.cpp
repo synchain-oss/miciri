@@ -233,3 +233,50 @@ TEST_CASE("channels: the verdict does not change with the sample rate")
               core::ChannelCase::OneSilent);
     }
 }
+
+TEST_CASE("channels: without a pause a level difference below the one-sided threshold is a pan, not a dead channel")
+{
+    // 持续不断的信号读不到底噪，弱的一路到底是“只有底噪”还是“声像偏了”分不出来。
+    // 规格里声像偏到 -40 dB 为止都不提示，所以回退时只有差达到 one_sided_delta_db（40 dB）才判一边；
+    // 更小的差按真立体声处理，既不判 one-dominant，也不是 undetermined（信号足够长，其余判据都有定论）。
+    std::vector<double> tone = sine(kFs, 220.0, 0.1, kSeconds);
+    mix(tone, sine(kFs, 333.0, 0.07, kSeconds, 1.0));
+    std::vector<double> other = sine(kFs, 247.0, 0.1, kSeconds);
+    mix(other, sine(kFs, 401.0, 0.07, kSeconds, 2.0));
+
+    for (double differenceDb : {20.0, 30.0, 38.0})
+    {
+        INFO("difference " << differenceDb << " dB");
+        for (const std::vector<double>* weakSource : {&tone, &other}) // 同一个声源偏到一侧，或两个不同的声源
+        {
+            const std::vector<double> loud = withFloor(tone, -85.0, 50);
+            const std::vector<double> weak = withFloor(scaled(*weakSource, fromDb(-differenceDb)), -85.0, 51);
+            const core::ChannelsResult rightWeak = core::analyseChannels(loud, weak, kFs);
+            CHECK(rightWeak.measures.usedFallback);
+            CHECK(rightWeak.measures.deltaDb == within(differenceDb, 1.0));
+            CHECK(rightWeak.verdict.kind == core::ChannelCase::TrueStereo);
+            CHECK(rightWeak.verdict.statusL == core::ChannelStatus::Signal);
+            CHECK(rightWeak.verdict.statusR == core::ChannelStatus::Signal);
+            CHECK(rightWeak.verdict.analysedChannel == core::AnalysedChannel::Left);
+
+            const core::ChannelsResult leftWeak = core::analyseChannels(weak, loud, kFs);
+            CHECK(leftWeak.verdict.kind == core::ChannelCase::TrueStereo);
+            CHECK(leftWeak.verdict.analysedChannel == core::AnalysedChannel::Right);
+        }
+    }
+
+    // 差到 45 dB 以上，回退时也判一边
+    for (double differenceDb : {45.0, 60.0})
+    {
+        INFO("difference " << differenceDb << " dB");
+        const std::vector<double> loud = withFloor(tone, -85.0, 52);
+        const std::vector<double> weak = withFloor(scaled(other, fromDb(-differenceDb)), -85.0, 53);
+        const core::ChannelsResult r = core::analyseChannels(loud, weak, kFs);
+        CHECK(r.measures.usedFallback);
+        CHECK(r.verdict.kind == core::ChannelCase::OneDominant);
+        CHECK(r.verdict.statusL == core::ChannelStatus::Signal);
+        CHECK(r.verdict.statusR == core::ChannelStatus::FloorOnly);
+        CHECK(r.verdict.analysedChannel == core::AnalysedChannel::Left);
+        CHECK(core::analyseChannels(weak, loud, kFs).verdict.analysedChannel == core::AnalysedChannel::Right);
+    }
+}

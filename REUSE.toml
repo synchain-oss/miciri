@@ -44,6 +44,7 @@ SPDX-FileCopyrightText = [
   "2010-2024 Max-Planck-Society",
   "2019-2020 Peter Bell",
   "2003, 2007-2014 Matteo Frigo and Massachusetts Institute of Technology",
-  "2024 Tan Ping Liang, Cris Luengo",
+  "2024 Tan Ping Liang, Peter Bell",
+  "2024 Cris Luengo",
 ]
 SPDX-License-Identifier = "BSD-3-Clause"
