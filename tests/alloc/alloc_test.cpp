@@ -24,6 +24,8 @@ namespace
 {
 thread_local bool g_armed = false;
 std::atomic<long> g_allocations{0};
+// 反例直接调用分配函数：new 表达式配对的分配与释放允许被编译器整个消掉（clang 会），显式调用不会。
+void* volatile g_sink = nullptr;
 
 void note() noexcept
 {
@@ -165,8 +167,8 @@ TEST_CASE("canary: the hook sees an allocation made inside the armed scope", "[a
     long seen = 0;
     {
         ArmedScope scope;
-        volatile int* leak = new int[16];
-        delete[] leak;
+        g_sink = ::operator new(16);
+        ::operator delete(g_sink);
         seen = scope.count();
     }
     CHECK(seen >= 1);
@@ -175,8 +177,8 @@ TEST_CASE("canary: the hook sees an allocation made inside the armed scope", "[a
 TEST_CASE("canary: nothing is counted while the scope is not armed", "[alloc]")
 {
     g_allocations.store(0);
-    volatile int* p = new int[16];
-    delete[] p;
+    g_sink = ::operator new(16);
+    ::operator delete(g_sink);
     CHECK(g_allocations.load() == 0);
 }
 
