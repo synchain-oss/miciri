@@ -202,7 +202,7 @@ const Values& allValues()
     return values;
 }
 
-std::string formatAll(const Values& values)
+[[maybe_unused]] std::string formatAll(const Values& values)
 {
     std::ostringstream text;
     text << "# DSP golden: continuous measures of fixed synthetic signals; see golden_test.cpp.\n";
