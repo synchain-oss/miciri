@@ -19,12 +19,24 @@ miciri_add_test(NAME plugin_passthrough
 # 编辑器开关：编辑器源码要自己的 WebView2 链接，所以用 juce_add_console_app 建目标，不走 miciri_add_test。
 # 没有显示器（无法开窗）时测试自己 SKIP，退出码 4 登记为“跳过”而不是失败。
 get_property(_ui_sources GLOBAL PROPERTY MICIRI_PLUGIN_UI_SOURCES)
+# JUCE 前端桥脚本的资源测试：用与插件相同的暂存函数（src/plugin/CMakeLists.txt）把脚本编进测试自己的二进制数据，
+# 再让 ResourceProvider 按页面路径取。它和编辑器开关共用这个可执行文件（同样需要 ResourceProvider 与 JUCE 的 gui_extra）。
+if(NOT COMMAND miciri_stage_juce_frontend)
+  message(FATAL_ERROR "miciri_stage_juce_frontend 定义在 src/plugin/CMakeLists.txt，那个目录要先于 tests/ 加入")
+endif()
+miciri_stage_juce_frontend("${CMAKE_CURRENT_BINARY_DIR}/juce-frontend" _juce_frontend_file)
+juce_add_binary_data(MiciriJuceFrontendTestData
+  NAMESPACE MiciriJuceFrontendTestData
+  HEADER_NAME MiciriJuceFrontendTestData.h
+  SOURCES "${_juce_frontend_file}")
+
 juce_add_console_app(plugin_editor_open_close
   PRODUCT_NAME "plugin_editor_open_close"
   NEEDS_WEB_BROWSER TRUE
   NEEDS_WEBVIEW2 TRUE)
 target_sources(plugin_editor_open_close PRIVATE
   editor_open_close_test.cpp
+  frontend_resource_test.cpp
   "${_plugin_src}/MiciriProcessor.cpp"
   ${_ui_sources})
 target_include_directories(plugin_editor_open_close PRIVATE
@@ -33,6 +45,7 @@ target_include_directories(plugin_editor_open_close PRIVATE
 target_compile_definitions(plugin_editor_open_close PRIVATE ${MICIRI_PLUGIN_DEFINITIONS} JUCE_MODAL_LOOPS_PERMITTED=1)
 target_link_libraries(plugin_editor_open_close PRIVATE
   miciri_core
+  MiciriJuceFrontendTestData
   Catch2::Catch2WithMain
   juce::juce_audio_processors
   juce::juce_data_structures

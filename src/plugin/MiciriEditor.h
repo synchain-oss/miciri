@@ -32,6 +32,7 @@ protected:
 
 private:
     // 读心跳并更新“最近一次看到心跳变化”的墙钟时刻；返回现在距那一刻的秒数。
+    // 只许在消息线程调用：定时器与构建快照都在消息线程上，它们共用并改写下面三个成员，不加锁。
     double observeCallbackAgeSec();
     juce::var buildMeters();
 
