@@ -110,18 +110,24 @@ jobs:
           }
 
       - name: Build (first-party zero warnings)
+        id: build
         run: pwsh -NoProfile -File scripts/build.ps1 -JucePath "$env:JUCE_DIR"
 
+      # 构建通过才往下跑。DSP golden 等步骤失败时后面的步骤照跑，job 仍因那一步变红（不用 continue-on-error）。
       - name: ctest
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Test
 
       - name: DSP golden
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Golden
 
       - name: Allocation canary
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Canary
 
       - name: pluginval (strictness 5, no GUI)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Validate
 
       - name: Stage
@@ -175,21 +181,28 @@ jobs:
         run: bash scripts/ci/mac.sh --self-test
 
       - name: Build (first-party zero warnings)
+        id: build
         run: pwsh -NoProfile -File scripts/build.ps1 -JucePath "$JUCE_DIR"
 
+      # 构建通过才往下跑。DSP golden 等步骤失败时后面的步骤照跑，job 仍因那一步变红（不用 continue-on-error）。
       - name: ctest
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Test
 
       - name: DSP golden
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Golden
 
       - name: Allocation canary
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pwsh -NoProfile -File scripts/build.ps1 -NoBuild -Canary
 
       - name: Install pinned pluginval
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: bash scripts/ci/mac.sh pluginval-install
 
       - name: pluginval on VST3 (strictness 5, no GUI)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
           bundles=$(find build -type d -name '*.vst3' -not -path '*/_deps/*')
@@ -197,6 +210,7 @@ jobs:
           printf '%s\n' "$bundles" | while IFS= read -r b; do bash scripts/ci/mac.sh pluginval "$b"; done
 
       - name: auval and pluginval on AU
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -euo pipefail
           comps=$(find build -type d -name '*.component' -not -path '*/_deps/*')

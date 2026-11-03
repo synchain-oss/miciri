@@ -12,6 +12,9 @@ import path from "node:path";
 import { caseResult } from "../lib/check-kit.mjs";
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
+const CATCH2_FILE = "cmake/MiciriDeps.cmake";
+const COMMIT = /^[0-9a-f]{40}$/;
+
 export const PINS = {
     ".gitleaks-version": SEMVER,
     ".clang-format-version": SEMVER,
@@ -96,11 +99,24 @@ export function checkPins(read) {
     const entry = (name) => req.find((e) => e.name === name);
     if (entry("clang-format")?.version !== cf) errors.push("requirements-tools.txt 的 clang-format 版本不一致");
     if (!SEMVER.test(entry("reuse")?.version || "")) errors.push("requirements-tools.txt 须钉住 reuse 的版本");
+    // Catch2 是钉版依赖：tag 可以被移动、提交不会，所以 GIT_TAG 必须是 40 位提交号（理由写在 cmake/MiciriDeps.cmake 的头注释里）
+    const deps = read(CATCH2_FILE);
+    // 先去掉 CMake 的 # 注释：注释里写的 GIT_TAG 不算数
+    const code = deps?.replace(/#.*$/gm, "") ?? null;
+    const tag = code === null ? null : /FetchContent_Declare\(\s*Catch2\b[^)]*?GIT_TAG\s+([^\s)]+)/.exec(code)?.[1];
+    if (deps === null) errors.push(`缺 ${CATCH2_FILE}`);
+    else if (!tag || !COMMIT.test(tag))
+        errors.push(`${CATCH2_FILE} 的 Catch2 GIT_TAG 必须是 40 位小写提交号，不能是 tag 或分支名`);
     return errors;
 }
 
 const H = "a1".repeat(32);
+const CATCH2_SHA = "b5373dadca40b7edc8570cf9470b9b1cb1934d40";
+/** cmake/MiciriDeps.cmake 的 FetchContent_Declare(Catch2 …) 写法；tagLine 为空时就是没有 GIT_TAG。 */
+const catch2Source = (tagLine) =>
+    `FetchContent_Declare(Catch2\n  GIT_REPOSITORY https://github.com/catchorg/Catch2.git\n  ${tagLine})\n`;
 const GOOD = {
+    [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA}`),
     ".gitleaks-version": "8.30.1\n",
     ".clang-format-version": "18.1.8\n",
     ".prettier-version": "3.9.6\n",
@@ -194,6 +210,32 @@ export default {
                 true,
                 with_({ "scripts/ci/mac/pluginval-macos.sha256": `v1.0.4 ${"3c".repeat(31)}\n` }),
             ],
+            ["Catch2 GIT_TAG 写的是 tag 名", true, with_({ [CATCH2_FILE]: catch2Source("GIT_TAG v3.5.4") })],
+            [
+                "Catch2 GIT_TAG 是 7 位短哈希",
+                true,
+                with_({ [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA.slice(0, 7)}`) }),
+            ],
+            [
+                "Catch2 GIT_TAG 是大写提交号",
+                true,
+                with_({ [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA.toUpperCase()}`) }),
+            ],
+            ["Catch2 没有 GIT_TAG", true, with_({ [CATCH2_FILE]: catch2Source("") })],
+            ["缺 cmake/MiciriDeps.cmake", true, with_({ [CATCH2_FILE]: null })],
+            [
+                "只有注释里写着 GIT_TAG 的提交号",
+                true,
+                with_({
+                    [CATCH2_FILE]: `FetchContent_Declare(Catch2\n  # GIT_TAG ${CATCH2_SHA})\n  GIT_REPOSITORY https://github.com/catchorg/Catch2.git)\n`,
+                }),
+            ],
+            [
+                "注释里有旧 tag，真正的提交号仍认得出",
+                false,
+                with_({ [CATCH2_FILE]: `# 旧写法：GIT_TAG v3.5.4\n${catch2Source(`GIT_TAG ${CATCH2_SHA}`)}` }),
+            ],
+            ["Catch2 GIT_TAG 是 40 位提交号", false, with_({ [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA}`) })],
             ...[".juce-commit", ".juce-version", ".pluginval-version", "scripts/ci/mac/pluginval-macos.sha256"].map(
                 (f) => [`缺构建钉版 ${f}`, true, with_({ [f]: null })],
             ),

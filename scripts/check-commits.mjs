@@ -152,12 +152,15 @@ export const CONTRACTS = {
     bridge: "docs/contracts/BRIDGE.md",
 };
 // [路径, 所属契约（* = 任一契约冻结即受守）, 只看哪些改动行（可省）]。按行判的路径只看 -U0 的改动行。
-// 契约文档的文件名是暂定的，由先冻结契约的那张卡改成实际文件名；DSP 的 golden（tests/golden/dsp/）不是契约，
+// 现在受守的实际文件：Result 是 docs/contracts/RESULT.md 与 src/core/result/；桥是 docs/contracts/BRIDGE.md、
+// web/shared/bridge-api.js 与 src/plugin/BridgeApi.h；阈值是 docs/contracts/THRESHOLDS.md 与 thresholds.schema.json
+// （thresholds.json 改的是数值，不算改契约）。docs/contracts/ 下的其他文件在任一契约冻结时受守。
+// DSP 的 golden（tests/golden/dsp/）不是契约，
 // 算法改动要改它，不在这里受守：阈值与 golden 的改动靠 PR 里附前后对比。
 export const GUARDED = [
-    [/^docs\/contracts\/RESULT\.md$|^tests\/golden\/result\//, "result"],
+    [/^docs\/contracts\/RESULT\.md$|^src\/core\/result\//, "result"],
     [/^docs\/contracts\/THRESHOLDS\.md$|^thresholds\.schema\.json$/, "thresholds"],
-    [/^docs\/contracts\/BRIDGE\.md$/, "bridge"],
+    [/^docs\/contracts\/BRIDGE\.md$|^web\/shared\/bridge-api\.js$|^src\/plugin\/BridgeApi\.h$/, "bridge"],
     [/^docs\/contracts\//, "*"],
 ];
 const lineFiltered = (p) => !!p && GUARDED.some(([re, , lines]) => lines && re.test(p));
@@ -377,7 +380,7 @@ export function selfTest() {
     const frozenResult = (doc) => (doc === CONTRACTS.result ? "frozen" : "draft");
     const g = (label, bad, changes, extra = {}) =>
         t(label, bad, contractGuard({ changes, statusOf: frozenResult, body: "", ...extra }));
-    const layout = { status: "M", path: "tests/golden/result/basic.json" };
+    const layout = { status: "M", path: "src/core/result/Results.h" };
     g("契约：改冻结面且无说明", true, [layout]);
     g("契约：contract-neutral 理由", false, [layout], { body: "contract-neutral: 只改注释" });
     g("契约：contract-neutral 占位符不算", true, [layout], { body: "contract-neutral: <理由>" });
@@ -411,11 +414,14 @@ export function selfTest() {
         headStatusOf: () => "invalid",
         body: "contract-neutral: 冻结改回草案",
     });
-    g("契约：把冻结文件改名移走", true, [
-        { status: "R090", oldPath: "tests/golden/result/basic.json", path: "x.json" },
-    ]);
+    g("契约：把冻结文件改名移走", true, [{ status: "R090", oldPath: "src/core/result/Results.h", path: "x.h" }]);
     g("契约：DSP golden 不受守", false, [{ status: "M", path: "tests/golden/dsp/level.json" }]);
     g("契约：契约目录下的其他文档在任一契约冻结时受守", true, [{ status: "M", path: "docs/contracts/NOTES.md" }]);
+    const bridgeFrozen = { statusOf: (d) => (d === CONTRACTS.bridge ? "frozen" : "draft") };
+    g("契约：桥 API 的 JS 文件受守", true, [{ status: "M", path: "web/shared/bridge-api.js" }], bridgeFrozen);
+    g("契约：桥 API 的 C++ 头受守", true, [{ status: "M", path: "src/plugin/BridgeApi.h" }], bridgeFrozen);
+    g("契约：web/shared 下的其他文件不受守", false, [{ status: "M", path: "web/shared/format.js" }], bridgeFrozen);
+    g("契约：Result 实现文件受守", true, [{ status: "M", path: "src/core/result/Results.h" }]);
     for (const s of [
         "Status: frozen",
         'status: "frozen"',
