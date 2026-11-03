@@ -36,3 +36,14 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 
 # --- section:third-party ---
 # 第三方的字体、代码与数据：每一项写明来源、版权与许可，precedence = "override"。入库时在此加块。
+
+[[annotations]]
+path = "third_party/pocketfft/**"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2010-2024 Max-Planck-Society",
+  "2019-2020 Peter Bell",
+  "2003, 2007-2014 Matteo Frigo and Massachusetts Institute of Technology",
+  "2024 Tan Ping Liang, Cris Luengo",
+]
+SPDX-License-Identifier = "BSD-3-Clause"

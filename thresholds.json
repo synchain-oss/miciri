@@ -30,6 +30,13 @@
       "source": "合成验证",
       "date": "2026-11-02",
       "note": "max frame minus P10 of non-zero frames"
+    },
+    "frame_percentile": {
+      "value": 10,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "of the non-zero frame power; the same P10 the rise is measured against"
     }
   },
   "channel_check": {
@@ -77,6 +84,28 @@
       "source": "规格起始值",
       "date": null,
       "note": "no pause available"
+    },
+    "steady_hi_percentile": {
+      "value": 90,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "picks the louder channel as the reference and tests for a steady signal"
+    },
+    "steady_lo_percentile": { "value": 10, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "steady_max_spread_db": {
+      "value": 10.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "hi percentile minus lo percentile below this: no pauses, the signal is continuous"
+    },
+    "floor_valid_below_active_db": {
+      "value": 20.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "a floor reading counts only when it sits this far under the active level"
     }
   },
   "gain": {
@@ -124,7 +153,43 @@
     "tp_loud_above_dbfs": { "value": -6.0, "state": "pending", "source": "规格起始值", "date": null },
     "tp_too_loud_above_dbfs": { "value": -3.0, "state": "pending", "source": "规格起始值", "date": null },
     "target_peak_dbfs": { "value": -9.0, "state": "pending", "source": "规格起始值", "date": null },
-    "clip_advice_drop_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null }
+    "clip_advice_drop_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
+    "flat_cap_sigma_k": {
+      "value": 4.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "the plateau cap window is max(flat_top_cap_frac * level, k * sigma)"
+    },
+    "loudness_block_ms": {
+      "value": 400,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "gated loudness block length"
+    },
+    "loudness_hop_ms": {
+      "value": 100,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "gated loudness hop; the block must be a whole number of hops"
+    },
+    "loudness_abs_gate_lufs": { "value": -70.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "loudness_rel_gate_db": {
+      "value": -10.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "relative to the mean of the blocks above the absolute gate"
+    },
+    "clip_evidence_max_marks": {
+      "value": 64,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "upper bound on digital clip marks kept as evidence"
+    }
   },
   "noise": {
     "frame_ms": { "value": 100, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
@@ -136,7 +201,37 @@
       "note": "of A-weighted frame power"
     },
     "snr_bad_below_db": { "value": 35.0, "state": "pending", "source": "规格起始值", "date": null },
-    "snr_good_above_db": { "value": 45.0, "state": "pending", "source": "规格起始值", "date": null }
+    "snr_good_above_db": { "value": 45.0, "state": "pending", "source": "规格起始值", "date": null },
+    "analysis_rate_max_hz": {
+      "value": 48000,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "higher rates are decimated by an integer factor first"
+    },
+    "speech_frame_ms": { "value": 50, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "speech_top_percentile": { "value": 95, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "speech_within_top_db": {
+      "value": 15.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "active speech frames lie within this many dB of the top percentile"
+    },
+    "speech_over_p10_db": {
+      "value": 10.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "and at least this far above the frame P10"
+    },
+    "min_frames": {
+      "value": 10,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "fewer frames than this and the percentile is not trusted"
+    }
   },
   "hum": {
     "welch_window_s": { "value": 2.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
@@ -168,6 +263,48 @@
       "source": "规格起始值",
       "date": null,
       "note": "only marks the result as slight; it never suppresses a detection"
+    },
+    "f0_search_window_frac": {
+      "value": 0.3,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "f0 estimate: window around each nominal harmonic is max(harmonic_window_min_hz, frac * k)"
+    },
+    "harmonic_energy_halfwidth_hz": {
+      "value": 1.5,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "energy share counts the excess over the local median within this distance of a harmonic"
+    },
+    "whistle_exclude_halfwidth_hz": {
+      "value": 2.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "bins this close to a detected harmonic are not whistle candidates"
+    },
+    "whistle_group_gap_hz": {
+      "value": 3.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "candidate bins further apart than this are separate whistle peaks"
+    },
+    "level_floor_min_hz": {
+      "value": 20.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-02",
+      "note": "lower edge of the band the energy share is measured against"
+    },
+    "min_segments": {
+      "value": 3,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "fewer Welch segments than this and the stability test is not trusted"
     }
   },
   "device_processing": {
@@ -185,6 +322,13 @@
       "source": "合成验证",
       "date": "2026-11-02",
       "note": "show nothing when the noise floor is below this"
+    },
+    "evidence_max_marks": {
+      "value": 64,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "upper bound on zero-run marks kept as evidence; the counts stay exact"
     }
   },
   "reverb": {

@@ -1,0 +1,25 @@
+{
+  "sources": {
+    "scvb": {
+      "repo": "synchain-oss/scvb",
+      "ref": "dev",
+      "sha": "909195713ad6898daca5f86dbb422cf5b86e13be"
+    }
+  },
+  "files": [
+    {
+      "path": "src/core/level/KWeighting.h",
+      "source": "scvb",
+      "from": "src/core/dsp/KWeighting.h",
+      "fromBlob": "92885aa3a11b9a6345892edb5ed8b4d05c4ff230",
+      "mode": "forked"
+    },
+    {
+      "path": "src/core/level/KWeighting.cpp",
+      "source": "scvb",
+      "from": "src/core/dsp/KWeighting.cpp",
+      "fromBlob": "e1df2c198da89f5c891320097e2b062ed19c78bf",
+      "mode": "forked"
+    }
+  ]
+}
