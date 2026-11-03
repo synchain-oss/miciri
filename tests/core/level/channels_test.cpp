@@ -7,6 +7,7 @@
 #include <limits>
 
 #include "channels/Channels.h"
+#include "config/Thresholds.h"
 #include "core/level/Synth.h"
 
 using namespace miciri;
@@ -278,5 +279,22 @@ TEST_CASE("channels: without a pause a level difference below the one-sided thre
         CHECK(r.verdict.statusR == core::ChannelStatus::FloorOnly);
         CHECK(r.verdict.analysedChannel == core::AnalysedChannel::Left);
         CHECK(core::analyseChannels(weak, loud, kFs).verdict.analysedChannel == core::AnalysedChannel::Right);
+    }
+}
+
+TEST_CASE("channels: the fallback verdict flips at one_sided_delta_db, not somewhere else")
+{
+    std::vector<double> tone = sine(kFs, 220.0, 0.1, kSeconds);
+    mix(tone, sine(kFs, 333.0, 0.07, kSeconds, 1.0));
+    const double boundary = thr::channel_check::one_sided_delta_db;
+    // 浮点上做不到“恰好等于”，取两侧各 0.5 dB：阈值整体挪动 1 dB 或改成别的值都会让其中一边变红
+    for (double offsetDb : {-0.5, 0.5})
+    {
+        INFO("offset " << offsetDb << " dB");
+        const std::vector<double> loud = withFloor(tone, -85.0, 54);
+        const std::vector<double> weak = withFloor(scaled(tone, fromDb(-(boundary + offsetDb))), -85.0, 55);
+        const core::ChannelsResult r = core::analyseChannels(loud, weak, kFs);
+        CHECK(r.measures.usedFallback);
+        CHECK(r.verdict.kind == (offsetDb > 0.0 ? core::ChannelCase::OneDominant : core::ChannelCase::TrueStereo));
     }
 }
