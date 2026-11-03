@@ -1,0 +1,489 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 设计稿的基础规则与玻璃配方：排在共享 base.css 之后，逐条覆盖它。改视觉先改设计稿再回到这里。 */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+html,
+body {
+    margin: 0;
+    height: 100%;
+}
+body {
+    display: flex;
+    overflow: auto;
+    background: var(--page-backdrop);
+    color: var(--txt-1);
+    font-family: var(--ff-sans);
+    font-size: var(--fs-120);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+    font-feature-settings:
+        "kern" 1,
+        "liga" 1,
+        "calt" 1;
+}
+button,
+select,
+input {
+    font: inherit;
+    color: inherit;
+}
+button {
+    cursor: pointer;
+}
+::selection {
+    background: var(--selection-bg);
+}
+:where(button, [tabindex], select, a, input):focus-visible {
+    outline: 2px solid var(--focus-on-glass);
+    outline-offset: 2px;
+}
+.dk :where(button, [tabindex], select, a, input):focus-visible {
+    outline-color: var(--focus-on-dark);
+}
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+[hidden] {
+    display: none !important;
+}
+.sc-num,
+.num {
+    font-family: var(--ff-mono);
+    font-variant-numeric: tabular-nums lining-nums;
+}
+.sc-eyebrow {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-95);
+    letter-spacing: var(--eyebrow-ls);
+    text-transform: uppercase;
+    color: var(--txt-ui);
+    white-space: nowrap;
+}
+.sc-eyebrow--units {
+    text-transform: none;
+}
+.dk .sc-eyebrow {
+    color: var(--txt-dark-mono);
+}
+@keyframes livePulse {
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.45;
+        transform: scale(0.82);
+    }
+}
+@keyframes vbUp {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* 五色语义：data-tone 只取这五个值。--tn 是 r,g,b 三元组，--tn-ink 是文字色，--tn-icon 是图标线色 */
+[data-tone] {
+    --tn: var(--sem-gray);
+    --tn-ink: var(--ink-gray);
+    --tn-icon: var(--sem-gray-ink);
+}
+[data-tone="green"] {
+    --tn: var(--sem-green);
+    --tn-ink: var(--ink-green);
+    --tn-icon: var(--icon-green);
+}
+[data-tone="amber"] {
+    --tn: var(--sem-amber);
+    --tn-ink: var(--ink-amber);
+    --tn-icon: var(--sem-amber-icon);
+}
+[data-tone="red"] {
+    --tn: var(--sem-red);
+    --tn-ink: var(--ink-red);
+    --tn-icon: var(--sem-red-icon);
+}
+[data-tone="gray"] {
+    --tn: var(--sem-gray);
+    --tn-ink: var(--ink-gray);
+    --tn-icon: var(--sem-gray-ink);
+}
+[data-tone="violet"] {
+    --tn: var(--sem-violet);
+    --tn-ink: var(--ink-violet);
+    --tn-icon: var(--sem-violet-icon);
+}
+/* 深色玻璃上的语义文字 */
+.dk [data-tone="green"],
+.dk[data-tone="green"] {
+    --tn-ink: rgb(var(--sem-green));
+    --tn-icon: rgb(var(--sem-green));
+}
+.dk [data-tone="amber"],
+.dk[data-tone="amber"] {
+    --tn-ink: var(--sem-amber-ink-dark);
+    --tn-icon: rgb(var(--sem-amber));
+}
+.dk [data-tone="red"],
+.dk[data-tone="red"] {
+    --tn-ink: var(--sem-red-ink-dark);
+    --tn-icon: var(--sem-red-ink-dark);
+}
+.dk [data-tone="gray"],
+.dk[data-tone="gray"] {
+    --tn-ink: var(--txt-dark-3);
+    --tn-icon: var(--txt-dark-3);
+}
+.dk [data-tone="violet"],
+.dk[data-tone="violet"] {
+    --tn-ink: var(--acc-cta);
+    --tn-icon: var(--acc-cta);
+}
+
+/* 光标跟随发光：document 级单一监听把 --mx/--my 写到被悬停的 [data-glow] 上 */
+[data-glow] {
+    position: relative;
+}
+[data-glow]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background: var(--glow);
+    opacity: var(--glow-o, 0);
+    transition: opacity var(--dur-1) ease;
+    z-index: 6;
+}
+
+/* =====================================================================================
+   D. 玻璃配方（与家族 base 配方一致）
+   ===================================================================================== */
+.sc-shell {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    border-radius: var(--r-shell);
+    background: var(--page-gradient);
+    border: 1px solid var(--shell-border);
+    box-shadow: var(--shell-shadow);
+}
+.sc-shell::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 22%;
+    right: 22%;
+    height: 1px;
+    background: var(--hl-angel);
+    z-index: 5;
+    pointer-events: none;
+}
+.sc-halo {
+    position: absolute;
+    width: var(--halo-size);
+    height: var(--halo-size);
+    border-radius: 50%;
+    filter: blur(var(--halo-blur));
+    pointer-events: none;
+    z-index: -1;
+}
+.sc-halo--1 {
+    background: var(--halo-1);
+    left: -90px;
+    top: -80px;
+}
+.sc-halo--2 {
+    background: var(--halo-2);
+    right: -70px;
+    bottom: -110px;
+}
+.sc-halo--3 {
+    background: var(--halo-3);
+    left: 480px;
+    top: 250px;
+}
+.sc-glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--glass-inset);
+}
+.sc-card {
+    padding: var(--card-pad);
+    border-radius: var(--r-lg);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-inset);
+}
+#shell[data-keep-ftr="1"] .ftr {
+    z-index: 65;
+}
+.sc-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--dark-scrim);
+    -webkit-backdrop-filter: var(--dark-scrim-blur);
+    backdrop-filter: var(--dark-scrim-blur);
+}
+.sc-modal {
+    padding: var(--sp-24);
+    border-radius: var(--r-shell);
+    background-color: var(--dark-solid);
+    background-image: var(--dark-modal);
+    border: 1px solid rgba(var(--wh), 0.16);
+    box-shadow: var(--dark-modal-shadow);
+    color: var(--txt-dark-2);
+}
+.sc-modal__title {
+    margin: 0 0 var(--sp-8);
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-170);
+    color: var(--txt-dark-1);
+}
+.sc-modal__body {
+    font-size: var(--fs-125);
+    line-height: 1.6;
+    color: var(--txt-dark-2);
+    text-wrap: pretty;
+}
+.sc-toast {
+    position: absolute;
+    z-index: 150;
+    max-width: 340px;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-10);
+    padding: var(--sp-11) var(--sp-13);
+    border-radius: var(--r-toast);
+    background: var(--dark-toast);
+    border: 1px solid rgba(var(--wh), 0.16);
+    box-shadow: var(--dark-toast-shadow);
+    font-size: var(--fs-115);
+    line-height: 1.5;
+    color: var(--txt-dark-2);
+    text-wrap: pretty;
+    animation: vbUp var(--dur-2) var(--ease);
+}
+.sc-toast .sc-dot {
+    margin-top: var(--sp-5);
+}
+
+/* 按钮：实心只有淡紫 CTA；其余是玻璃或深色玻璃上的次按钮（深色玻璃只出现在模态、详情面板、toast、引导说明框、展开菜单） */
+.sc-btn {
+    position: relative;
+    overflow: hidden;
+    padding: var(--sp-6) var(--sp-13);
+    border-radius: var(--r-pill);
+    white-space: nowrap;
+    font-family: var(--ff-sans);
+    font-size: var(--fs-115);
+    color: var(--txt-ui);
+    background: rgba(var(--wh), 0.3);
+    border: 1px solid rgba(var(--wh), 0.5);
+    transition:
+        scale var(--dur-1) var(--ease),
+        opacity var(--dur-1) var(--ease);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-6);
+}
+.sc-btn:hover {
+    scale: 1.02;
+}
+.sc-btn[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    scale: 1;
+}
+.sc-btn--cta {
+    background: var(--acc-cta);
+    border-color: transparent;
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    color: var(--acc-ink);
+    box-shadow: 0 4px 12px var(--acc-cta-shadow);
+}
+.sc-btn--lg {
+    padding: var(--sp-9) var(--sp-20);
+    font-size: var(--fs-130);
+    box-shadow: 0 6px 18px var(--acc-cta-shadow-lg);
+}
+.sc-btn--dark {
+    background: rgba(var(--wh), 0.08);
+    border-color: rgba(var(--wh), 0.18);
+    color: var(--txt-dark-btn);
+}
+.sc-btn--ghost {
+    background: transparent;
+    border-color: rgba(var(--wh), 0.42);
+}
+.sc-btn--text {
+    background: transparent;
+    border-color: transparent;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.sc-btn svg {
+    flex: none;
+}
+
+/* 状态胶囊：半透明色染 + 同色细边框 + 前导圆点，垫 --slate-bg 保证文字对比度 */
+.sc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-6);
+    padding: var(--sp-4) var(--sp-10);
+    border-radius: var(--r-pill);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    letter-spacing: var(--mono-ls-pill);
+    white-space: nowrap;
+    background: linear-gradient(rgba(var(--tn), 0.16), rgba(var(--tn), 0.16)), var(--slate-bg);
+    border: 1px solid rgba(var(--tn), 0.5);
+    color: var(--tn-ink);
+}
+.sc-pill--lg {
+    padding: var(--sp-5) var(--sp-12);
+    font-size: var(--fs-105);
+}
+.sc-dot {
+    width: var(--sp-6);
+    height: var(--sp-6);
+    border-radius: 50%;
+    flex: none;
+    background: rgb(var(--tn));
+}
+.sc-dot[data-pulse="1"] {
+    animation: livePulse var(--pulse-dur) ease-in-out infinite;
+}
+.sc-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-5);
+    flex: none;
+    padding: var(--sp-3) var(--sp-8);
+    border-radius: var(--r-xs);
+    background: rgba(var(--wh), 0.2);
+    border: 1px solid var(--card-border);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    color: var(--txt-ui);
+    font-variant-numeric: tabular-nums;
+}
+.sc-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-10);
+    flex: none;
+    padding: var(--sp-10) var(--sp-13);
+    border-radius: var(--r-banner);
+    font-size: var(--fs-115);
+    line-height: 1.45;
+    text-wrap: pretty;
+    background: linear-gradient(rgba(var(--tn), 0.18), rgba(var(--tn), 0.18)), var(--slate-bg);
+    border: 1px solid rgba(var(--tn), 0.5);
+    color: var(--tn-ink);
+}
+.sc-banner > svg {
+    flex: none;
+    stroke: var(--tn-icon);
+}
+.sc-banner__text {
+    flex: 1;
+    min-width: 0;
+}
+.sc-select {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    letter-spacing: var(--mono-ls-ui);
+    line-height: 1.2;
+    color: var(--txt-ui);
+    background-color: rgba(var(--wh), 0.34);
+    border: 1px solid rgba(var(--wh), 0.5);
+    border-radius: var(--r-micro);
+    padding: var(--sp-5) var(--sp-20) var(--sp-5) var(--sp-8);
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: var(--chevron);
+    background-repeat: no-repeat;
+    background-position: right 7px center;
+    text-align: left;
+}
+.sc-select:hover {
+    background-color: rgba(var(--wh), 0.5);
+}
+.sc-seg {
+    display: inline-flex;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+    border-radius: var(--r-pill);
+    background: rgba(var(--wh), 0.14);
+    border: 1px solid rgba(var(--wh), 0.28);
+}
+.sc-seg__item {
+    padding: var(--sp-4) var(--sp-12);
+    border-radius: var(--r-pill);
+    white-space: nowrap;
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-115);
+    color: var(--txt-ui);
+    background: transparent;
+    border: 0;
+    transition:
+        background var(--dur-1) var(--ease),
+        color var(--dur-1) var(--ease);
+}
+.sc-seg__item[aria-pressed="true"] {
+    background: var(--seg-on-bg);
+    color: var(--acc-ink);
+}
+.sc-spinner {
+    width: var(--sz, 11px);
+    height: var(--sz, 11px);
+    flex: none;
+    border-radius: 50%;
+    border: 1.6px solid currentColor;
+    border-top-color: transparent;
+    animation: spin var(--dur-spin) linear infinite;
+}

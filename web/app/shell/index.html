@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Miciri</title>
+        <style>
+            /* 开窗占位：样式表到位之前先铺渐变，避免白闪 */
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                background: linear-gradient(157deg, #b5acc9 0%, #fde8ed 100%);
+            }
+        </style>
+        <link rel="stylesheet" href="../../shared/tokens.css" />
+        <link rel="stylesheet" href="../../shared/base.css" />
+        <link rel="stylesheet" href="./shell-tokens.css" />
+        <link rel="stylesheet" href="./shell-glass.css" />
+        <link rel="stylesheet" href="./shell.css" />
+    </head>
+    <body>
+        <div id="shell" class="sc-shell"></div>
+        <script type="module" src="./shell-main.js"></script>
+    </body>
+</html>
