@@ -113,7 +113,10 @@ export function checkAxePins(read) {
         const where = `${AXE_DIR}/package-lock.json`;
         if (lock.lockfileVersion !== 3) errors.push(`${where} 必须是 lockfileVersion 3`);
         const packages = lock.packages || {};
-        if (pkg && JSON.stringify(packages[""]?.dependencies ?? {}) !== JSON.stringify(pkg.dependencies ?? {}))
+        // 按名字排序后再比：npm 写锁文件时依赖是排过序的，手写的 package.json 不一定
+        const sortedDeps = (d) =>
+            JSON.stringify(Object.entries(d ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+        if (pkg && sortedDeps(packages[""]?.dependencies) !== sortedDeps(pkg.dependencies))
             errors.push(`${where} 根的依赖与 package.json 不一致（改了 package.json 要重新生成锁文件）`);
         for (const [key, p] of Object.entries(packages)) {
             if (key === "") continue;
@@ -294,6 +297,11 @@ function axeCases(with_) {
                     pkgs: { "node_modules/y": axePackage({ resolved: "git+https://github.com/o/y.git#abc" }) },
                 }),
             }),
+        ],
+        [
+            "package.json 与锁文件根的依赖键顺序不同但内容一致",
+            false,
+            with_({ [AXE_PKG]: axePkgJson({ playwright: "1.64.1", "axe-core": "4.14.0" }) }),
         ],
         [
             "锁文件根的依赖与 package.json 不一致",
