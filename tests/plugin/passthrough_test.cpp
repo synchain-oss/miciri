@@ -141,15 +141,30 @@ TEST_CASE("processBlock leaves every bit of the buffer unchanged", "[plugin]")
     }
 }
 
-TEST_CASE("an empty block is harmless and still counts as a callback", "[plugin]")
+TEST_CASE("an empty block changes nothing: no heartbeat, no meter movement", "[plugin]")
 {
     MiciriProcessor p;
     configure(p, 2, 512);
     juce::MidiBuffer midi;
-    juce::AudioBuffer<float> buffer(2, 0);
-    const auto before = p.heartbeat();
-    p.processBlock(buffer, midi);
-    CHECK(p.heartbeat() == before + 1);
+
+    // 先喂一块有内容的，让电平和心跳有值；之后的空块不能动它们。
+    juce::AudioBuffer<float> loud(2, 512);
+    for (int ch = 0; ch < 2; ++ch)
+        for (int i = 0; i < 512; ++i)
+            loud.getWritePointer(ch)[i] = 0.5f;
+    p.processBlock(loud, midi);
+    const auto beatBefore = p.heartbeat();
+
+    juce::AudioBuffer<float> empty(2, 0);
+    p.processBlock(empty, midi);
+    p.processBlockBypassed(empty, midi);
+    juce::AudioBuffer<double> emptyDouble(2, 0);
+    p.processBlock(emptyDouble, midi);
+    CHECK(p.heartbeat() == beatBefore);
+
+    const auto m = p.readMeters();
+    CHECK(m.levelDbfs[0] == Catch::Approx(-6.0206).margin(0.001)); // 0.5 的均方根仍是最近一块的值
+    CHECK(m.peakDbfs[0] == Catch::Approx(-6.0206).margin(0.001));
 }
 
 TEST_CASE("the heartbeat advances once per callback, bypassed or not", "[plugin]")

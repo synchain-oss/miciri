@@ -72,6 +72,10 @@ public:
     bool setMicType(int index);
 
 private:
+    static_assert(std::atomic<std::uint64_t>::is_always_lock_free, "心跳计数必须无锁");
+    static_assert(std::atomic<double>::is_always_lock_free, "采样率必须无锁");
+    static_assert(std::atomic<int>::is_always_lock_free, "缓冲大小、声道数与话筒类型必须无锁");
+
     template<class Sample>
     void observe(juce::AudioBuffer<Sample>& buffer) noexcept;
 

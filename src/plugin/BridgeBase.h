@@ -76,7 +76,8 @@ struct ScaleOutcome
     bool ok() const noexcept { return reason == nullptr; }
 };
 
-// 缩放的 10 秒确认回退：apply 只预览，commit 才算数。窗口被锁定缩放时一律拒绝，并按默认档位显示。
+// 缩放的确认回退：apply 只预览，commit 才算数。10 秒的计时与回退由页面负责（超时没确认就把档位设回原值）；
+// 这里只记录预览与提交，未提交的预览不落盘，重开窗口回到已保存的档位。窗口被锁定缩放时一律拒绝，并按默认档位显示。
 class UiScaleModel
 {
 public:

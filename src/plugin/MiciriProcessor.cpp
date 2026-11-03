@@ -35,12 +35,17 @@ bool MiciriProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
 }
 
 // 音频线程：不加锁、不分配、不读墙钟、不抛异常；只看样本，不写样本。
+// 0 样本的调用立即返回，不推进心跳也不动电平：没有样本就不是一次有内容的回调。
+// ScopedNoDenormals 只改本线程的浮点状态，让电平累计不被非规格化数拖慢；它不碰缓冲，直通仍然逐位相同。
 template<class Sample>
 void MiciriProcessor::observe(juce::AudioBuffer<Sample>& buffer) noexcept
 {
+    const int samples = buffer.getNumSamples();
+    if (samples <= 0)
+        return;
+    const juce::ScopedNoDenormals noDenormals;
     heartbeat_.fetch_add(1, std::memory_order_relaxed);
     const int channels = std::min(buffer.getNumChannels(), kMeterChannels);
-    const int samples = buffer.getNumSamples();
     for (int ch = 0; ch < channels; ++ch)
         meters_[ch].accumulate(buffer.getReadPointer(ch), samples, thr::gain::clip_digital_threshold);
 }

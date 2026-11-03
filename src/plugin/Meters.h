@@ -16,6 +16,10 @@ namespace miciri::plugin
 inline constexpr double kMeterFloorDbfs = -120.0;
 inline constexpr double kMeterCeilDbfs = 24.0;
 
+// 音频线程与消息线程共享的原子量必须无锁：个别平台上退化成带锁实现会让音频线程被消息线程阻塞。
+static_assert(std::atomic<double>::is_always_lock_free, "电平的原子 double 必须无锁");
+static_assert(std::atomic<bool>::is_always_lock_free, "削波锁存的原子 bool 必须无锁");
+
 struct ChannelMeter
 {
     std::atomic<double> peak{0.0}; // 自上次读取以来的最大绝对值（线性）
