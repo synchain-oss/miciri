@@ -1,0 +1,116 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": "src/plugin/BridgeBase.h",
+      "source": "rinne",
+      "from": "src/plugin-common/BridgeBase.h",
+      "fromBlob": "9f8b0f1ab1ab6aa3edc8c7ffcbbdc0540f9f61a1",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/BridgeBase.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/BridgeBase.cpp",
+      "fromBlob": "88d97f24dfc4254fa452074c474f367a359ebdd4",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/FallbackPanel.h",
+      "source": "rinne",
+      "from": "src/plugin-common/FallbackPanel.h",
+      "fromBlob": "32741803189fc045904afc57e10a812b3ad9b6d7",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/FallbackPanel.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/FallbackPanel.cpp",
+      "fromBlob": "455b33382a4abbd80b741118de05316cd8a18550",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/PlatformWebView.h",
+      "source": "rinne",
+      "from": "src/plugin-common/PlatformWebView.h",
+      "fromBlob": "7f1763e23f3aa4f4e6bf351de2ed60797b89d8ae",
+      "mode": "adapted"
+    },
+    {
+      "path": "src/plugin/PlatformWebView.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/PlatformWebView.cpp",
+      "fromBlob": "9c64ce7faaa4946f00da2ee6371729e2aea8d994",
+      "mode": "adapted"
+    },
+    {
+      "path": "src/plugin/PlatformWebViewRuntime.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/PlatformWebViewRuntime.cpp",
+      "fromBlob": "04c3339fcb5c484a002d2af22d17291623168809",
+      "mode": "adapted"
+    },
+    {
+      "path": "src/plugin/ResourceProvider.h",
+      "source": "rinne",
+      "from": "src/plugin-common/ResourceProvider.h",
+      "fromBlob": "e3f8b4acec2b92058997d13068707065fc86b72b",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/ResourceProvider.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/ResourceProvider.cpp",
+      "fromBlob": "1e18539bbf370508b4fb655c1c52ea41a920d57d",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/UiDefaultsStore.h",
+      "source": "rinne",
+      "from": "src/plugin-common/UiDefaultsStore.h",
+      "fromBlob": "393fa78ed0712eaa2c25412faf823cbd527cb640",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/UiDefaultsStore.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/UiDefaultsStore.cpp",
+      "fromBlob": "2a338285a7d9e18dbc0b9c8db34a7ba73d5a6dd4",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/WebViewHost.h",
+      "source": "rinne",
+      "from": "src/plugin-common/WebViewHost.h",
+      "fromBlob": "94ec623bfdbff30eb796e82a29c9bdd99a5b00f7",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/WebViewHost.cpp",
+      "source": "rinne",
+      "from": "src/plugin-common/WebViewHost.cpp",
+      "fromBlob": "a87c86dacf57a30dd817546b830ca8e258e846d7",
+      "mode": "forked"
+    },
+    {
+      "path": "src/plugin/WebViewRevealGate.h",
+      "source": "rinne",
+      "from": "src/plugin-common/WebViewRevealGate.h",
+      "fromBlob": "c37e72d7202c239ca6eb774376289966d48549aa",
+      "mode": "adapted"
+    },
+    {
+      "path": "src/plugin/MiciriWebView2.cmake",
+      "source": "rinne",
+      "from": "cmake/RinneDeps.cmake",
+      "fromBlob": "c9110b125eabd8f9df0e31e150b6328ce7b77246",
+      "mode": "forked"
+    }
+  ]
+}
