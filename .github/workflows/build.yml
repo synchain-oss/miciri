@@ -12,8 +12,9 @@
 # 四个 job 的名字就是 dev / prod ruleset 里 required check 的 context（见 .github/required-checks.json），不要改名，也不要加 job 级 if。
 # 钉版：JUCE 按 .juce-version 的 tag 浅克隆，build.ps1 再断言它就是 .juce-commit；pluginval 的版本取 .pluginval-version，
 # mac 的 sha256 在 scripts/ci/mac/pluginval-macos.sha256；Windows 的 ninja 与 pluginval 在下面各自核 sha256（ninja 没有钉版文件）。
-# build-win：构建（第一方零 warning）、ctest、DSP golden、分配计数器、pluginval strictness 5 无 GUI。
-# build-mac（macos-15）：同上，再加 AU 的 auval（auval -v 通过，auval -a 里恰好出现一次）与 pluginval 验 VST3 和已装的 AU。
+# build-win：构建（第一方零 warning）、ctest、DSP golden、分配计数器、pluginval strictness 5 无 GUI；再打 Inno Setup 安装包，静默安装到临时目录核内容、静默卸载。
+# build-mac（macos-15）：同上，再加 AU 的 auval（auval -v 通过，auval -a 里恰好出现一次）与 pluginval 验 VST3 和已装的 AU；再打 pkg 并展开核内容。
+# 两个 job 都上传安装包（Miciri-installer-*），release.yml 在 build 通过后取回它们建草稿 Release；打包脚本是 scripts/package.ps1。
 # core-sanitizers（ubuntu、clang-18）：asan_ubsan 与 tsan 两个配置各自配置、构建、跑全部 ctest；不需要 JUCE。
 # web-smoke：先按 web-preview/tests/axe/ 的锁文件装钉版 playwright、axe-core 与 chromium，再跑 web-preview/tests/run-all.mjs（页面冒烟与 axe 无障碍检查在里面；axe 缺包即失败），run-all 不存在时打印注记并通过。
 name: Build & Validate
@@ -141,6 +142,38 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
+      # 安装包：Inno Setup 的版本与官方安装程序的 sha256 都来自 packaging/win/innosetup.sha256（pins 检查核对它），
+      # 装进 runner 的临时目录，不动系统目录。scripts/package.ps1 -Verify 把产出的安装包静默装到另一个临时目录，
+      # 逐文件核哈希，再静默卸载并确认清干净。
+      - name: Install pinned Inno Setup
+        run: |
+          $pin = (Get-Content packaging/win/innosetup.sha256 -Raw).Trim().Split(' ')
+          $dir = Join-Path $env:RUNNER_TEMP 'innosetup'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $exe = Join-Path $dir "innosetup-$($pin[0]).exe"
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/is-$($pin[0].Replace('.', '_'))/innosetup-$($pin[0]).exe" -OutFile $exe
+          $got = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($got -ne $pin[1]) { Write-Error "Inno Setup: sha256 is $got, expected $($pin[1])"; exit 1 }
+          $p = Start-Process -FilePath $exe -Wait -PassThru -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/CURRENTUSER', "/DIR=`"$dir\app`"")
+          if ($p.ExitCode -ne 0) { Write-Error "Inno Setup installer exited with $($p.ExitCode)"; exit 1 }
+          $iscc = Join-Path $dir 'app\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc)) { Write-Error 'no ISCC.exe after installing Inno Setup'; exit 1 }
+          "MICIRI_ISCC=$iscc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      # tag 触发的发布构建（github.ref_type == tag）按发布的严格度打包：许可全文与第三方声明缺一就红
+      - name: Package installer
+        env:
+          MICIRI_PACKAGE_RELEASE: ${{ github.ref_type == 'tag' && '1' || '0' }}
+        run: pwsh -NoProfile -File scripts/package.ps1 -Verify -OutDir (Join-Path $env:RUNNER_TEMP 'installer')
+
+      - name: Upload installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Miciri-installer-win64-${{ github.sha }}
+          path: ${{ runner.temp }}/installer
+          if-no-files-found: error
+          overwrite: true
+
   build-mac:
     name: build-mac
     runs-on: macos-15
@@ -225,6 +258,20 @@ jobs:
         with:
           name: Miciri-macos-arm64-${{ github.sha }}
           path: ${{ runner.temp }}/dist
+          if-no-files-found: error
+          overwrite: true
+
+      # 安装包：pkgbuild + productbuild；-Verify 展开 pkg，载荷与暂存逐文件核哈希，再核包标识、版本、安装位置与不可重定位
+      - name: Package installer
+        env:
+          MICIRI_PACKAGE_RELEASE: ${{ github.ref_type == 'tag' && '1' || '0' }}
+        run: pwsh -NoProfile -File scripts/package.ps1 -Verify -OutDir "$RUNNER_TEMP/installer"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Miciri-installer-macos-arm64-${{ github.sha }}
+          path: ${{ runner.temp }}/installer
           if-no-files-found: error
           overwrite: true
 

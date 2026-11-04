@@ -1,0 +1,40 @@
+Miciri @VERSION@ (Windows x64, VST3)
+
+WHAT WAS INSTALLED
+  Plug-in      Miciri.vst3 in the standard VST3 folder
+               (normally C:\Program Files\Common Files\VST3).
+  This folder  License texts, third-party notices, this file and the uninstaller.
+  Nothing else: no background service, no automatic update, no telemetry.
+  Audio is analysed in memory only. It is never written to disk or sent anywhere,
+  and the plug-in passes it through bit for bit.
+
+UNINSTALL
+  Windows Settings > Apps > Miciri, or run unins000.exe in this folder.
+
+WEBVIEW2 RUNTIME
+  The plug-in window is drawn with the Microsoft Edge WebView2 Runtime, which is
+  part of current Windows 10 and 11. The runtime is not bundled with this
+  installer. If it is missing, the plug-in shows a fallback panel instead of its
+  usual window; install the Evergreen runtime from Microsoft to get the full window.
+
+LICENSE
+  Miciri is free software under GPL-3.0-or-later (see LICENSE). This binary
+  combines Miciri with JUCE (used under AGPL-3.0), the VST3 SDK (GPL-3.0),
+  pocketfft (BSD-3-Clause) and the Microsoft WebView2 loader (BSD-3-Clause,
+  binary). The combined binary is distributed under GPLv3 and the JUCE parts under
+  AGPLv3. The texts are in LICENSES\, and THIRD-PARTY-NOTICES.md lists the
+  third-party components.
+
+CORRESPONDING SOURCE (GPLv3 section 6(d))
+  Miciri @VERSION@   https://github.com/synchain-oss/miciri
+                     commit @COMMIT@
+  JUCE @JUCE_VERSION@          https://github.com/juce-framework/JUCE
+                     commit @JUCE_COMMIT@
+  Microsoft.Web.WebView2 @WEBVIEW2_VERSION@ (NuGet package; the loader is linked
+                     statically as a binary, so its source is not part of the
+                     corresponding source)
+
+  To rebuild: check out the two commits above, then
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_PATH=<JUCE checkout> -DMICIRI_HOST_PROBE=OFF
+    cmake --build build
+  The VST3 bundle is then under build\src\plugin.

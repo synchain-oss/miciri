@@ -1,0 +1,34 @@
+Miciri @VERSION@ (macOS arm64, VST3 and Audio Unit)
+
+WHAT WAS INSTALLED
+  VST3         /Library/Audio/Plug-Ins/VST3/Miciri.vst3
+  Audio Unit   /Library/Audio/Plug-Ins/Components/Miciri.component
+  This folder  /Library/Application Support/Synchain/Miciri
+               License texts, third-party notices and this file.
+  Nothing else: no background service, no automatic update, no telemetry.
+  Audio is analysed in memory only. It is never written to disk or sent anywhere,
+  and the plug-in passes it through bit for bit.
+
+UNINSTALL
+  Delete the three items above. A macOS package has no uninstaller.
+
+SIGNING
+  The package and the plug-ins are not signed or notarized.
+
+LICENSE
+  Miciri is free software under GPL-3.0-or-later (see LICENSE). This binary
+  combines Miciri with JUCE (used under AGPL-3.0), the VST3 SDK (GPL-3.0),
+  the AudioUnitSDK (Apache-2.0) and pocketfft (BSD-3-Clause). The combined binary
+  is distributed under GPLv3 and the JUCE parts under AGPLv3. The texts are in
+  LICENSES/, and THIRD-PARTY-NOTICES.md lists the third-party components.
+
+CORRESPONDING SOURCE (GPLv3 section 6(d))
+  Miciri @VERSION@   https://github.com/synchain-oss/miciri
+                     commit @COMMIT@
+  JUCE @JUCE_VERSION@          https://github.com/juce-framework/JUCE
+                     commit @JUCE_COMMIT@
+
+  To rebuild: check out the two commits above, then
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_PATH=<JUCE checkout> -DMICIRI_HOST_PROBE=OFF
+    cmake --build build
+  The bundles are then under build/src/plugin.
