@@ -4,13 +4,13 @@
 // 做宿主测试的人读不到 WebView，也没有参数可读，所以由插件自己把计数写成一个 JSON 文件，外部脚本去读。
 //
 // 本文件与 HostProbe.cpp 不依赖 JUCE 与宿主：计数、全 0 判断、JSON 序列化与原子写文件都能单独编进单元测试，
-// 这样默认（OFF）的构建也能防止它们烂掉。接进插件的那几行在 MiciriProcessor 与 MiciriEditor 里，用 MICIRI_HOST_PROBE
-// 包着。
+// 这样默认（OFF）的构建也能防止它们烂掉。
+// 接进插件的那几行在 MiciriProcessor 与 MiciriEditor 里，用 MICIRI_HOST_PROBE 包着。
 //
 // 线程约定：
 //   - 音频线程只调 Counters::noteBlock 与 isAllZero：relaxed 原子加一、读块内容，不分配、不加锁、不做 I/O。
-//   -
-//   其余（prepare、编辑器开关、写文件）都在消息线程或宿主的准备线程，写文件的路径用一把进程内的锁串行化，音频线程永远碰不到它。
+//   - 其余的事（prepare、编辑器开关、写文件）都在消息线程或宿主的准备线程。
+//     写文件用一把进程内的锁串行化，音频线程永远碰不到它。
 #pragma once
 
 #include <atomic>

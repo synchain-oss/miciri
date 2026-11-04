@@ -87,10 +87,13 @@ inline void unsetEnv()
 #endif
 }
 
-// 用例结束（含失败）时把环境变量清掉，不影响后面的用例。
+// 用例开始和结束（含失败）时都把环境变量清掉：不被外部已设的变量影响，也不影响后面的用例。
 struct EnvCleanup
 {
+    EnvCleanup() { unsetEnv(); }
     ~EnvCleanup() { unsetEnv(); }
+    EnvCleanup(const EnvCleanup&) = delete;
+    EnvCleanup& operator=(const EnvCleanup&) = delete;
 };
 
 inline std::string readFile(const fs::path& p)
