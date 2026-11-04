@@ -187,7 +187,9 @@ export function checkPins(read, sha256Of = () => null) {
     const islPin = /^(\S+) ([0-9a-f]{64})$/.exec(value[ISL_PIN] || "");
     const innoVersion = /^(\S+) [0-9a-f]{64}$/.exec(value[INNO_PIN] || "")?.[1];
     if (islPin && innoVersion && islPin[1] !== innoVersion)
-        errors.push(`${ISL_PIN} 登记的是 ${islPin[1]}，与 ${INNO_PIN} 的 ${innoVersion} 不一致：翻译要取自同版本的官方 tag`);
+        errors.push(
+            `${ISL_PIN} 登记的是 ${islPin[1]}，与 ${INNO_PIN} 的 ${innoVersion} 不一致：翻译要取自同版本的官方 tag`,
+        );
     if (islPin) {
         const have = sha256Of(ISL_FILE);
         if (have === null) errors.push(`缺 ${ISL_FILE}`);
@@ -493,7 +495,14 @@ export default {
             ["翻译钉版的版本与 Inno Setup 钉版不同", true, with_({ [ISL_PIN]: `6.7.3 ${"b6".repeat(32)}\n` })],
             ["翻译钉版的哈希少一位", true, with_({ [ISL_PIN]: `6.7.4 ${"b6".repeat(31)}\n` })],
             ["翻译文件的哈希与钉版不符", true, with_({}, "c7".repeat(32))],
-            ["翻译文件不存在", true, checkPins((f) => GOOD[f] ?? null, () => null)],
+            [
+                "翻译文件不存在",
+                true,
+                checkPins(
+                    (f) => GOOD[f] ?? null,
+                    () => null,
+                ),
+            ],
             [
                 "build.yml 没读 Inno Setup 钉版",
                 true,
