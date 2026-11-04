@@ -7,3 +7,4 @@
 web/fonts/*.woff2 binary
 *.md linguist-documentation
 web/js/juce/* linguist-vendored
+packaging/win/languages/*.isl -text

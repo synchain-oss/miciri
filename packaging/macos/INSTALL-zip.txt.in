@@ -1,0 +1,64 @@
+Miciri @VERSION@ (macOS arm64, VST3 and Audio Unit) - manual install / 手动安装
+
+ENGLISH
+
+  New to plug-ins? Use the installer instead (Miciri-v@VERSION@-macos-arm64.pkg).
+  It does the steps below for you.
+
+  1. Copy Miciri.vst3 to   ~/Library/Audio/Plug-Ins/VST3
+     and Miciri.component to ~/Library/Audio/Plug-Ins/Components
+     Create the folders if they do not exist. To install for all users,
+     use /Library/Audio/Plug-Ins/... instead.
+  2. Miciri is not signed or notarized, so macOS blocks it after a download.
+     Clear the quarantine flag (use the paths you copied to):
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Miciri.vst3
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Miciri.component
+  3. Rescan plug-ins in your DAW.
+
+  To remove it, delete the two items you copied.
+
+  Audio is analysed in memory only. It is never written to disk or sent anywhere,
+  and the plug-in passes it through bit for bit.
+
+中文
+
+  不熟悉插件目录的话，建议用安装包（Miciri-v@VERSION@-macos-arm64.pkg），
+  它会替你完成下面的步骤。
+
+  1. 把 Miciri.vst3 复制到   ~/Library/Audio/Plug-Ins/VST3
+     把 Miciri.component 复制到 ~/Library/Audio/Plug-Ins/Components
+     目录不存在就先建。要给所有用户安装，改用 /Library/Audio/Plug-Ins/...。
+  2. Miciri 没有签名和公证，下载后 macOS 会拦截它。
+     用下面的命令解除隔离（路径换成你复制到的位置）：
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Miciri.vst3
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Miciri.component
+  3. 在宿主里重新扫描插件。
+
+  要卸载，删除你复制的这两项。
+
+  音频只在内存里分析，不写盘，不上传，插件逐位直通。
+
+LICENSE / 许可
+
+  Miciri is free software under GPL-3.0-or-later (see LICENSE). This binary
+  combines Miciri with JUCE (used under AGPL-3.0), the VST3 SDK (GPL-3.0),
+  the AudioUnitSDK (Apache-2.0) and pocketfft (BSD-3-Clause). The combined binary
+  is distributed under GPLv3 and the JUCE parts under AGPLv3. The texts are in
+  LICENSES/, and THIRD-PARTY-NOTICES.md lists the third-party components.
+
+  Miciri 是自由软件，许可为 GPL-3.0-or-later（见 LICENSE）。这个二进制把 Miciri
+  与 JUCE（按 AGPL-3.0 使用）、VST3 SDK（GPL-3.0）、AudioUnitSDK（Apache-2.0）和
+  pocketfft（BSD-3-Clause）合在一起，整体按 GPLv3 发布，其中 JUCE 的部分按 AGPLv3。
+  许可全文在 LICENSES/ 里，第三方组件见 THIRD-PARTY-NOTICES.md。
+
+CORRESPONDING SOURCE (GPLv3 section 6(d)) / 对应源码
+
+  Miciri @VERSION@   https://github.com/synchain-oss/miciri
+                     commit @COMMIT@
+  JUCE @JUCE_VERSION@          https://github.com/juce-framework/JUCE
+                     commit @JUCE_COMMIT@
+
+  To rebuild: check out the two commits above, then
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_PATH=<JUCE checkout> -DMICIRI_HOST_PROBE=OFF
+    cmake --build build
+  The bundles are then under build/src/plugin.

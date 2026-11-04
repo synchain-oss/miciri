@@ -1,0 +1,25 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": "scripts/package.ps1",
+      "source": "rinne",
+      "from": "scripts/package.ps1",
+      "fromBlob": "35ea2ad52b70454ddd4b28c58813c9c430552e08",
+      "mode": "forked"
+    },
+    {
+      "path": "scripts/package-common.psm1",
+      "source": "rinne",
+      "from": "scripts/package.ps1",
+      "fromBlob": "35ea2ad52b70454ddd4b28c58813c9c430552e08",
+      "mode": "forked"
+    }
+  ]
+}

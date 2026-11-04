@@ -43,7 +43,18 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
+; 按系统界面语言自动选：LanguageDetectionMethod=uilanguage 取与界面语言匹配的语言（中文界面选简体中文）；
+; ShowLanguageDialog=no 在匹配不上时不弹选择框，直接用第一项（英文）。命令行 /LANG=<语言名> 可强制指定。
+; 许可协议页仍是 GPL 英文原文：LicenseFile 没有按语言区分。
+LanguageDetectionMethod=uilanguage
+ShowLanguageDialog=no
 RestartApplications=no
+
+[Languages]
+; 英文是第一项，也是系统界面语言匹配不上时的回退。简体中文用 Inno Setup 官方仓库 Unofficial 目录里的翻译，
+; 原样提交在 languages\，哈希钉在 ChineseSimplified.isl.sha256（来源见 languages\SOURCE.txt）。
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimplified"; MessagesFile: "languages\ChineseSimplified.isl"
 
 [Files]
 Source: "{#StageDir}\vst3\Miciri.vst3\*"; DestDir: "{code:Vst3Dir}\Miciri.vst3"; Flags: recursesubdirs createallsubdirs ignoreversion
@@ -55,4 +66,15 @@ begin
   Result := ExpandConstant('{param:Vst3Dir|}');
   if Result = '' then
     Result := ExpandConstant('{commoncf64}\VST3');
+end;
+
+{ 把生效的向导语言，和「下一步」按钮文字前三个字符的编码写进 /LOG 的日志：scripts/package.ps1 -Verify 据此核对
+  中文向导真的编进了安装包、翻译文件按 UTF-8 读对了（用编码而不是文字本身，免得日志的编码影响比对）。 }
+function InitializeSetup(): Boolean;
+var
+  Next: String;
+begin
+  Next := SetupMessage(msgButtonNext);
+  Log('Miciri: language=' + ActiveLanguage + ' next=' + IntToStr(Ord(Next[1])) + ',' + IntToStr(Ord(Next[2])) + ',' + IntToStr(Ord(Next[3])));
+  Result := True;
 end;

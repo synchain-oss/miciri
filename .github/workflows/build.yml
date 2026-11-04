@@ -12,9 +12,9 @@
 # 四个 job 的名字就是 dev / prod ruleset 里 required check 的 context（见 .github/required-checks.json），不要改名，也不要加 job 级 if。
 # 钉版：JUCE 按 .juce-version 的 tag 浅克隆，build.ps1 再断言它就是 .juce-commit；pluginval 的版本取 .pluginval-version，
 # mac 的 sha256 在 scripts/ci/mac/pluginval-macos.sha256；Windows 的 ninja 与 pluginval 在下面各自核 sha256（ninja 没有钉版文件）。
-# build-win：构建（第一方零 warning）、ctest、DSP golden、分配计数器、pluginval strictness 5 无 GUI；再打 Inno Setup 安装包，静默安装到临时目录核内容、静默卸载。
+# build-win：构建（第一方零 warning）、ctest、DSP golden、分配计数器、pluginval strictness 5 无 GUI；再打 Inno Setup 安装包（英文与简体中文向导）和 zip，静默安装到临时目录核内容、静默卸载，并核 zip 内容与向导语言。
 # build-mac（macos-15）：同上，再加 AU 的 auval（auval -v 通过，auval -a 里恰好出现一次）与 pluginval 验 VST3 和已装的 AU；再打 pkg 并展开核内容。
-# 两个 job 都上传安装包（Miciri-installer-*），release.yml 在 build 通过后取回它们建草稿 Release；打包脚本是 scripts/package.ps1。
+# 两个 job 都上传安装包和手动安装用的 zip（Miciri-packages-*，每个平台一个，里面各两个文件），release.yml 在 build 通过后取回它们建草稿 Release；打包脚本是 scripts/package.ps1。
 # core-sanitizers（ubuntu、clang-18）：asan_ubsan 与 tsan 两个配置各自配置、构建、跑全部 ctest；不需要 JUCE。
 # web-smoke：先按 web-preview/tests/axe/ 的锁文件装钉版 playwright、axe-core 与 chromium，再跑 web-preview/tests/run-all.mjs（页面冒烟与 axe 无障碍检查在里面；axe 缺包即失败），run-all 不存在时打印注记并通过。
 name: Build & Validate
@@ -161,16 +161,16 @@ jobs:
           "MICIRI_ISCC=$iscc" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       # tag 触发的发布构建（github.ref_type == tag）按发布的严格度打包：许可全文与第三方声明缺一就红
-      - name: Package installer
+      - name: Package installer and zip
         env:
           MICIRI_PACKAGE_RELEASE: ${{ github.ref_type == 'tag' && '1' || '0' }}
-        run: pwsh -NoProfile -File scripts/package.ps1 -Verify -OutDir (Join-Path $env:RUNNER_TEMP 'installer')
+        run: pwsh -NoProfile -File scripts/package.ps1 -Verify -OutDir (Join-Path $env:RUNNER_TEMP 'packages')
 
-      - name: Upload installer
+      - name: Upload installer and zip
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Miciri-installer-win64-${{ github.sha }}
-          path: ${{ runner.temp }}/installer
+          name: Miciri-packages-win64-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
           if-no-files-found: error
           overwrite: true
 
@@ -262,16 +262,16 @@ jobs:
           overwrite: true
 
       # 安装包：pkgbuild + productbuild；-Verify 展开 pkg，载荷与暂存逐文件核哈希，再核包标识、版本、安装位置与不可重定位
-      - name: Package installer
+      - name: Package installer and zip
         env:
           MICIRI_PACKAGE_RELEASE: ${{ github.ref_type == 'tag' && '1' || '0' }}
-        run: pwsh -NoProfile -File scripts/package.ps1 -Verify -OutDir "$RUNNER_TEMP/installer"
+        run: pwsh -NoProfile -File scripts/package.ps1 -Verify -OutDir "$RUNNER_TEMP/packages"
 
-      - name: Upload installer
+      - name: Upload installer and zip
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Miciri-installer-macos-arm64-${{ github.sha }}
-          path: ${{ runner.temp }}/installer
+          name: Miciri-packages-macos-arm64-${{ github.sha }}
+          path: ${{ runner.temp }}/packages
           if-no-files-found: error
           overwrite: true
 
