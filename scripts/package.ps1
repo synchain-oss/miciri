@@ -185,7 +185,12 @@ if ($IsWindows) {
     $have = (Get-Item -LiteralPath $Iscc).VersionInfo.FileVersion
     if ("$have" -notlike "$pin*") { Write-Warning "ISCC 的文件版本是「$have」，钉版是 $pin；CI 按哈希装钉版，本机的请自行确认" }
     $baseName = [IO.Path]::GetFileNameWithoutExtension($names.Win)
-    Invoke-Native $Iscc @('/Q', "/DMiciriVersion=$version", "/DStageDir=$stageRoot", "/DOutDir=$outDirFull", "/DOutName=$baseName", 'packaging/win/miciri.iss')
+    # 参数经环境变量传给 miciri.iss（ISPP 的 GetEnv），子进程继承
+    $env:MICIRI_ISS_VERSION = $version
+    $env:MICIRI_ISS_STAGE = $stageRoot
+    $env:MICIRI_ISS_OUTDIR = $outDirFull
+    $env:MICIRI_ISS_OUTNAME = $baseName
+    Invoke-Native $Iscc @('/Q', 'packaging/win/miciri.iss')
     $installer = Join-Path $outDirFull $names.Win
     if (-not (Test-Path -LiteralPath $installer)) { throw "ISCC 没有产出 $installer" }
     Write-Host "已生成 $($names.Win)（$((Get-Item -LiteralPath $installer).Length) 字节）"
