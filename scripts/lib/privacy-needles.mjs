@@ -29,8 +29,17 @@ const MAIL_TLDS = "com|net|org|cn|me|ch|de|fr|ru|jp|co\\.uk|co\\.jp|com\\.cn";
 const L = "(?<![A-Za-z0-9])";
 const R = "(?![A-Za-z0-9])";
 
-/** 逐字收录的第三方文本：只对上游原文里会出现的邮箱、编号与章节号豁免，私有目录名与卡号照判。 */
-export const VERBATIM_DIRS = ["third_party/", "LICENSES/", "web/js/juce/"];
+/**
+ * 逐字收录的第三方文本：只对上游原文里会出现的邮箱、编号与章节号豁免，私有目录名与卡号照判。
+ * 条目按路径前缀匹配：目录以 / 结尾；packaging/win/languages/ChineseSimplified.isl 是单个文件，原样取自 Inno Setup 官方仓库
+ * （文件头与说明字符串里有译者公开的联系邮箱），不能改，否则钉死的哈希就对不上。同目录里我方自写的文件不在豁免内。
+ */
+export const VERBATIM_DIRS = [
+    "third_party/",
+    "LICENSES/",
+    "web/js/juce/",
+    "packaging/win/languages/ChineseSimplified.isl",
+];
 /** 只有 C/C++ 源文件对 commentsOnly 规则只看注释与字符串字面量（滤波器系数、矩阵元一类的标识符太像编号）。 */
 export const CODE_FILE = /\.(?:c|cc|cpp|h|hpp|mm)$/;
 
@@ -430,6 +439,9 @@ function sampleCases() {
         ...ids.map((id) => [id, SAMPLES[id]]),
         [pick("verbatimOk", false), text(pick("verbatimOk", false)), "third_party/notices/README.md"],
         [null, text(pick("verbatimOk", true)), "third_party/notices/upstream.txt"],
+        // 单个文件的豁免：只有翻译文件本身免检，同目录里我方自写的文件照判
+        [null, text(pick("verbatimOk", true)), "packaging/win/languages/ChineseSimplified.isl"],
+        [pick("verbatimOk", true), text(pick("verbatimOk", true)), "packaging/win/languages/SOURCE.txt"],
         // 放进 C++ 代码里时去掉 URL 里的 //，否则那一行余下的部分会被当成注释
         [pick("commentsOnly", false), text(pick("commentsOnly", false)).replaceAll("://", ":"), "src/core/Strings.cpp"],
         [null, text(pick("commentsOnly", true)), "src/core/Code.cpp"],

@@ -23,6 +23,7 @@ path = [
   ".github/*.json",
   ".github/rulesets/*.json",
   "scripts/ci/mac/*.sha256",
+  "packaging/win/*.sha256",
   "upstream/*.json",
   "tests/golden/**",
   "tests/fixtures/**",
@@ -48,3 +49,15 @@ SPDX-FileCopyrightText = [
   "2024 Cris Luengo",
 ]
 SPDX-License-Identifier = "BSD-3-Clause"
+
+# Inno Setup 官方仓库 Unofficial 目录里的简体中文向导翻译，原样提交（哈希钉在 packaging/win/ChineseSimplified.isl.sha256）。
+# 文件头没有写许可，沿用它所在仓库的 Inno Setup License；来源与上游的 MIT 翻译仓见同目录的 SOURCE.txt。
+[[annotations]]
+path = "packaging/win/languages/ChineseSimplified.isl"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "1997-2026 Jordan Russell",
+  "2000-2026 Martijn Laan",
+  "Zhenghan Yang (translation)",
+]
+SPDX-License-Identifier = "LicenseRef-Inno-Setup"

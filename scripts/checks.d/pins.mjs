@@ -9,6 +9,7 @@
 // axe 无障碍冒烟的 npm 工具链（playwright、axe-core）钉在 web-preview/tests/axe/ 的 package.json 与 package-lock.json：
 // 版本必须是确切版本、锁文件里每个包都带 sha512 完整性哈希并来自 npm 官方源，build.yml 里只许 `npm ci --ignore-scripts`。
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { caseResult } from "../lib/check-kit.mjs";
@@ -34,8 +35,13 @@ export const PINS = {
     "scripts/ci/mac/pluginval-macos.sha256": /^v\d+\.\d+\.\d+ [0-9a-f]{64}$/,
     // Windows 安装包用的 Inno Setup：版本与官方安装程序的 sha256，build.yml 下载后按它核哈希（见 INNO_PIN）
     "packaging/win/innosetup.sha256": /^\d+\.\d+\.\d+ [0-9a-f]{64}$/,
+    // 随安装包提交的简体中文向导翻译（Inno Setup 官方仓库 Unofficial 目录里的文件，原样提交）：版本必须是同一个 Inno Setup 版本，
+    // 哈希是文件本身的 sha256（见 ISL_FILE；scripts/package.ps1 编译前、本检查在 docs-truth 里各核一次）
+    "packaging/win/ChineseSimplified.isl.sha256": /^\d+\.\d+\.\d+ [0-9a-f]{64}$/,
 };
 const INNO_PIN = "packaging/win/innosetup.sha256";
+const ISL_PIN = "packaging/win/ChineseSimplified.isl.sha256";
+const ISL_FILE = "packaging/win/languages/ChineseSimplified.isl";
 
 /** requirements-tools.txt 的条目：续行接回一行、去掉注释行，{ name（pip 的规范名）, version, hashes }。 */
 export function requirementEntries(text) {
@@ -153,8 +159,8 @@ export function checkAxePins(read) {
     return errors;
 }
 
-/** read(rel) 返回文件文本或 null。 */
-export function checkPins(read) {
+/** read(rel) 返回文件文本或 null；sha256Of(rel) 返回文件原始字节的 sha256（小写十六进制）或 null，不给就不核文件哈希。 */
+export function checkPins(read, sha256Of = null) {
     const errors = [];
     const value = {};
     for (const [file, re] of Object.entries(PINS)) {
@@ -176,6 +182,18 @@ export function checkPins(read) {
         errors.push(
             `scripts/ci/mac/pluginval-macos.sha256 登记的是 ${macPluginval[1]}，与 .pluginval-version 的 ${value[".pluginval-version"] || "（没有）"} 不一致`,
         );
+    }
+    // 翻译文件的钉版：版本与 Inno Setup 钉版同一个，哈希就是提交进来的那个文件
+    const islPin = /^(\S+) ([0-9a-f]{64})$/.exec(value[ISL_PIN] || "");
+    const innoVersion = /^(\S+) [0-9a-f]{64}$/.exec(value[INNO_PIN] || "")?.[1];
+    if (islPin && innoVersion && islPin[1] !== innoVersion)
+        errors.push(
+            `${ISL_PIN} 登记的是 ${islPin[1]}，与 ${INNO_PIN} 的 ${innoVersion} 不一致：翻译要取自同版本的官方 tag`,
+        );
+    if (islPin && sha256Of) {
+        const have = sha256Of(ISL_FILE);
+        if (have === null) errors.push(`缺 ${ISL_FILE}`);
+        else if (have !== islPin[2]) errors.push(`${ISL_FILE} 的 sha256 是 ${have}，${ISL_PIN} 钉的是 ${islPin[2]}`);
     }
     for (const e of requirementShapeErrors(read("requirements-tools.txt") || ""))
         errors.push(`requirements-tools.txt ${e}`);
@@ -251,6 +269,7 @@ const GOOD = {
     ".pluginval-version": "v1.0.4\n",
     "scripts/ci/mac/pluginval-macos.sha256": `v1.0.4 ${"3c".repeat(32)}\n`,
     [INNO_PIN]: `6.7.4 ${"a5".repeat(32)}\n`,
+    [ISL_PIN]: `6.7.4 ${"b6".repeat(32)}\n`,
     ".clang-format": "# SPDX\n# clang-format 18.1.8：说明\nBasedOnStyle: LLVM\n",
     "requirements-tools.txt": `clang-format==18.1.8 \\\n    --hash=sha256:${H}\nreuse==6.2.0 \\\n    --hash=sha256:${H}\n`,
 };
@@ -364,11 +383,20 @@ export default {
             const abs = path.join(ctx.root, rel);
             return fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : null;
         };
-        const errors = checkPins(read);
+        const sha256Of = (rel) => {
+            const abs = path.join(ctx.root, rel);
+            return fs.existsSync(abs) ? createHash("sha256").update(fs.readFileSync(abs)).digest("hex") : null;
+        };
+        const errors = checkPins(read, sha256Of);
         return { ok: errors.length === 0, lines: errors };
     },
     selfTest() {
-        const with_ = (patch) => checkPins((f) => (f in patch ? patch[f] : (GOOD[f] ?? null)));
+        const GOOD_ISL_SHA = "b6".repeat(32);
+        const with_ = (patch, islSha = GOOD_ISL_SHA) =>
+            checkPins(
+                (f) => (f in patch ? patch[f] : (GOOD[f] ?? null)),
+                (f) => (f === ISL_FILE ? islSha : null),
+            );
         const hashed = (entry) => `${entry} \\\n    --hash=sha256:${H}\n`;
         const req = (cf, reuse) => ({ "requirements-tools.txt": `${hashed(`clang-format==${cf}`)}${hashed(reuse)}` });
         const raw = (text) => ({ "requirements-tools.txt": text });
@@ -464,6 +492,18 @@ export default {
             ["Inno Setup 钉版没有版本号", true, with_({ [INNO_PIN]: `${"a5".repeat(32)}\n` })],
             ["Inno Setup 钉版的哈希少一位", true, with_({ [INNO_PIN]: `6.7.4 ${"a5".repeat(31)}\n` })],
             ["Inno Setup 钉版的版本是 v 前缀", true, with_({ [INNO_PIN]: `v6.7.4 ${"a5".repeat(32)}\n` })],
+            ["翻译钉版的版本与 Inno Setup 钉版不同", true, with_({ [ISL_PIN]: `6.7.3 ${"b6".repeat(32)}\n` })],
+            ["翻译钉版的哈希少一位", true, with_({ [ISL_PIN]: `6.7.4 ${"b6".repeat(31)}\n` })],
+            ["翻译文件的哈希与钉版不符", true, with_({}, "c7".repeat(32))],
+            ["调用方不给 sha256Of 就不核文件哈希（不能当成文件缺失）", false, checkPins((f) => GOOD[f] ?? null)],
+            [
+                "翻译文件不存在",
+                true,
+                checkPins(
+                    (f) => GOOD[f] ?? null,
+                    () => null,
+                ),
+            ],
             [
                 "build.yml 没读 Inno Setup 钉版",
                 true,
@@ -475,6 +515,7 @@ export default {
                 ".pluginval-version",
                 "scripts/ci/mac/pluginval-macos.sha256",
                 INNO_PIN,
+                ISL_PIN,
             ].map((f) => [`缺构建钉版 ${f}`, true, with_({ [f]: null })]),
             // axe 工具链：确切版本、sha512、官方源、npm ci --ignore-scripts、axe 必须运行
             ...axeCases(with_),

@@ -27,6 +27,7 @@
 | `build` | 构建 workflow 与构建脚本 |
 | `cmake` | 根 `CMakeLists.txt` 与 `cmake/` 下的告警、JUCE 守卫模块 |
 | `release` | 发版 workflow |
+| `packaging` | 打包脚本里可重现 zip 的时间戳与条目属性（取自参考仓的打包脚本，其余是本仓自己的） |
 | `gates` | 本地 gates、定档规则、`CLAUDE.md`、`CONTRIBUTING.md` |
 
 ## 漂移核对
