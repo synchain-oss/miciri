@@ -9,11 +9,16 @@
 
 #include <atomic>
 #include <cstdint>
+#include <memory>
 
 #include "Meters.h"
 
 namespace miciri
 {
+#ifdef MICIRI_HOST_PROBE
+class ProbeRunner; // 测试构建专用：定时把计数写成 JSON（见 HostProbe.h），定义在 MiciriProcessor.cpp
+#endif
+
 class MiciriProcessor final : public juce::AudioProcessor
 {
 public:
@@ -23,7 +28,7 @@ public:
     const juce::String getName() const override { return "Miciri"; }
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override {}
+    void releaseResources() override;
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
     bool supportsDoublePrecisionProcessing() const override { return true; }
 
@@ -87,6 +92,10 @@ private:
     std::atomic<int> bufferSize_{0};
     std::atomic<int> numChannels_{2};
     std::atomic<int> micType_{0};
+
+#ifdef MICIRI_HOST_PROBE
+    std::unique_ptr<ProbeRunner> probe_; // 最后声明、最先销毁；环境变量没设时为空
+#endif
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MiciriProcessor)
 };

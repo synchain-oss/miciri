@@ -10,6 +10,7 @@
 
 #include <juce_gui_extra/juce_gui_extra.h>
 
+#include "plugin/HostProbe.h"
 #include "plugin/MiciriEditor.h"
 #include "plugin/MiciriProcessor.h"
 #include "plugin/UiDefaultsStore.h"
@@ -38,6 +39,8 @@ TEST_CASE("the editor opens and closes 20 times without crashing", "[plugin][edi
     audio.clear();
     juce::MidiBuffer midi;
 
+    const auto probeBefore = miciri::probe::counters().snapshot();
+
     constexpr int kCycles = 20;
     constexpr int kOpenMs = 60;
     constexpr int kSettleMs = 20;
@@ -53,5 +56,9 @@ TEST_CASE("the editor opens and closes 20 times without crashing", "[plugin][edi
         editor.reset();
         juce::MessageManager::getInstance()->runDispatchLoopUntil(kSettleMs);
     }
+    // 本目标带探针：每次建编辑器记一次打开，销毁记一次关闭。
+    const auto probeAfter = miciri::probe::counters().snapshot();
+    CHECK(probeAfter.editorOpens - probeBefore.editorOpens == kCycles);
+    CHECK(probeAfter.editorCloses - probeBefore.editorCloses == kCycles);
     SUCCEED("20 次开关完成");
 }

@@ -8,6 +8,9 @@
 #include "BridgeBase.h"
 #include "UiDefaultsStore.h"
 #include "config/Thresholds.h"
+#ifdef MICIRI_HOST_PROBE
+#include "HostProbe.h"
+#endif
 
 namespace miciri
 {
@@ -43,9 +46,17 @@ MiciriEditor::MiciriEditor(MiciriProcessor& processor, Config config)
       hostName_(juce::PluginHostType().getHostDescription()), guideSeen_(uidefaults::guideSeenGlobal()),
       lastBeat_(processor.heartbeat()), lastBeatChangeMs_(wallClockMs()), lastDevice_(processor.deviceInfo())
 {
+#ifdef MICIRI_HOST_PROBE
+    probe::counters().noteEditorOpened();
+#endif
 }
 
-MiciriEditor::~MiciriEditor() = default;
+MiciriEditor::~MiciriEditor()
+{
+#ifdef MICIRI_HOST_PROBE
+    probe::counters().noteEditorClosed();
+#endif
+}
 
 double MiciriEditor::observeCallbackAgeSec()
 {

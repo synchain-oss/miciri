@@ -15,6 +15,10 @@ endif()
 # 否则生成阶段报 CMAKE_C_COMPILE_OBJECT 未设置。
 enable_language(C)
 
+# 测试构建：插件自己把计数（离线块数、全 0 块数、编辑器开关次数等）写成 JSON，给外部的宿主测试脚本读。
+# 默认 OFF，发布版必须是 OFF：OFF 时探针的源文件不编进插件，二进制里没有探针代码，也没有环境变量名。说明见 docs/HOST_PROBE.md。
+option(MICIRI_HOST_PROBE "测试构建：写宿主探针 JSON（仅供宿主测试，不得发布）" OFF)
+
 include("${CMAKE_CURRENT_LIST_DIR}/MiciriWebView2.cmake")
 
 string(REPLACE "|" ";" _miciri_vst3_categories "${MICIRI_VST3_CATEGORY}")
@@ -63,6 +67,11 @@ target_link_libraries(Miciri PRIVATE
   juce::juce_data_structures
   juce::juce_gui_extra)
 target_compile_definitions(Miciri PUBLIC ${MICIRI_PLUGIN_DEFINITIONS})
+if(MICIRI_HOST_PROBE)
+  message(STATUS "MICIRI_HOST_PROBE=ON：这是宿主测试构建，不要发布")
+  target_sources(Miciri PRIVATE "${CMAKE_CURRENT_LIST_DIR}/HostProbe.cpp")
+  target_compile_definitions(Miciri PRIVATE MICIRI_HOST_PROBE=1)
+endif()
 
 # JUCE 的前端桥脚本：页面里的 bridge.js 在真实宿主中按页面根下的 js/juce/index.js 取它。文件不进本仓，
 # 配置期从 JUCE 检出里复制到构建目录，按同样的扁平名编进二进制，ResourceProvider 照常按页面路径提供。

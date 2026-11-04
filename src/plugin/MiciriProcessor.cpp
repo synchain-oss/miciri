@@ -7,14 +7,54 @@
 
 #include "BridgeApi.h"
 #include "config/Thresholds.h"
+#ifdef MICIRI_HOST_PROBE
+#include "HostProbe.h"
+#endif
 
 namespace miciri
 {
+#ifdef MICIRI_HOST_PROBE
+// 测试构建专用：环境变量给了路径才存在。消息线程上每隔一个节拍写一次（内容没变不写），销毁时再写最后一次。
+class ProbeRunner final : private juce::Timer
+{
+public:
+    static std::unique_ptr<ProbeRunner> create()
+    {
+        auto reporter = probe::Reporter::fromEnvironment(probe::counters());
+        if (reporter == nullptr)
+            return nullptr;
+        return std::unique_ptr<ProbeRunner>(new ProbeRunner(std::move(reporter)));
+    }
+
+    ~ProbeRunner() override
+    {
+        stopTimer();
+        reporter_->flush();
+    }
+
+    void flush() noexcept { reporter_->flush(); }
+
+private:
+    explicit ProbeRunner(std::unique_ptr<probe::Reporter> reporter) : reporter_(std::move(reporter))
+    {
+        startTimer(probe::kWriteIntervalMs);
+    }
+
+    void timerCallback() override { reporter_->tick(); }
+
+    std::unique_ptr<probe::Reporter> reporter_;
+};
+#endif
+
 MiciriProcessor::MiciriProcessor()
     : juce::AudioProcessor(BusesProperties()
                                .withInput("Input", juce::AudioChannelSet::stereo(), true)
                                .withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
+#ifdef MICIRI_HOST_PROBE
+    (void)probe::counters(); // 先把计数器建好，音频线程不会是第一个碰它的
+    probe_ = ProbeRunner::create();
+#endif
 }
 
 MiciriProcessor::~MiciriProcessor() = default;
@@ -24,6 +64,20 @@ void MiciriProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     sampleRate_.store(sampleRate, std::memory_order_relaxed);
     bufferSize_.store(samplesPerBlock, std::memory_order_relaxed);
     numChannels_.store(std::max(1, getMainBusNumInputChannels()), std::memory_order_relaxed);
+#ifdef MICIRI_HOST_PROBE
+    probe::counters().notePrepare(sampleRate, samplesPerBlock, getMainBusNumInputChannels(),
+                                  getMainBusNumOutputChannels());
+    if (probe_ != nullptr)
+        probe_->flush();
+#endif
+}
+
+void MiciriProcessor::releaseResources()
+{
+#ifdef MICIRI_HOST_PROBE
+    if (probe_ != nullptr)
+        probe_->flush();
+#endif
 }
 
 // 只接受输入输出相同的单声道或立体声；禁用总线、其他声道数一律拒绝。
@@ -45,6 +99,10 @@ void MiciriProcessor::observe(juce::AudioBuffer<Sample>& buffer) noexcept
         return;
     const juce::ScopedNoDenormals noDenormals;
     heartbeat_.fetch_add(1, std::memory_order_relaxed);
+#ifdef MICIRI_HOST_PROBE
+    probe::counters().noteBlock(isNonRealtime(),
+                                probe::isAllZero(buffer.getArrayOfReadPointers(), buffer.getNumChannels(), samples));
+#endif
     const int channels = std::min(buffer.getNumChannels(), kMeterChannels);
     for (int ch = 0; ch < channels; ++ch)
         meters_[ch].accumulate(buffer.getReadPointer(ch), samples, thr::gain::clip_digital_threshold);
