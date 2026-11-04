@@ -94,7 +94,10 @@ function Test-BuildCache([string]$CacheText) {
         if ($m.Success) { $m.Groups[1].Value } else { $null }
     }
     $probe = & $get 'MICIRI_HOST_PROBE'
-    if ($null -ne $probe -and $probe -notmatch '^(OFF|FALSE|NO|N|0)$') { $errors += "构建目录的 MICIRI_HOST_PROBE 是 $probe，发行包必须是 OFF" }
+    # CMake 认的「假」：0、OFF、NO、FALSE、N、IGNORE、NOTFOUND、空串、以 -NOTFOUND 结尾，大小写不分。其余一律按 ON 处理（宁可误拒）
+    if ($null -ne $probe -and $probe -notmatch '(?i)^(0|OFF|NO|FALSE|N|IGNORE|NOTFOUND|.*-NOTFOUND)?$') {
+        $errors += "构建目录的 MICIRI_HOST_PROBE 是「$probe」：这是宿主探针的测试构建（探针只供宿主测试，不得发布），发行包必须是 OFF"
+    }
     $type = & $get 'CMAKE_BUILD_TYPE'
     if ($type -cne 'Release') { $errors += "构建类型是「$type」，发行包必须是 Release" }
     $core = & $get 'MICIRI_CORE_ONLY'
@@ -192,7 +195,14 @@ function Invoke-PackageSelfTest {
 
     $good = "CMAKE_BUILD_TYPE:STRING=Release`nMICIRI_CORE_ONLY:BOOL=OFF`nMICIRI_HOST_PROBE:UNINITIALIZED=OFF`n"
     & $check '缓存：探针 OFF' ((Test-BuildCache $good).Count -eq 0)
-    & $check '缓存：没有探针项也行' ((Test-BuildCache "CMAKE_BUILD_TYPE:STRING=Release`n").Count -eq 0)
+    & $check '缓存：没有探针项也行（选项还没合入时）' ((Test-BuildCache "CMAKE_BUILD_TYPE:STRING=Release`n").Count -eq 0)
+    foreach ($v in @('off', 'Off', '', 'NO', 'false', 'N', '0', 'FOO-NOTFOUND')) {
+        & $check "缓存：探针 $v 算关" ((Test-BuildCache ($good -replace 'PROBE:UNINITIALIZED=OFF', "PROBE:BOOL=$v")).Count -eq 0)
+    }
+    foreach ($v in @('ON', 'on', 'TRUE', 'YES', '1', 'Y', 'yes', 'anything')) {
+        & $check "缓存：探针 $v 判错" ((Test-BuildCache ($good -replace 'PROBE:UNINITIALIZED=OFF', "PROBE:BOOL=$v")).Count -eq 1)
+    }
+    & $check '缓存：探针 ON 的报错点明原因' ((Test-BuildCache ($good -replace 'PROBE:UNINITIALIZED=OFF', 'PROBE:BOOL=ON'))[0] -match 'MICIRI_HOST_PROBE.*不得发布')
     & $check '缓存：探针 ON 判错' ((Test-BuildCache ($good -replace 'PROBE:UNINITIALIZED=OFF', 'PROBE:BOOL=ON')).Count -eq 1)
     & $check '缓存：Debug 判错' ((Test-BuildCache ($good -replace '=Release', '=Debug')).Count -eq 1)
     & $check '缓存：没有构建类型判错' ((Test-BuildCache "MICIRI_CORE_ONLY:BOOL=OFF`n").Count -eq 1)

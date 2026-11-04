@@ -8,7 +8,9 @@
 #                      release.yml 由 push tag 触发，被调用方拿到的 github.ref 就是 refs/tags/<tag>，ref_type 是 tag。with: 留空，
 #                      因为 tag 是不可信文本，而工作流检查禁止在 with: 里插值表达式。安装包就在 build.yml 的 build-win、build-mac
 #                      里打好、静默安装（或展开）核过内容再上传；ref_type 是 tag 时按发布的严格度打包（许可全文、第三方声明缺一就红），
-#                      打包脚本里探针开关显式为 OFF，发布包不会带探针。
+#                      探针开关：scripts/package.ps1（本地 gates 与这两个构建 job 共用的同一份）打包前显式再配置
+#                      -DMICIRI_HOST_PROBE=OFF 并增量构建，再读 CMake 缓存断言它不是 ON，是 ON 就让打包失败、报明原因；
+#                      选项还没合入时缓存里没有这一项，算通过。发布包因此不会带探针。
 #   3. draft-release   取回两个安装包，scripts/package.ps1 -Collect 核产物清单（恰好这两个、文件名由工程版本算出、不是空壳）、
 #                      写 SHA256SUMS 与发布说明（含 GPLv3 第 6 条 (d) 的对应源码指引），再 gh release create --draft。
 #                      只建草稿，由维护者确认后才发布。contents: write 只在这一个 job 上。
