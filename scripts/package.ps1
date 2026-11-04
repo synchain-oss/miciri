@@ -141,7 +141,7 @@ function Get-OneBundle([string]$Name) {
 }
 
 # 许可、第三方声明与 INSTALL.txt：放在插件包之外
-function Copy-Compliance([string]$Dest, [string]$TemplateFile) {
+function Copy-Compliance([string]$Dest, [string]$TemplateFile, [bool]$WithInnoLicense = $false) {
     $null = New-Item -ItemType Directory -Force -Path $Dest
     foreach ($n in (Get-RequiredLicenses $isRelease $IsMacOS)) {
         if (-not (Test-Path -LiteralPath "LICENSES/$n.txt")) { throw "LICENSES/$n.txt 不存在，发行包必须带这份许可全文" }
@@ -149,8 +149,8 @@ function Copy-Compliance([string]$Dest, [string]$TemplateFile) {
     Copy-Item -LiteralPath 'LICENSE' -Destination $Dest
     $lic = Join-Path $Dest 'LICENSES'
     $null = New-Item -ItemType Directory -Force -Path $lic
-    # Inno Setup 的许可只属于 Windows 安装包（里面编进了它的运行库和翻译），macOS 的包不带
-    foreach ($f in Get-ChildItem -LiteralPath 'LICENSES' -File | Where-Object { -not ($IsMacOS -and $_.Name -ceq 'LicenseRef-Inno-Setup.txt') }) { Copy-Item -LiteralPath $f.FullName -Destination $lic }
+    # Inno Setup 的许可只属于 Windows 安装包（里面编进了它的运行库和翻译），zip 与 macOS 的包不带
+    foreach ($f in Get-ChildItem -LiteralPath 'LICENSES' -File | Where-Object { $WithInnoLicense -or $_.Name -cne 'LicenseRef-Inno-Setup.txt' }) { Copy-Item -LiteralPath $f.FullName -Destination $lic }
     foreach ($d in Get-ChildItem -LiteralPath 'third_party' -Directory) {
         foreach ($f in Get-ChildItem -LiteralPath $d.FullName -File | Where-Object { $_.Name -match '^(LICENSE|COPYING|NOTICE|SOURCE)' }) {
             $to = Join-Path $Dest "third_party/$($d.Name)"
@@ -203,7 +203,7 @@ if ($IsWindows) {
     $stageApp = Join-Path $stageRoot 'app'
     $null = New-Item -ItemType Directory -Force -Path $stageVst
     Copy-Item -LiteralPath $vst3 -Destination $stageVst -Recurse
-    Copy-Compliance $stageApp 'packaging/win/INSTALL.txt.in'
+    Copy-Compliance $stageApp 'packaging/win/INSTALL.txt.in' $true
     Test-StageRoots 'vst3' $stageVst
     Test-StageRoots 'app' $stageApp
 

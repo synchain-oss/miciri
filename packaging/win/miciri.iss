@@ -44,7 +44,7 @@ SolidCompression=yes
 WizardStyle=modern
 CloseApplications=no
 ; 按系统界面语言自动选：LanguageDetectionMethod=uilanguage 取与界面语言匹配的语言（中文界面选简体中文）；
-; ShowLanguageDialog=no 在匹配不上时不弹选择框，直接用第一项（英文）。命令行 /LANG=<语言名> 可强制指定。
+; ShowLanguageDialog=no 永不弹选择框；匹配不上时用哪一项官方文档没写，英文排在第一项，按 Setup 的行为回退到它。命令行 /LANG=<语言名> 可强制指定。
 ; 许可协议页仍是 GPL 英文原文：LicenseFile 没有按语言区分。
 LanguageDetectionMethod=uilanguage
 ShowLanguageDialog=no

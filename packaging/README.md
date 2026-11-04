@@ -36,7 +36,7 @@ twice and compares the bytes, then reopens it and compares every entry with the 
 ## Simplified Chinese installer
 
 The Windows wizard has two languages: English and Simplified Chinese. `LanguageDetectionMethod=uilanguage` picks the one that
-matches the system UI language, `ShowLanguageDialog=no` skips the picker and falls back to English. `/LANG=chinesesimplified`
+matches the system UI language, `ShowLanguageDialog=no` never shows the picker (English is listed first, so it is the fallback; the Inno Setup docs do not spell out the no-match case). `/LANG=chinesesimplified`
 (or `/LANG=english`) forces one. The license page stays the English GPL text.
 
 The Chinese strings are Inno Setup's unofficial translation, taken unchanged from the official repository

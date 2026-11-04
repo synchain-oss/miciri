@@ -160,7 +160,7 @@ export function checkAxePins(read) {
 }
 
 /** read(rel) 返回文件文本或 null；sha256Of(rel) 返回文件原始字节的 sha256（小写十六进制）或 null，不给就不核文件哈希。 */
-export function checkPins(read, sha256Of = () => null) {
+export function checkPins(read, sha256Of = null) {
     const errors = [];
     const value = {};
     for (const [file, re] of Object.entries(PINS)) {
@@ -190,7 +190,7 @@ export function checkPins(read, sha256Of = () => null) {
         errors.push(
             `${ISL_PIN} 登记的是 ${islPin[1]}，与 ${INNO_PIN} 的 ${innoVersion} 不一致：翻译要取自同版本的官方 tag`,
         );
-    if (islPin) {
+    if (islPin && sha256Of) {
         const have = sha256Of(ISL_FILE);
         if (have === null) errors.push(`缺 ${ISL_FILE}`);
         else if (have !== islPin[2]) errors.push(`${ISL_FILE} 的 sha256 是 ${have}，${ISL_PIN} 钉的是 ${islPin[2]}`);
@@ -495,6 +495,7 @@ export default {
             ["翻译钉版的版本与 Inno Setup 钉版不同", true, with_({ [ISL_PIN]: `6.7.3 ${"b6".repeat(32)}\n` })],
             ["翻译钉版的哈希少一位", true, with_({ [ISL_PIN]: `6.7.4 ${"b6".repeat(31)}\n` })],
             ["翻译文件的哈希与钉版不符", true, with_({}, "c7".repeat(32))],
+            ["调用方不给 sha256Of 就不核文件哈希（不能当成文件缺失）", false, checkPins((f) => GOOD[f] ?? null)],
             [
                 "翻译文件不存在",
                 true,
