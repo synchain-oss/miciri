@@ -1,21 +1,26 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Derived from synchain-oss/rinne; see upstream/release.json
 #
-# 发版骨架：推一个 v* tag ⇒ verify-tag → build → package。tag 只打在 prod 上，只由维护者在 preview 批准之后打。
-#   1. verify-tag  tag 形如 vX.Y.Z（可带预发布后缀），被 tag 的提交必须是 origin/prod 历史上的提交。
-#   2. build       以 workflow_call 调用 build.yml（Win、mac、sanitizers、web-smoke）。tag 靠 github 上下文隐式传递：
-#                  release.yml 由 push tag 触发，被调用方拿到的 github.ref 就是 refs/tags/<tag>。with: 留空，因为 tag
-#                  是不可信文本，而工作流检查禁止在 with: 里插值表达式。
-#   3. package     占位：安装包与 mac 包的打包脚本由打包那张卡带来，到那时这一步换成「取回构建产物、打包、核哈希、
-#                  只建草稿 Release」。在那之前它明确判红，免得推了 tag 却看起来发了版。
-# 草稿 Release 由维护者确认后发布。不用第三方 release action：runner 自带 gh CLI，少一个持写权限的第三方依赖。
+# 发版：推一个 vX.Y.Z tag ⇒ verify-tag → build → draft-release。tag 只打在 prod 上，只由维护者在 preview 批准之后打。
+#   1. verify-tag      scripts/check-release-tag.ps1：tag 形如 vX.Y.Z（可带预发布后缀）、核心版本等于 CMakeLists.txt 的工程版本、
+#                      被 tag 的提交在 origin/prod 的历史上。
+#   2. build           以 workflow_call 调用 build.yml（Win、mac、sanitizers、web-smoke）。tag 靠 github 上下文隐式传递：
+#                      release.yml 由 push tag 触发，被调用方拿到的 github.ref 就是 refs/tags/<tag>，ref_type 是 tag。with: 留空，
+#                      因为 tag 是不可信文本，而工作流检查禁止在 with: 里插值表达式。安装包就在 build.yml 的 build-win、build-mac
+#                      里打好、静默安装（或展开）核过内容再上传；ref_type 是 tag 时按发布的严格度打包（许可全文、第三方声明缺一就红），
+#                      打包脚本里探针开关显式为 OFF，发布包不会带探针。
+#   3. draft-release   取回两个安装包，scripts/package.ps1 -Collect 核产物清单（恰好这两个、文件名由工程版本算出、不是空壳）、
+#                      写 SHA256SUMS 与发布说明（含 GPLv3 第 6 条 (d) 的对应源码指引），再 gh release create --draft。
+#                      只建草稿，由维护者确认后才发布。contents: write 只在这一个 job 上。
+# 不用第三方 release action：runner 自带 gh CLI，少一个持写权限的第三方依赖。
 # 不设 workflow_dispatch：手动跑既没有 tag 可比对，也没有 tag 可挂 Release。
-# 现状：build 与 package 还没有跑通过（仓里没有 CMakeLists.txt，也没有打包脚本），这份骨架只验证过 actionlint 与加固检查。
+# 本文件进默认分支之前不能 dispatch；安装包的打包与验证先在 build.yml 的两个构建 job 上跑通，这里只多出取回与建草稿。
 name: Release
 
 on:
   push:
-    tags: ["v*"]
+    # 只认 vX.Y.Z 与带预发布后缀的 vX.Y.Z-…；其余 v* 不触发。verify-tag 仍会再核一次形状。
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
 
 permissions:
   contents: read
@@ -39,20 +44,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Tag shape and branch
+      - name: Tag shape, version and branch
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          if ! printf '%s' "$TAG_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "::error::tag $TAG_NAME is not vX.Y.Z (optionally with a pre-release suffix)"
-            exit 1
-          fi
           git fetch --quiet origin prod
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/prod; then
-            echo "::error::tag $TAG_NAME points at a commit that is not on prod"
-            exit 1
-          fi
+          pwsh -NoProfile -File scripts/check-release-tag.ps1 -Tag "$TAG_NAME"
 
   build:
     name: build
@@ -62,15 +60,36 @@ jobs:
     # with: 留空：tag 通过 github 上下文隐式传递（见文件头）。
     uses: ./.github/workflows/build.yml
 
-  package:
-    name: package
+  draft-release:
+    name: draft-release
     needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
     steps:
-      - name: Packaging has not landed
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: Miciri-installer-*-${{ github.sha }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/assets
+
+      - name: Check the asset list, write checksums and release notes
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: pwsh -NoProfile -File scripts/package.ps1 -Collect "$RUNNER_TEMP/assets" -Tag "$TAG_NAME" -Notes "$RUNNER_TEMP/release-notes.md"
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          echo "::error title=package::The packaging scripts have not landed yet, so no installer or draft release can be produced. Replace this step with the packaging card's pipeline."
-          exit 1
+          set -euo pipefail
+          flags=(--draft --verify-tag --title "Miciri $TAG_NAME" --notes-file "$RUNNER_TEMP/release-notes.md")
+          case "$TAG_NAME" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$TAG_NAME" "${flags[@]}" "$RUNNER_TEMP"/assets/*

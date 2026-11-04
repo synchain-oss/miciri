@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# macOS pkg 的载荷根条目清单。scripts/package.ps1 拿它比对暂存的载荷目录，多一个少一个都红。
+# 目录以 / 结尾，文件不带；行尾带 ? 的条目只在发布（-Release）时才必须有。
+# [vst3] 是 /Library/Audio/Plug-Ins/VST3，[au] 是 /Library/Audio/Plug-Ins/Components，
+# [docs] 是 /Library/Application Support/Synchain/Miciri。
+
+[vst3]
+Miciri.vst3/
+
+[au]
+Miciri.component/
+
+[docs]
+INSTALL.txt
+LICENSE
+LICENSES/
+THIRD-PARTY-NOTICES.md?
+third_party/

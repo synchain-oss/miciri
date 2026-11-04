@@ -11,7 +11,7 @@
 #   Quick     G1 预检、G2 格式、G3 合规与隐私、G4 提交、G5 文档真源
 #   Standard  + G6 构建、G7 ctest、G8 pluginval、G9 DSP golden、G10 分配计数器
 #   Full      + G11 页面冒烟、G12 打包
-# 没有东西可跑的 gate（还没有 CMakeLists.txt、golden 夹具、打包脚本）记 SKIP 并写明原因，不算通过；EXIT 只看 FAIL。
+# 没有东西可跑的 gate（还没有 CMakeLists.txt、golden 夹具，或本机没有 Inno Setup）记 SKIP 并写明原因，不算通过；EXIT 只看 FAIL。
 # 开跑与收尾各读一次工作区，中途变脏判 FAIL。结果 json 写进 LogDir（缺省 MICIRI_LOG_DIR，再缺省仓内被忽略的 build/gates）：
 # gates-<sha40>.json。最后一行固定为 `PASS n / FAIL n / SKIP n / FLAKY n  EXIT=x  @<sha7>  <档>  <耗时>`，不含路径。
 # 本机工具：各取环境变量、再取 git config（仓内不写本机路径）：MICIRI_NODE / miciri.node、MICIRI_GITLEAKS、MICIRI_ACTIONLINT、
@@ -144,8 +144,17 @@ function Get-Gates {
                 New-Result 'PASS'
             } },
         @{ Id = 'G12'; Tier = 'Full'; Name = '打包'; Run = {
-                if (-not (Test-Path -LiteralPath (Join-Path $Root 'scripts/package.ps1'))) { return New-Result 'SKIP' '打包脚本还不存在（由打包那张卡带来）' }
-                New-Result 'FAIL' '有打包脚本却没有接进 gates：补 G12'
+                $pw = (Get-Process -Id $PID).Path
+                foreach ($script in 'package.ps1', 'check-release-tag.ps1') {
+                    $st = Invoke-Tool $pw @('-NoProfile', '-File', (Join-Path $Root "scripts/$script"), '-SelfTest')
+                    if ($st.Code -ne 0) { return New-Result 'FAIL' "$script 自测" ($st.Lines | Select-Object -Last 25) }
+                }
+                # 本机不带 -Verify：静默安装要管理员权限，由 CI 验证。没有 Inno Setup 时脚本停在编译之前并退出 2，
+                # 此时暂存目录与清单已经核过，gate 记 SKIP 并写明编译留给 CI
+                $r = Invoke-Tool $pw @('-NoProfile', '-File', (Join-Path $Root 'scripts/package.ps1'), '-BuildDir', $BuildDir)
+                if ($r.Code -eq 2) { return New-Result 'SKIP' (($r.Lines | Where-Object { $_ -like 'SKIP:*' } | Select-Object -First 1) -replace '^SKIP:\s*', '') }
+                if ($r.Code -ne 0) { return New-Result 'FAIL' "退出码 $($r.Code)" ($r.Lines | Select-Object -Last 25) }
+                New-Result 'PASS'
             } }
     )
 }

@@ -32,7 +32,10 @@ export const PINS = {
     ".juce-version": SEMVER,
     ".pluginval-version": /^v?\d+\.\d+\.\d+$/,
     "scripts/ci/mac/pluginval-macos.sha256": /^v\d+\.\d+\.\d+ [0-9a-f]{64}$/,
+    // Windows 安装包用的 Inno Setup：版本与官方安装程序的 sha256，build.yml 下载后按它核哈希（见 INNO_PIN）
+    "packaging/win/innosetup.sha256": /^\d+\.\d+\.\d+ [0-9a-f]{64}$/,
 };
+const INNO_PIN = "packaging/win/innosetup.sha256";
 
 /** requirements-tools.txt 的条目：续行接回一行、去掉注释行，{ name（pip 的规范名）, version, hashes }。 */
 export function requirementEntries(text) {
@@ -143,6 +146,9 @@ export function checkAxePins(read) {
         if (!npmLines.some(isCi)) errors.push(`${BUILD_WORKFLOW} 里没有 npm ci：axe 工具链没有安装步骤`);
         if (!/^\s*MICIRI_REQUIRE_AXE:\s*['"]?1['"]?\s*$/m.test(code))
             errors.push(`${BUILD_WORKFLOW} 必须设 MICIRI_REQUIRE_AXE: '1'，否则缺包时 axe 会悄悄跳过`);
+        // Inno Setup 的版本与哈希只许来自钉版文件：build.yml 的安装步骤必须读它，不能把版本与哈希另写一份
+        if (!code.includes(INNO_PIN))
+            errors.push(`${BUILD_WORKFLOW} 里没有读 ${INNO_PIN}：Inno Setup 的安装步骤必须按钉版文件下载并核哈希`);
     } else errors.push(`缺 ${BUILD_WORKFLOW}`);
     return errors;
 }
@@ -222,6 +228,8 @@ const BUILD_GOOD = [
     "      # npm install 只出现在注释里，不算数",
     "      - name: Install",
     '        run: (cd "$D" && npm ci --ignore-scripts --no-audit --no-fund)',
+    "      - name: Install Inno Setup",
+    "        run: Get-Content packaging/win/innosetup.sha256",
     "      - name: Web smoke",
     "        env:",
     "          MICIRI_REQUIRE_AXE: '1'",
@@ -242,6 +250,7 @@ const GOOD = {
     ".juce-version": "8.0.8\n",
     ".pluginval-version": "v1.0.4\n",
     "scripts/ci/mac/pluginval-macos.sha256": `v1.0.4 ${"3c".repeat(32)}\n`,
+    [INNO_PIN]: `6.7.4 ${"a5".repeat(32)}\n`,
     ".clang-format": "# SPDX\n# clang-format 18.1.8：说明\nBasedOnStyle: LLVM\n",
     "requirements-tools.txt": `clang-format==18.1.8 \\\n    --hash=sha256:${H}\nreuse==6.2.0 \\\n    --hash=sha256:${H}\n`,
 };
@@ -452,9 +461,21 @@ export default {
                 with_({ [CATCH2_FILE]: `# 旧写法：GIT_TAG v3.5.4\n${catch2Source(`GIT_TAG ${CATCH2_SHA}`)}` }),
             ],
             ["Catch2 GIT_TAG 是 40 位提交号", false, with_({ [CATCH2_FILE]: catch2Source(`GIT_TAG ${CATCH2_SHA}`) })],
-            ...[".juce-commit", ".juce-version", ".pluginval-version", "scripts/ci/mac/pluginval-macos.sha256"].map(
-                (f) => [`缺构建钉版 ${f}`, true, with_({ [f]: null })],
-            ),
+            ["Inno Setup 钉版没有版本号", true, with_({ [INNO_PIN]: `${"a5".repeat(32)}\n` })],
+            ["Inno Setup 钉版的哈希少一位", true, with_({ [INNO_PIN]: `6.7.4 ${"a5".repeat(31)}\n` })],
+            ["Inno Setup 钉版的版本是 v 前缀", true, with_({ [INNO_PIN]: `v6.7.4 ${"a5".repeat(32)}\n` })],
+            [
+                "build.yml 没读 Inno Setup 钉版",
+                true,
+                with_({ [BUILD_WORKFLOW]: BUILD_GOOD.replace("packaging/win/innosetup.sha256", "innosetup.sha256") }),
+            ],
+            ...[
+                ".juce-commit",
+                ".juce-version",
+                ".pluginval-version",
+                "scripts/ci/mac/pluginval-macos.sha256",
+                INNO_PIN,
+            ].map((f) => [`缺构建钉版 ${f}`, true, with_({ [f]: null })]),
             // axe 工具链：确切版本、sha512、官方源、npm ci --ignore-scripts、axe 必须运行
             ...axeCases(with_),
         ].map(([label, bad, errors]) => ({ label, bad, passed: bad ? errors.length > 0 : errors.length === 0 }));
