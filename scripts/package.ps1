@@ -181,9 +181,7 @@ if ($IsWindows) {
 
     if (-not $Iscc) { $c = Get-Command ISCC.exe -ErrorAction SilentlyContinue; if ($c) { $Iscc = $c.Source } }
     if (-not $Iscc -or -not (Test-Path -LiteralPath $Iscc)) { Skip 'Inno Setup 不在本机（MICIRI_ISCC 或 -Iscc 指向 ISCC.exe），安装包的编译与静默安装只在 CI 验证；暂存目录与清单已通过' }
-    $pin = (Get-Content -LiteralPath 'packaging/win/innosetup.sha256' -Raw).Trim().Split(' ')[0]
-    $have = (Get-Item -LiteralPath $Iscc).VersionInfo.FileVersion
-    if ("$have" -notlike "$pin*") { Write-Warning "ISCC 的文件版本是「$have」，钉版是 $pin；CI 按哈希装钉版，本机的请自行确认" }
+    # ISCC.exe 的文件版本是 0.0.0.0，读不出版本：钉版靠 CI 按 packaging/win/innosetup.sha256 的哈希安装来保证，本机用哪个版本由使用者自己负责
     $baseName = [IO.Path]::GetFileNameWithoutExtension($names.Win)
     # 参数经环境变量传给 miciri.iss（ISPP 的 GetEnv），子进程继承
     $env:MICIRI_ISS_VERSION = $version
@@ -295,7 +293,9 @@ else {
         if ($info -notmatch ('identifier="{0}"' -f [regex]::Escape($id))) { $errs += "PackageInfo 里没有 identifier=$id" }
         if ($info -notmatch ('version="{0}"' -f [regex]::Escape($version))) { $errs += "PackageInfo 里没有 version=$version" }
         if ($info -notmatch 'install-location="/"') { $errs += 'PackageInfo 的 install-location 不是 /' }
-        if ($info -match '<relocate') { $errs += 'PackageInfo 里有 <relocate>：插件包不该可重定位（升级会装到别处）' }
+        # 空的 <relocate/> 不算；<relocate> 里列了 bundle 才表示那个包可以被安装到别处
+        if ($info -match '(?s)<relocate>.*?<bundle\b.*?</relocate>') { $errs += 'PackageInfo 的 <relocate> 里列了 bundle：插件包不该可重定位（升级会装到别处）' }
+        if ($errs.Count) { Write-Host "---- PackageInfo ----`n$info`n---------------------" }
         Assert-NoErrors 'PackageInfo' $errs
         Write-Host 'pkg 展开核对通过：载荷与暂存逐文件一致，标识、版本与安装位置正确，插件包不可重定位'
     }
