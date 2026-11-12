@@ -16,6 +16,7 @@
 # gates-<sha40>.json。最后一行固定为 `PASS n / FAIL n / SKIP n / FLAKY n  EXIT=x  @<sha7>  <档>  <耗时>`，不含路径。
 # 本机工具：各取环境变量、再取 git config（仓内不写本机路径）：MICIRI_NODE / miciri.node、MICIRI_GITLEAKS、MICIRI_ACTIONLINT、
 # MICIRI_REUSE、MICIRI_CLANG_FORMAT、MICIRI_PRETTIER（prettier.cjs）、MICIRI_PRIVACY_LOCAL、MICIRI_PLUGINVAL、MICIRI_NINJA。
+# axe 冒烟的依赖目录（装有 axe-core 与 playwright，浏览器在其下 pw-browsers）：MICIRI_AXE_DEPS / miciri.axedeps；缺它时 G11 记 SKIP。
 # 退出码：0 通过；1 有 FAIL 或工作区不干净。
 [CmdletBinding()]
 param(
@@ -139,9 +140,33 @@ function Get-Gates {
         @{ Id = 'G10'; Tier = 'Standard'; Name = '分配计数器（alloc canary）'; Run = { Invoke-Build @('-NoBuild', '-Canary') } },
         @{ Id = 'G11'; Tier = 'Full'; Name = '页面冒烟（含 axe）'; Run = {
                 if (-not (Test-Path -LiteralPath (Join-Path $Root 'web-preview/tests/run-all.mjs'))) { return New-Result 'SKIP' 'web-preview/tests/run-all.mjs 还不存在' }
-                $r = Invoke-Node @('web-preview/tests/run-all.mjs')
+                # axe 的依赖（axe-core、playwright、浏览器）装在仓外：有配置就传给子进程，用完还原。没装时 axe 冒烟会整套跳过
+                $axe = Get-Setting 'MICIRI_AXE_DEPS' 'miciri.axedeps'
+                $saved = @{}
+                foreach ($k in 'MICIRI_AXE_DEPS', 'PLAYWRIGHT_BROWSERS_PATH') { $saved[$k] = [Environment]::GetEnvironmentVariable($k) }
+                try {
+                    if ($axe) {
+                        [Environment]::SetEnvironmentVariable('MICIRI_AXE_DEPS', $axe)
+                        [Environment]::SetEnvironmentVariable('PLAYWRIGHT_BROWSERS_PATH', (Join-Path $axe 'pw-browsers'))
+                    }
+                    $r = Invoke-Node @('web-preview/tests/run-all.mjs')
+                } finally {
+                    foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) }
+                }
                 if ($r.Code -ne 0) { return New-Result 'FAIL' '页面冒烟' ($r.Lines | Select-Object -Last 25) }
-                New-Result 'PASS'
+                # 有脚本整套跳过或套内跳过项时不能记 PASS：写明是哪一项、为什么
+                $sum = @($r.Lines | Where-Object { $_ -match '^run-all：' }) | Select-Object -Last 1
+                if (-not $sum) { return New-Result 'FAIL' 'run-all 没有输出汇总行' ($r.Lines | Select-Object -Last 10) }
+                $nFile = if ($sum -match '跳过 (\d+) /') { [int]$Matches[1] } else { 0 }
+                $nInner = if ($sum -match '内部跳过项 (\d+)') { [int]$Matches[1] } else { 0 }
+                if ($nFile + $nInner -gt 0) {
+                    $why = @($r.Lines | Where-Object { $_ -match '^\[跳过' })
+                    return New-Result 'SKIP' "页面冒烟有跳过（整套 $nFile、套内 $nInner），不记通过" ($why + $sum)
+                }
+                # 记 PASS 就要能看出 axe 真的跑了：没有它的通过记录（脚本被删、被过滤）按失败算
+                $axeLine = @($r.Lines | Where-Object { $_ -match '^\[通过\] smoke-axe-page\.mjs' })
+                if (-not $axeLine) { return New-Result 'FAIL' 'run-all 输出里没有 axe 冒烟的通过记录' ($r.Lines | Select-Object -Last 10) }
+                New-Result 'PASS' '' ($axeLine + $sum)
             } },
         @{ Id = 'G12'; Tier = 'Full'; Name = '打包'; Run = {
                 $pw = (Get-Process -Id $PID).Path
