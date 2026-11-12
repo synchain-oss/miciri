@@ -19,9 +19,13 @@
         <link rel="stylesheet" href="./shell-tokens.css" />
         <link rel="stylesheet" href="./shell-glass.css" />
         <link rel="stylesheet" href="./shell.css" />
+        <link rel="stylesheet" href="../meter/meter.css" />
+        <link rel="stylesheet" href="../flow/flow.css" />
     </head>
     <body>
         <div id="shell" class="sc-shell"></div>
+        <!-- 流程页须排在外壳入口之前：外壳就绪事件只派发一次 -->
+        <script type="module" src="../flow/flow-main.js"></script>
         <script type="module" src="./shell-main.js"></script>
     </body>
 </html>

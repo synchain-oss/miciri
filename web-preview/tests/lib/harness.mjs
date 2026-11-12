@@ -11,9 +11,16 @@ export const EXIT_PASS = 0;
 export const EXIT_FAIL = 1;
 export const EXIT_SKIP = 2;
 
-/** 仓库根：命令行第一个不以 -- 开头的参数，缺省取本文件往上三级。 */
+/** 带值的开关：它们后面那个参数是值，不是仓库根。 */
+const VALUE_FLAGS = new Set(["--only"]);
+
+/** 仓库根：命令行第一个不以 -- 开头、也不是某个开关的值的参数，缺省取本文件往上三级。 */
 export function repoRoot(argv = process.argv.slice(2)) {
-    const given = argv.find((a) => !a.startsWith("--"));
+    let given = null;
+    for (let i = 0; i < argv.length && given === null; i++) {
+        if (VALUE_FLAGS.has(argv[i])) i++;
+        else if (!argv[i].startsWith("--")) given = argv[i];
+    }
     return given ? resolve(given) : resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 }
 

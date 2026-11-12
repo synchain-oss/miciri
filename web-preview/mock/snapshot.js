@@ -8,11 +8,55 @@
 import {
     BRIDGE_API_VERSION,
     ENUM_STEP_ID,
+    SNAPSHOT_BANDS,
     SNAPSHOT_CONNECT,
     SNAPSHOT_DEVICE,
+    SNAPSHOT_LIVE,
     SNAPSHOT_ROOT,
     SNAPSHOT_STEP,
 } from "../../web/shared/bridge-api.js";
+
+/** 各步的计划纯测试时长（秒）：idle 时也给出，准备页写“约 N 秒”。数值只是预览占位。 */
+export const PLAN_SEC = { connect: 0, gain: 8, quiet: 8, room: 20, position: 60, direction: 25 };
+
+/** 档位边界的占位值，与 thresholds.json 同名项相等（冒烟逐项核对，不会悄悄漂移）。 */
+export const BANDS = {
+    tpTooQuietDbfs: -18,
+    tpQuietDbfs: -12,
+    tpLoudDbfs: -6,
+    tpTooLoudDbfs: -3,
+    targetPeakDbfs: -9,
+    snrBadBelowDb: 35,
+    snrGoodAboveDb: 45,
+    t20DryBelowS: 0.25,
+    t20NormalBelowS: 0.45,
+    t20BoomyBelowS: 0.7,
+    drLowBelowDb: 5,
+    drHighAboveDb: 12,
+    clipAdviceDropDb: 6,
+    t20BandsHz: [500, 1000, 2000, 4000],
+};
+
+/** 没有步骤在跑时的 live。 */
+export function idleLive() {
+    return fields(
+        SNAPSHOT_LIVE,
+        {
+            phase: "none",
+            round: 0,
+            rounds: 0,
+            phaseElapsedSec: 0,
+            phaseDurationSec: 0,
+            claps: [],
+            clapsNeeded: 4,
+            clapsMax: 8,
+            directionIndex: 0,
+            notice: "none",
+            noticeSec: 0,
+        },
+        "live",
+    );
+}
 
 /** 按字段表建对象，键序与表一致；缺值或多值抛错。 */
 export function fields(keys, values, what) {
@@ -35,7 +79,7 @@ export function buildSnapshot(o = {}) {
             id,
             fields(
                 SNAPSHOT_STEP,
-                { status: "idle", progressSec: 0, durationSec: 0, invalidReason: "none" },
+                { status: "idle", progressSec: 0, durationSec: PLAN_SEC[id], invalidReason: "none" },
                 `steps.${id}`,
             ),
         ]),
@@ -50,7 +94,13 @@ export function buildSnapshot(o = {}) {
             micType: "unknown",
             device: fields(
                 SNAPSHOT_DEVICE,
-                { sampleRate: 48000, bufferSize: 512, layout: o.layout || "mono", hostName: "Preview" },
+                {
+                    sampleRate: 48000,
+                    bufferSize: 512,
+                    layout: o.layout || "mono",
+                    hostName: "Preview",
+                    offlineRender: false,
+                },
                 "device",
             ),
             connect: fields(
@@ -70,6 +120,8 @@ export function buildSnapshot(o = {}) {
             ),
             steps,
             results: {},
+            bands: fields(SNAPSHOT_BANDS, { ...BANDS }, "bands"),
+            live: idleLive(),
         },
         "snapshot",
     );

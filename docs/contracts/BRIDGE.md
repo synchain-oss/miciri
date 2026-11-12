@@ -51,7 +51,8 @@ status: frozen
 
 `SNAPSHOT_ROOT`：`apiVersion`、`lang`、`uiScale`、`guideSeen`、`micType`，加四个对象：
 
-- `device`（`SNAPSHOT_DEVICE`）：采样率、缓冲大小、`layout`（`ENUM_CHANNEL_LAYOUT`）、宿主名（用于“没有单声道轨的宿主”那条文案）。
+- `device`（`SNAPSHOT_DEVICE`）：采样率、缓冲大小、`layout`（`ENUM_CHANNEL_LAYOUT`）、宿主名（用于“没有单声道轨的宿主”那条文案）、
+  `offlineRender`（宿主正在离线渲染，测试暂停；追加字段）。
 - `connect`（`SNAPSHOT_CONNECT`）：接通与诊断面板所需。`signalState` 取 `ENUM_SIGNAL_STATE`；`channelStatusL/R` 取
   `ENUM_CHANNEL_STATUS`；`channelPrompt` 取 `ENUM_CHANNEL_PROMPT`，是声道检查结果加宿主能力换算出的界面提示；
   `callbackAgeSec` 由编辑器的消息线程定时器按墙钟读心跳得出，其余都来自采样计数。
@@ -60,6 +61,24 @@ status: frozen
   加 `RESULT_COMMON`：`tone`（`ENUM_TONE`）、`reliability`、`retestReason`、`stale`。专有字段的名字就是
   `src/core/result/Results.h` 里 measures 与 verdict 字段的 camelCase 名，档位字段（`band`、`kind`、`severity`、`state`）取对应的 `ENUM_*`。
   数组量（`t20Sec`、`bandPnrDb`、`bandR2`、`levelDb`、`brightnessDb`）是 JSON 数组。
+
+## 流程页用的追加字段（`bands`、`live`）
+
+- `bands`（`SNAPSHOT_BANDS`）：档位边界，由 `thresholds.json` 换算（`gain.tp_*_dbfs`、`gain.target_peak_dbfs`、`noise.snr_*_db`、
+  `reverb.*_below_s`、`direct_ratio.*_db`、`gain.clip_advice_drop_db`、`reverb.bands_hz`），单位在键名后缀里。界面画区间条、目标区和文案里的数都从这里取，自己不写数字。
+  目标区（电平管上的绿区）是 `tpQuietDbfs` 到 `tpLoudDbfs`。
+- `live`（`SNAPSHOT_LIVE`）：正在进行的那一步的实时信息。同一时刻只有一步在跑（`startStep` 在忙时回 `busy`），所以不按步骤分键；
+  没有步骤在跑时 `phase` 是 `none`，`claps` 是空数组，`clapsNeeded`、`clapsMax` 仍有值（准备页要写“凑够几下、最多几下”）。
+  - `phase`（`ENUM_STEP_PHASE`）：位置步依次是 `soft-clap`、`plosive`、`sibilant`、`natural`；方向步是 `direction` 与 `confirm`；
+    其余步骤只有 `none`。界面只认枚举名，不认顺序：哪几个阶段、第几部分由界面的步骤表决定，阶段增减不改契约。
+  - `round`、`rounds`：当前阶段里第几遍或第几下（从 1 起）和总数；`phaseElapsedSec`、`phaseDurationSec`：当前阶段已用和总时长（采样计数）。
+  - `claps`：房间步到目前为止每一下拍手的判定（`ENUM_CLAP_STATE`，按拍的先后），没拍的不在数组里；
+    `clapsNeeded`、`clapsMax`：凑够几下有效、最多拍几下。出现 `truncated` 整组作废。房间步结束后 `claps` 保留到下一次开始这一步，失败页要用它画每一下的判定。
+  - `directionIndex`：方向步当前是第几个方向（0 起）。
+  - `notice`（`ENUM_FLOW_NOTICE`）、`noticeSec`：测试中的提示。`success` 是这一步完成；`spoiled` 安静时检测到声音；`clap-clipped` 轻拍削波了；
+    `too-quiet` 念得太轻；`gated` 设备的降噪或噪声门让这组拍手作废；`redo` 其他需要重来的情况。除 `success` 外都表示这一步将在 `noticeSec`
+    秒后自动重新开始。
+- `steps.<id>.durationSec` 在 `idle` 时也给出这一步的计划时长（准备页写“约 N 秒”）。
 
 ## 约束
 

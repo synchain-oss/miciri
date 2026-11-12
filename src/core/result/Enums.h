@@ -138,5 +138,27 @@ MICIRI_DEFINE_ENUM(MicType, MICIRI_ENUM_MicType)
 // 用户说“我动过了”的三种：对应的结果按“过期规则”标过期
 #define MICIRI_ENUM_ChangeKind(X) X(Gain, "gain") X(Position, "position") X(Room, "room")
 MICIRI_DEFINE_ENUM(ChangeKind, MICIRI_ENUM_ChangeKind)
+
+// 流程页用（追加）：一步之内的阶段、拍手逐下的判定、测试中的提示
+#define MICIRI_ENUM_StepPhase(X)   \
+    X(None, "none")                \
+    X(SoftClap, "soft-clap")       \
+    X(Plosive, "plosive")          \
+    X(Sibilant, "sibilant")        \
+    X(Natural, "natural")          \
+    X(Direction, "direction")      \
+    X(Confirm, "confirm")
+MICIRI_DEFINE_ENUM(StepPhase, MICIRI_ENUM_StepPhase)
+#define MICIRI_ENUM_ClapState(X) X(Valid, "valid") X(TooSoft, "too-soft") X(Noisy, "noisy") X(Truncated, "truncated")
+MICIRI_DEFINE_ENUM(ClapState, MICIRI_ENUM_ClapState)
+#define MICIRI_ENUM_FlowNotice(X)    \
+    X(None, "none")                  \
+    X(Success, "success")            \
+    X(Spoiled, "spoiled")            \
+    X(ClapClipped, "clap-clipped")   \
+    X(TooQuiet, "too-quiet")         \
+    X(Gated, "gated")                \
+    X(Redo, "redo")
+MICIRI_DEFINE_ENUM(FlowNotice, MICIRI_ENUM_FlowNotice)
 // clang-format on
 } // namespace miciri::core
