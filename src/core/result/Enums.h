@@ -102,7 +102,9 @@ MICIRI_DEFINE_ENUM(Reliability, MICIRI_ENUM_Reliability)
     X(Ambiguous, "ambiguous")                    \
     X(FewClaps, "few-claps")                     \
     X(DeviceProcessing, "device-processing")     \
-    X(VoiceDetected, "voice-detected")
+    X(VoiceDetected, "voice-detected")           \
+    X(OfflineRender, "offline-render")           \
+    X(LayoutChanged, "layout-changed")
 MICIRI_DEFINE_ENUM(RetestReason, MICIRI_ENUM_RetestReason)
 
 // 各项结果的档位

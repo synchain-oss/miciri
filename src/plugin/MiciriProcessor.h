@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 处理器：逐位直通、零延迟、没有参数，只声明单声道与立体声。
-// 音频线程只做直通（不碰样本）、心跳计数、原子电平与削波锁存；其余一概不做。
-// Session 与工作线程由后续的模块挂在这里，所有权归处理器；编辑器只读，可以随时销毁重建。
+// 音频线程只做直通（不碰样本）、心跳计数、原子电平与削波锁存，测试进行中再把样本推进 Session 的采集环；其余一概不做。
+// Session 与它的工作线程归处理器所有；编辑器只读快照、转发桥函数，可以随时销毁重建。
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "Meters.h"
+#include "session/Session.h"
 
 namespace miciri
 {
@@ -76,6 +77,11 @@ public:
     int micType() const noexcept { return micType_.load(std::memory_order_relaxed); }
     bool setMicType(int index);
 
+    // 测试的状态机与结果。验证宿主下不开始测试；宿主报离线渲染时也不开始（见 offlineRendering）。
+    session::Session& session() noexcept { return session_; }
+    // 最近一块是不是宿主报的离线渲染
+    bool offlineRendering() const noexcept { return nonRealtime_.load(std::memory_order_relaxed); }
+
 private:
     static_assert(std::atomic<std::uint64_t>::is_always_lock_free, "心跳计数必须无锁");
     static_assert(std::atomic<double>::is_always_lock_free, "采样率必须无锁");
@@ -92,6 +98,8 @@ private:
     std::atomic<int> bufferSize_{0};
     std::atomic<int> numChannels_{2};
     std::atomic<int> micType_{0};
+    std::atomic<bool> nonRealtime_{false};
+    session::Session session_;
 
 #ifdef MICIRI_HOST_PROBE
     std::unique_ptr<ProbeRunner> probe_; // 最后声明、最先销毁；环境变量没设时为空

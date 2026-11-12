@@ -187,6 +187,8 @@ export const ENUM_RETEST_REASON = [
     "few-claps",
     "device-processing",
     "voice-detected",
+    "offline-render",
+    "layout-changed",
 ];
 export const ENUM_GAIN_BAND = ["too-quiet", "quiet", "good", "loud", "too-loud"];
 export const ENUM_NOISE_BAND = ["bad", "fair", "good"];

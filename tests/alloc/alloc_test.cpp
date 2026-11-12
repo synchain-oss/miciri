@@ -3,7 +3,8 @@
 // 分配计数器：替换全局 operator new/delete，在“上膛”的作用域里统计本线程的分配次数。
 // 两条用例：
 //   - 反例：作用域里故意分配一次，计数必须大于零，证明钩子真的接上了、真的会变红；
-//   - 正例：processBlock 的各条路径（单声道、立体声、单精度、双精度、旁路、NaN 与 Inf 输入）一次分配都不许有。
+//   - 正例：processBlock 的各条路径（单声道、立体声、单精度、双精度、旁路、NaN 与 Inf 输入）一次分配都不许有；
+//     测试进行中（样本还要推进采集环）同样不许有。
 // 断言放在作用域外：Catch2 的断言自己会分配，不能在上膛时执行。
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -185,10 +186,14 @@ TEST_CASE("canary: nothing is counted while the scope is not armed", "[alloc]")
 TEST_CASE("processBlock makes no allocation on any path", "[alloc]")
 {
     const int channels = GENERATE(1, 2);
+    const bool testing = GENERATE(false, true);
     miciri::MiciriProcessor p;
     constexpr int kBlock = 512;
     constexpr int kRounds = 200;
     configure(p, channels, kBlock);
+    // 一步在跑时 tap 才往环里写；环在开始这一步时（上膛之前）就分配好了。计数只看本线程，工作线程的分配不算
+    if (testing)
+        REQUIRE(p.session().startStep(miciri::core::StepId::Room) == miciri::session::Session::Start::Ok);
 
     // 缓冲、MIDI 缓冲都在上膛之前建好。
     juce::AudioBuffer<float> f(channels, kBlock);

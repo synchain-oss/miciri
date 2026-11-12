@@ -11,5 +11,5 @@ enable_language(C)
 
 miciri_add_test(NAME alloc_processblock
   SOURCES alloc_test.cpp "${CMAKE_SOURCE_DIR}/tests/plugin/EditorStub.cpp" "${CMAKE_SOURCE_DIR}/src/plugin/MiciriProcessor.cpp"
-  LINK juce::juce_audio_processors
+  LINK miciri_session juce::juce_audio_processors
   LABELS alloc)

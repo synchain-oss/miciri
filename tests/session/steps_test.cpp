@@ -1,0 +1,249 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// 各步的编排（不起线程，直接喂样本）、过期规则与距离标尺的未分档处理。
+#include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <atomic>
+#include <cmath>
+#include <vector>
+
+#include "config/Thresholds.h"
+#include "core/level/Synth.h"
+#include "core/room/ClapSynth.h"
+#include "session/Session.h"
+#include "session/Steps.h"
+
+using namespace miciri;
+using namespace miciri::testing;
+using core::FlowNotice;
+using core::StepId;
+using core::StepPhase;
+
+namespace
+{
+std::atomic<int> gAnalyses{0};
+void countAnalysis() noexcept
+{
+    gAnalyses.fetch_add(1);
+}
+
+session::StepContext mono(double fs = 48000.0)
+{
+    session::StepContext c;
+    c.sampleRate = fs;
+    return c;
+}
+
+// 分成不规则的小块喂，模拟宿主的回调
+void feedAll(session::StepScript& s, const std::vector<double>& x, std::size_t block = 517)
+{
+    for (std::size_t i = 0; i < x.size() && !s.done(); i += block)
+        s.feed(x.data() + i, nullptr, std::min(block, x.size() - i));
+}
+
+std::vector<double> silence(double fs, double seconds)
+{
+    return std::vector<double>(static_cast<std::size_t>(std::llround(fs * seconds)), 0.0);
+}
+
+} // namespace
+
+TEST_CASE("planned step lengths come from the thresholds")
+{
+    using namespace thr::session;
+    CHECK(session::plannedSeconds(StepId::Connect) == Catch::Approx(thr::no_signal::low_flat_window_s));
+    CHECK(session::plannedSeconds(StepId::Gain) == Catch::Approx(gain_s));
+    CHECK(session::plannedSeconds(StepId::Quiet) == Catch::Approx(quiet_s));
+    CHECK(session::plannedSeconds(StepId::Room) == Catch::Approx(room_max_s));
+    CHECK(session::plannedSeconds(StepId::Position) ==
+          Catch::Approx(soft_claps * soft_clap_round_s + 2 * word_list_rounds * word_list_round_s +
+                        thr::click::analysis_window_s));
+    CHECK(session::plannedSeconds(StepId::Direction) == Catch::Approx(4 * direction_take_s));
+}
+
+TEST_CASE("a step ends exactly at its planned sample count, whatever the block size")
+{
+    const double fs = 44100.0;
+    auto s = session::makeScript(StepId::Gain, mono(fs), nullptr);
+    const auto planned = static_cast<std::size_t>(std::llround(thr::session::gain_s * fs));
+    const auto x = sine(fs, 440.0, fromDb(-9.0), thr::session::gain_s + 1.0);
+    std::vector<double> head(x.begin(), x.begin() + static_cast<std::ptrdiff_t>(planned - 1));
+    feedAll(*s, head, 333);
+    CHECK_FALSE(s->done());
+    CHECK(s->live().phase == StepPhase::None);
+    CHECK(s->live().phaseElapsedSec == Catch::Approx(static_cast<double>(planned - 1) / fs));
+    s->feed(x.data() + planned - 1, nullptr, 2);
+    CHECK(s->done());
+    CHECK(s->progressSec() == Catch::Approx(thr::session::gain_s));
+
+    gAnalyses = 0;
+    auto counted = session::makeScript(StepId::Gain, mono(fs), countAnalysis);
+    feedAll(*counted, x);
+    const session::StepOutput out = counted->finish();
+    REQUIRE(out.results.gain.has_value());
+    CHECK(out.results.gain->measures.truePeakDbfsL == Catch::Approx(-9.0).margin(0.1));
+    CHECK(gAnalyses > 0);
+}
+
+TEST_CASE("position step walks its phases and redoes clipped soft claps after a countdown")
+{
+    const double fs = 48000.0;
+    auto s = session::makeScript(StepId::Position, mono(fs), nullptr);
+    CHECK(s->live().phase == StepPhase::SoftClap);
+    CHECK(s->live().rounds == static_cast<int>(thr::session::soft_claps));
+
+    // 三下都削波的轻拍：阶段收满时要求重拍
+    ClapTrain c;
+    c.fs = fs;
+    c.claps = static_cast<int>(thr::session::soft_claps);
+    c.leadSec = 0.6;
+    c.gapSec = thr::session::soft_clap_round_s;
+    std::vector<double> claps = makeClaps(c);
+    for (int i = 0; i < c.claps; ++i)
+    {
+        const auto at = static_cast<std::size_t>(clapTime(c, i) * fs);
+        for (std::size_t n = 0; n < 24; ++n)
+            claps[at + n] = n % 2 ? -1.0 : 1.0;
+    }
+    claps.resize(
+        static_cast<std::size_t>(std::llround(thr::session::soft_claps * thr::session::soft_clap_round_s * fs)));
+    feedAll(*s, claps);
+    CHECK(s->live().notice == FlowNotice::ClapClipped);
+    CHECK(s->live().phase == StepPhase::SoftClap);
+    CHECK(s->live().round == 1);
+    CHECK(s->live().noticeSec == Catch::Approx(thr::session::notice_s).margin(1e-3));
+    CHECK(s->progressSec() == Catch::Approx(0.0));
+
+    // 倒数期间的音频丢掉；倒数完回到第一遍
+    feedAll(*s, silence(fs, thr::session::notice_s));
+    CHECK(s->live().notice == FlowNotice::None);
+    CHECK(s->live().phase == StepPhase::SoftClap);
+
+    // 这次干净地走完，进入爆破音字表
+    feedAll(*s, silence(fs, thr::session::soft_claps * thr::session::soft_clap_round_s));
+    CHECK(s->live().phase == StepPhase::Plosive);
+    CHECK(s->live().round == 1);
+    CHECK(s->live().rounds == static_cast<int>(thr::session::word_list_rounds));
+    feedAll(*s, voice(fs, 2 * thr::session::word_list_rounds * thr::session::word_list_round_s, 0.1, 3));
+    CHECK(s->live().phase == StepPhase::Natural);
+    feedAll(*s, voice(fs, thr::click::analysis_window_s, 0.1, 4));
+    CHECK(s->done());
+    const auto out = s->finish();
+    CHECK(out.results.plosive.has_value());
+    CHECK(out.results.sibilance.has_value());
+    CHECK(out.results.click.has_value());
+}
+
+TEST_CASE("room step reports each clap and stops once enough are valid")
+{
+    const double fs = 48000.0;
+    auto s = session::makeScript(StepId::Room, mono(fs), nullptr);
+    ClapTrain c;
+    c.fs = fs;
+    c.claps = 8;
+    feedAll(*s, makeClaps(c), 480);
+    REQUIRE(s->done());
+    const auto valid = std::count(s->live().claps.begin(), s->live().claps.end(), core::ClapState::Valid);
+    CHECK(valid == static_cast<long>(thr::session::room_claps_needed));
+    CHECK(s->progressSec() < thr::session::room_max_s);
+    const auto out = s->finish();
+    REQUIRE(out.results.reverb.has_value());
+    CHECK(out.results.reverb->confidence.level == core::Reliability::Trusted);
+}
+
+TEST_CASE("room step voids a gated set and restarts after the countdown")
+{
+    const double fs = 48000.0;
+    auto s = session::makeScript(StepId::Room, mono(fs), nullptr);
+    ClapTrain c;
+    c.fs = fs;
+    c.claps = static_cast<int>(thr::session::room_claps_max);
+    std::vector<double> x = makeClaps(c);
+    for (int i = 0; i < c.claps; ++i)
+    {
+        const auto from = static_cast<std::size_t>((clapTime(c, i) + 0.12) * fs);
+        const auto to = std::min(x.size(), static_cast<std::size_t>((clapTime(c, i) + 1.0) * fs));
+        for (std::size_t n = from; n < to; ++n)
+            x[n] = 0.0;
+    }
+    x.resize(static_cast<std::size_t>(thr::session::room_max_s * fs), 0.0);
+    // 喂到出现提示为止：拍满上限会提前收尾，否则到最长时长收尾
+    for (std::size_t i = 0; i < x.size() && s->live().notice != FlowNotice::Gated; i += 480)
+        s->feed(x.data() + i, nullptr, std::min<std::size_t>(480, x.size() - i));
+    CHECK_FALSE(s->done());
+    REQUIRE(s->live().notice == FlowNotice::Gated);
+    CHECK(std::count(s->live().claps.begin(), s->live().claps.end(), core::ClapState::Truncated) > 0);
+    feedAll(*s, silence(fs, thr::session::notice_s));
+    CHECK(s->live().notice == FlowNotice::None);
+    CHECK(s->live().claps.empty());
+}
+
+TEST_CASE("direction step adds the confirming pair when another direction is clearly louder")
+{
+    const double fs = 48000.0;
+    auto s = session::makeScript(StepId::Direction, mono(fs), nullptr);
+    const double take = thr::session::direction_take_s;
+    for (int d = 0; d < 4; ++d)
+    {
+        CHECK(s->live().directionIndex == d);
+        const double level = d == 2 ? 0.2 : 0.05; // 背面明显更响
+        feedAll(*s, voice(fs, take, level, 10 + static_cast<std::uint64_t>(d)));
+    }
+    REQUIRE_FALSE(s->done());
+    CHECK(s->live().phase == StepPhase::Confirm);
+    CHECK(s->live().rounds == 2);
+    CHECK(s->plannedSec() == Catch::Approx(6 * take));
+    feedAll(*s, voice(fs, take, 0.05, 20));
+    CHECK(s->live().directionIndex == 0);
+    feedAll(*s, voice(fs, take, 0.2, 21));
+    CHECK(s->done());
+    const auto out = s->finish();
+    REQUIRE(out.results.direction.has_value());
+    CHECK(out.results.direction->verdict.kind == core::DirectionCase::MaybeReversed);
+}
+
+TEST_CASE("expiry rules follow the contract")
+{
+    using session::Section;
+    auto hit = [](core::ChangeKind k) {
+        std::vector<Section> out;
+        const auto set = session::staleOnChange(k);
+        for (std::size_t i = 0; i < set.size(); ++i)
+            if (set[i])
+                out.push_back(static_cast<Section>(i));
+        return out;
+    };
+    CHECK(hit(core::ChangeKind::Gain) == std::vector<Section>{Section::Gain, Section::Noise, Section::Hum});
+    CHECK(hit(core::ChangeKind::Position) == std::vector<Section>{Section::Gain, Section::Noise, Section::DirectRatio,
+                                                                  Section::Plosive, Section::Sibilance, Section::Click,
+                                                                  Section::Direction, Section::Distance});
+    CHECK(hit(core::ChangeKind::Room).size() == session::kSectionCount);
+    const auto layout = session::staleOnLayoutChange();
+    CHECK(layout[static_cast<std::size_t>(Section::Gain)]);
+    CHECK(layout[static_cast<std::size_t>(Section::Hum)]);
+    CHECK_FALSE(layout[static_cast<std::size_t>(Section::Reverb)]);
+}
+
+TEST_CASE("ungraded sibilance and clicks are not taken as 'no evidence' by the distance ruler")
+{
+    core::AllResults r;
+    core::SibilanceResult sib; // 可信、severity 停在最低档：未分档
+    core::ClickResult click;
+    r.sibilance = sib;
+    r.click = click;
+    core::PlosiveResult plosive;
+    plosive.confidence = core::retest(core::RetestReason::TooShort);
+    r.plosive = plosive;
+    // 喷麦要再测，剩下的只有未分档的两项：什么都没测出来，不能说距离合适
+    auto d = session::deriveDistance(r);
+    REQUIRE(d.has_value());
+    CHECK(d->measures.closeEvidence == 0);
+    CHECK(d->verdict.kind == core::DistanceCase::Unknown);
+
+    // 喷麦分档了：轻就是没有证据，可以说合适
+    r.plosive->confidence = core::trusted();
+    d = session::deriveDistance(r);
+    REQUIRE(d.has_value());
+    CHECK(d->verdict.kind == core::DistanceCase::Fine);
+}

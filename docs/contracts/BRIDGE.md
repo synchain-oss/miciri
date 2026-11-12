@@ -57,6 +57,8 @@ status: frozen
   `ENUM_CHANNEL_STATUS`；`channelPrompt` 取 `ENUM_CHANNEL_PROMPT`，是声道检查结果加宿主能力换算出的界面提示；
   `callbackAgeSec` 由编辑器的消息线程定时器按墙钟读心跳得出，其余都来自采样计数。
 - `steps`：键是 `ENUM_STEP_ID`，值有 `SNAPSHOT_STEP` 的字段；`status` 取 `ENUM_STEP_STATUS`，`invalidReason` 取 `ENUM_RETEST_REASON`。
+  作废的原因里，`offline-render`（宿主在离线渲染，或测试中音频明显快于实时）与 `layout-changed`（测试中声道数变了）是追加的；
+  `overflow`、`callback-gap`、`rate-changed` 同样只出现在作废上。
 - `results`：键是 `RESULT_SECTIONS`，没做过的步骤没有这个键。每个区段的字段 = 该结果的专有字段（`RESULT_<区段>`）
   加 `RESULT_COMMON`：`tone`（`ENUM_TONE`）、`reliability`、`retestReason`、`stale`。专有字段的名字就是
   `src/core/result/Results.h` 里 measures 与 verdict 字段的 camelCase 名，档位字段（`band`、`kind`、`severity`、`state`）取对应的 `ENUM_*`。

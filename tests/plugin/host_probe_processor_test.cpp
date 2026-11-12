@@ -109,6 +109,50 @@ TEST_CASE("with the probe on, the analysis hook feeds analysisCount", "[plugin][
     CHECK(probe::counters().snapshot().analysisCount == before + 1);
 }
 
+// 离线渲染时探针的分析计数必须保持 0：宿主报了离线就不开始测试、正在测也不收样本；
+// 宿主没报（REAPER 关掉“通知插件离线渲染”时离线渲染也报实时），块来得明显快于实时，这一步同样作废、不做分析。
+TEST_CASE("an offline render never reaches the analysis, whether or not the host announces it", "[plugin][probe]")
+{
+    using miciri::core::StepId;
+    using Start = miciri::session::Session::Start;
+    EnvCleanup cleanup;
+    MiciriProcessor p;
+    configure(p, 512);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> loud(2, 512);
+    fill(loud, 0.25f);
+    const auto before = probe::counters().snapshot().analysisCount;
+    auto waitIdle = [&p] {
+        for (int i = 0; i < 2000 && p.session().running(); ++i)
+            juce::Thread::sleep(5);
+        return !p.session().running();
+    };
+    auto gain = [&p] { return p.session().view().steps[static_cast<std::size_t>(StepId::Gain)]; };
+
+    p.setNonRealtime(true);
+    p.processBlock(loud, midi);
+    CHECK(p.session().startStep(StepId::Gain, p.offlineRendering()) == Start::Disabled);
+
+    p.setNonRealtime(false);
+    p.processBlock(loud, midi);
+    REQUIRE(p.session().startStep(StepId::Gain, p.offlineRendering()) == Start::Ok);
+    p.setNonRealtime(true);
+    for (int i = 0; i < 50; ++i)
+        p.processBlock(loud, midi);
+    REQUIRE(waitIdle());
+    CHECK(gain().invalidReason == miciri::core::RetestReason::OfflineRender);
+
+    p.setNonRealtime(false);
+    p.processBlock(loud, midi); // 处理器按最近一块判断宿主是否在离线渲染
+    REQUIRE(p.session().startStep(StepId::Gain, p.offlineRendering()) == Start::Ok);
+    for (int i = 0; i < 2000; ++i) // 约 21 秒的音频，几毫秒内送完
+        p.processBlock(loud, midi);
+    REQUIRE(waitIdle());
+    CHECK(gain().status == miciri::core::StepStatus::Invalid);
+    CHECK(gain().invalidReason == miciri::core::RetestReason::OfflineRender);
+    CHECK(probe::counters().snapshot().analysisCount == before);
+}
+
 TEST_CASE("without the environment variable nothing is written", "[plugin][probe]")
 {
     EnvCleanup cleanup;

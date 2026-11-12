@@ -43,6 +43,9 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 `reverb`、`direct_ratio`、`direction`：规格里的档界与判据是起始值，标 `pending`；实现用的窗长与块长来自合成验证。
 `plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；喷麦的档界与口水音的残差倍数、高频背景门限是按实录调整过的起始值，仍未标定；齿音、口水音的档界和喷麦的低基频界还没有值（`null`）。
 `distance` 没有自己的阈值，由别的结果的证据合成；决策表用 T20 与 D/R 的档位，也没有自己的阈值。
+`session`：测试的编排，各步与各阶段的时长、房间步凑够与最多几下拍手、测试中提示的倒数、采集环的容量、
+“音频明显快于实时就当作离线渲染”的倍数与观察窗。时长与拍手数取自规格，其余是起始值，全部 `pending`。接通步的观察窗与
+“没有回调”的秒数沿用 `no_signal.low_flat_window_s` 与 `no_signal.no_callback_s`，自然朗读的长度沿用 `click.analysis_window_s`。
 
 ## 没有带进来的内容
 
