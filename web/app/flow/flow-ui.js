@@ -485,7 +485,6 @@ export function resultCard(card, big, multi, ctx) {
         el("div", { class: "rc__nums" }, nums),
         card.note ? el("div", { class: "rc__note", text: tt(t, card.note.key, card.note.vars) }) : null,
         card.prev ? el("div", { class: "rc__prev", text: t("report.prev", card.prev) }) : null,
-        card.first ? el("div", { class: "rc__prev", text: t("report.first") }) : null,
         el(
             "div",
             { class: "rc__conf", data: { ok: confTone === "amber" ? "0" : "1" } },

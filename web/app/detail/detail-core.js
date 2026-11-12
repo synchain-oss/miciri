@@ -182,6 +182,8 @@ const BODY = {
     },
     dir(state, r) {
         const d = r.direction;
+        const four = (a) => Array.isArray(a) && a.length === 4 && a.every(fin);
+        if (!four(d.levelDb) || !four(d.brightnessDb)) return { expl: A("detail.dir.none") };
         const cur = Number.isInteger(d.currentIndex) && d.currentIndex >= 0 ? d.currentIndex : 0;
         const turn = d.levelDb.map((_, k) => (cur + k) % d.levelDb.length);
         const loud = Math.max(...d.levelDb);

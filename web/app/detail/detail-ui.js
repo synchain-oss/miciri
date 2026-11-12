@@ -10,6 +10,7 @@ import { el } from "../../shared/dom.js";
 import { createModal } from "../../shared/modal.js";
 import { ctaBtn, radar } from "../flow/flow-ui.js";
 import { ic } from "../flow/icons.js";
+import { cardsOf } from "../report/report-core.js";
 import { detailOf } from "./detail-core.js";
 
 const PANEL_W = 640;
@@ -160,10 +161,15 @@ export function createDetail(o) {
         /** 快照更新或切换语言后按最新数据重画；打开着的那张卡不在了就关掉。 */
         update(state) {
             if (!cur || !state) return;
+            if (!cardsOf(state).some((c) => c.id === cur.id)) return close();
             const at = modal.panel.contains(document.activeElement) ? document.activeElement.dataset.part : null;
             build(state);
-            const back = at && modal.panel.querySelector(`[data-part="${at}"]`);
-            if (back) back.focus({ preventScroll: true });
+            if (at !== null) {
+                const back =
+                    modal.panel.querySelector(`[data-part="${at}"]`) ||
+                    modal.panel.querySelector("[data-part='detail-close']");
+                back.focus({ preventScroll: true });
+            }
         },
         close,
     };

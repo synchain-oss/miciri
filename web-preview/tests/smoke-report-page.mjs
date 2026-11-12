@@ -209,6 +209,13 @@ try {
         page.eval(`${FD}.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
     await load("", "t20longDrlow");
     run.eq(await page.eval(`${qa('[data-part="card-open"]')}.length`), 9, "每张卡都有“查看详情”按钮");
+    const topmost = await page.eval(`(() => {
+        const b = ${q('[data-part="dir-go"]')};
+        const r = b.getBoundingClientRect();
+        const hit = ${FD}.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return hit === b || b.contains(hit);
+    })()`);
+    run.eq(topmost, true, "方向卡的小按钮在“查看详情”按钮之上，真的点得到（不是只能 .click()）");
     await open("level");
     run.eq(await shown(), true, "点增益卡：详情面板打开");
     run.eq(await text("#dt-title"), "增益", "面板标题是卡名");
@@ -250,7 +257,9 @@ try {
     await open("dir");
     run.eq(await page.eval(`${qa(".dt__tbl tbody tr")}.length`), 4, "方向详情：四个方向四行");
     run.eq(await exists(".dt__radar .radar svg"), true, "方向详情：有雷达");
-    await esc();
+    await page.eval(`${M}.mutate((s) => { s.micType = "headset"; })`);
+    await page.waitFor(`${q('[data-part="detail"]')}.parentElement.hidden`, { label: "方向卡没了，面板跟着关" });
+    run.eq(await shown(), false, "耳机麦：方向卡消失时，打开着的方向详情自动关闭");
 
     await load("?lang=en", "tooClose");
     await open("plosive");

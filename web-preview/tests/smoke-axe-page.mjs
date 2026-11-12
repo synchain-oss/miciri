@@ -8,6 +8,8 @@
 // 找不到任何一个包时整套跳过（退出码 2）并写明缺什么，绝不记成通过；CI 设了 MICIRI_REQUIRE_AXE=1，
 // 此时缺包不再是跳过而是失败，免得有人删掉安装步骤后 axe 悄悄变成空转。
 //
+// 审三个状态：默认页、报告页、报告页上打开着的详情窗。
+//
 // 用法：node web-preview/tests/smoke-axe-page.mjs [仓库根]
 
 import fs from "node:fs";
@@ -52,17 +54,36 @@ try {
     run.check(!!frame, "应能找到外壳 iframe");
     await frame.waitForFunction(() => document.documentElement.dataset.ready === "1");
     await frame.evaluate(axeSource);
-    const result = await frame.evaluate(() => axe.run(document, { runOnly: ["wcag2a", "wcag2aa"] }));
-    const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-    for (const v of bad) {
-        run.check(false, `axe ${v.impact} ${v.id}：${v.help}（${v.nodes.length} 处）`);
-        // 把命中的节点打出来，免得只看到“1 处”却不知道是哪个元素
-        for (const n of v.nodes) run.log(`    ${n.target.join(" ")}  ${n.html.replace(/\s+/g, " ").slice(0, 240)}`);
-    }
-    run.check(bad.length === 0, "不应有 serious 或 critical 的 axe 违规");
-    run.log(
-        `  axe 规则 ${result.passes.length} 条通过，${result.violations.length} 条违规（其中 serious 以上 ${bad.length}），${result.incomplete.length} 条需人工复核`,
+    // 同一套规则审几个状态：默认页、报告页、报告页上打开着的详情窗（背景 inert、对话框名字、焦点）
+    const audit = async (label) => {
+        const result = await frame.evaluate(() => axe.run(document, { runOnly: ["wcag2a", "wcag2aa"] }));
+        const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+        for (const v of bad) {
+            run.check(false, `axe（${label}）${v.impact} ${v.id}：${v.help}（${v.nodes.length} 处）`);
+            // 把命中的节点打出来，免得只看到“1 处”却不知道是哪个元素
+            for (const n of v.nodes) run.log(`    ${n.target.join(" ")}  ${n.html.replace(/s+/g, " ").slice(0, 240)}`);
+        }
+        run.check(bad.length === 0, `${label}：不应有 serious 或 critical 的 axe 违规`);
+        run.log(
+            `  axe（${label}）规则 ${result.passes.length} 条通过，${result.violations.length} 条违规（其中 serious 以上 ${bad.length}），${result.incomplete.length} 条需人工复核`,
+        );
+    };
+    await audit("默认页");
+    const snap = await page.evaluate(
+        async (u) => (await import(u)).SCENES.staleGain(),
+        `${server.url}/web-preview/mock/report-fixtures.js`,
     );
+    await page.evaluate((x) => window.__MICIRI_MOCK__.mutate((st) => Object.assign(st, x)), snap);
+    await frame.evaluate(() => document.querySelector('.step[data-step="report"]').click());
+    await frame.waitForSelector('[data-part="report-page"]');
+    await audit("报告页");
+    await frame.evaluate(() => {
+        const b = document.querySelector('[data-part="card-open"][data-card="sib"]');
+        b.focus();
+        b.click();
+    });
+    await frame.waitForSelector('[data-part="detail"]', { state: "visible" });
+    await audit("详情窗（过期的卡）");
 } finally {
     await browser.close();
     await server.close();

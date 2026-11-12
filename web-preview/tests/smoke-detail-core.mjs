@@ -4,7 +4,7 @@
 //   ① 每张卡点开后的解释、表格、高亮行、说明；数字都来自快照，不写出 NaN 或 undefined；
 //   ② 过期、要再测、没测过时的按钮；方向的表格与雷达；
 //   ③ 缺 bands、口水音 0 次、齿音高频段不可测、T20 作废这几种缺口的写法；
-//   ④ “首次测量”：别的区段带 previous 而本区段没有时才标，第一次整套测试时都不标；
+//   ④ 不标“首次测量”（快照分不开“新测的”和“没动过的”）；方向数组异常时不画表；
 //   ⑤ 反例：检查要能变红。
 //
 // 用法：node web-preview/tests/smoke-detail-core.mjs [仓库根]
@@ -150,20 +150,33 @@ function buildMissingRoom() {
     run.check(lower.rows[0].abs.text.startsWith("≥"), "D/R 只报下限：数字前写“≥”");
 }
 
-// ---- ④ 首次测量 ----
+// ---- ④ 没有“首次测量” ----
+// 快照的 previous 只含被重测换掉的区段：没有 previous 既可能是重测之后才第一次有读数，也可能是原来那一整套里测过、这次没动。
+// 两种情况分不开，所以卡片不标“首次测量”，免得对没动过的卡写错；要标需要快照另给每一步做过几次。
 {
-    const first = cardsOf(measured());
-    run.eq(
-        first.some((c) => c.first),
-        false,
-        "第一次整套测试：没有任何卡标“首次测量”",
-    );
     const s = measured();
     s.previous = { gain: structuredClone(s.results.gain) };
     const by = Object.fromEntries(cardsOf(s).map((c) => [c.id, c]));
-    run.eq(by.level.first, undefined, "有上次的卡（增益）不标");
-    run.eq(by.noise.first, true, "别的区段重测过，这张卡之前没有读数：标“首次测量”");
+    run.eq(
+        cardsOf(s).some((c) => c.first !== undefined),
+        false,
+        "只重测了增益：没动过的卡（底噪等）不会被写成“首次测量”",
+    );
     run.check(!!by.level.prev, "增益卡照旧走“上次 → 现在”");
+}
+{
+    const bad = withSection(withDir(SCENES.ready()), "direction", { levelDb: [1, 2, 3] });
+    const d = detailOf("dir", bad);
+    run.eq(
+        [d.expl.key, d.rows.length, d.radar],
+        ["detail.dir.none", 0, undefined],
+        "方向数组长度不对：不画表，也不抛错",
+    );
+    const nan = detailOf(
+        "dir",
+        withSection(withDir(SCENES.ready()), "direction", { brightnessDb: [1, 2, Number.NaN, 4] }),
+    );
+    run.eq(nan.rows.length, 0, "方向数组里有非有限数：不画表");
 }
 
 // ---- ⑤ 反例 ----

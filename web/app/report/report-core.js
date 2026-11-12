@@ -65,28 +65,12 @@ export function cardOf(id, state, from = results(state)) {
 /** 卡是否有结论：未测、过期、要再测的都没有。 */
 const conclusive = (c) => !c.missing && !c.stale && !c.retest && !c.none;
 
-/** 每张卡对应的结果区段，用来判断它有没有“上次”（snapshot.previous 只含被重测换掉的区段）。 */
-const SECTION_OF = {
-    level: "gain",
-    noise: "noise",
-    hum: "hum",
-    room: "reverb",
-    dr: "directRatio",
-    plosive: "plosive",
-    sib: "sibilance",
-    mouth: "click",
-    dir: "direction",
-};
-
 export function cardsOf(state) {
     const prevAll = state.previous || {};
-    // 别的区段带 previous 说明用户重测过；这张卡没有，就是重测之后才第一次有读数。第一次整套测试时都不标。
-    const retested = Object.keys(prevAll).length > 0;
     const hideDir = !visibleSteps(state).includes("direction");
     return CARD_ORDER.filter((id) => !(hideDir && id === "dir")).map((id) => {
         const card = cardOf(id, state);
         if (!conclusive(card)) return card;
-        if (retested && !prevAll[SECTION_OF[id]]) return { ...card, first: true };
         const before = cardOf(id, state, prevAll);
         const a = before.nums[0] && before.nums[0].text;
         const b = card.nums[0] && card.nums[0].text;
