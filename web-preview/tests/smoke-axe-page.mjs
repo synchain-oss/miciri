@@ -61,7 +61,7 @@ try {
         for (const v of bad) {
             run.check(false, `axe（${label}）${v.impact} ${v.id}：${v.help}（${v.nodes.length} 处）`);
             // 把命中的节点打出来，免得只看到“1 处”却不知道是哪个元素
-            for (const n of v.nodes) run.log(`    ${n.target.join(" ")}  ${n.html.replace(/s+/g, " ").slice(0, 240)}`);
+            for (const n of v.nodes) run.log(`    ${n.target.join(" ")}  ${n.html.replace(/\s+/g, " ").slice(0, 240)}`);
         }
         run.check(bad.length === 0, `${label}：不应有 serious 或 critical 的 axe 违规`);
         run.log(

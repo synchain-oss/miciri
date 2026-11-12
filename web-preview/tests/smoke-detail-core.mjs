@@ -30,7 +30,7 @@ const withDir = (s) => {
     return o;
 };
 const base = withDir(SCENES.ready());
-const keyOk = (k) => k in dict.zh || k in flowDict.zh || k.startsWith("flow.");
+const keyOk = (k) => k in dict.zh || k in flowDict.zh;
 const cellText = (c) => (c ? `${c.text}${c.unit || ""}` : "");
 const allText = (d) =>
     JSON.stringify([d.expl, d.rows.map((r) => [r.label, cellText(r.abs), cellText(r.rel)]), d.notes]);
