@@ -6,7 +6,7 @@
 //   confidence  可信，或“再测一次”加原因
 //   evidence    证据标记（时间段、频率、电平），给证据波形和详情用
 // 不依赖 JUCE。字段名的 camelCase 就是桥快照里的字段名（见 docs/contracts/RESULT.md 与 BRIDGE.md）。
-// 喷麦、齿音、口水音这几项先定字段，算法后做；未实现前不要产生这些结果。
+// 各项的算法在各自的模块里：level、noise、hum、channels、room、direction、voice，最该改与距离标尺在 decide。
 #pragma once
 
 #include <array>
@@ -238,6 +238,7 @@ using SibilanceResult = Result<SibilanceMeasures, SibilanceVerdict>;
 struct ClickMeasures
 {
     double perMinute = 0.0;
+    // count 为 0 时下面两项不是测量值，留默认的 0：先看 count
     double loudestRelDb = 0.0; // 最响一次相对本人语音
     double loudestDbfs = 0.0; // 最响一次的绝对电平，电平管外的圆点
     double analysedSeconds = 0.0;

@@ -41,7 +41,7 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 `no_signal`、`channel_check`、`gain`、`noise`、`hum`、`device_processing`：值来自合成验证，少数起始值标 `pending`。
 `clap`：拍手的检测、分段、噪声窗、削波与截断，房间与位置共用，值来自合成验证。
 `reverb`、`direct_ratio`、`direction`：规格里的档界与判据是起始值，标 `pending`；实现用的窗长与块长来自合成验证。
-`plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；喷麦、齿音、口水音的档界与口水音的残差倍数还没有值（`null`）。
+`plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；喷麦的档界与口水音的残差倍数、高频背景门限是按实录调整过的起始值，仍未标定；齿音、口水音的档界和喷麦的低基频界还没有值（`null`）。
 `distance` 没有自己的阈值，由别的结果的证据合成；决策表用 T20 与 D/R 的档位，也没有自己的阈值。
 
 ## 没有带进来的内容

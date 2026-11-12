@@ -31,7 +31,7 @@ status: frozen
 | `hum` | `kind`（hum、buzz、whistle）、`slight` | 频率、高出本底 dB、占噪声能量 %；占比低于阈值仍报，标“轻微” | 轻微不进 |
 | `deviceProcessing` | `detected` | 只作横幅；极低不上升态下不显示 | 否 |
 | `reverb`、`directRatio` | `band`（`gated`、`lowerBoundOnly`） | 拍手算。T20 门限只作废那一下的那个频带，`gated` 表示作废太多、主指标给不出；给不出值的频带 `t20Sec` 为 0。D/R 只用没削波的几下，尾部测不到时只报下限 | 按决策表（`src/core/decide`） |
-| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 算法未实现，先定字段；档位来自实录 | 按排序 |
+| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 喷麦按一遍字表的最大值分档；齿音只给绝对电平供 A/B、口水音只作提示，这两项不分档，`severity` 停在 `light` 表示未分档，不表示良好；档位来自实录 | 按排序 |
 | `direction` | `kind` | 只回答“当前方向是不是最响”；亮度只显示、不参与判断；放反要重测那一对确认；没测过不算问题 | 两次的差都 ≥10 dB 才进 |
 | `distance` | `kind` | 由别的结果的证据合成（`src/core/decide`），没有自己的阈值；只有弱证据时置信度为再测 | 按排序 |
 
