@@ -401,6 +401,8 @@ SessionView Session::view() const
     v.durationSec = planned_;
     const std::lock_guard<std::mutex> lock(state_);
     v.steps = steps_;
+    v.runs = runs_;
+    v.evidenceRev = evidenceRev_;
     v.results = results_;
     v.previous = previous_;
     v.direction = direction_;
@@ -413,6 +415,12 @@ SessionView Session::view() const
     v.channelPromptDismissed = channelPromptDismissed_;
     v.noMonoTracks = traits_.noMonoTracks;
     return v;
+}
+
+std::shared_ptr<const EvidencePack> Session::evidence(StepId id) const
+{
+    const std::lock_guard<std::mutex> lock(state_);
+    return evidence_[index(id)];
 }
 
 // ---- 工作线程 ----
@@ -478,6 +486,8 @@ void Session::run(Worker& w)
         return;
     }
     StepOutput out = w.script->finish();
+    out.evidence = std::make_shared<EvidencePack>(w.script->evidence(out.results));
+    out.evidence->step = w.id;
     if (!w.stop.load(std::memory_order_acquire))
         complete(w.id, std::move(out));
 }
@@ -555,6 +565,14 @@ void Session::complete(StepId id, StepOutput&& out)
                                      ? std::sqrt(core::dsp::dbToPower(r.noSignal->measures.p10FrameDbfs))
                                      : 0.0;
         context_.channel = trusted(r.channels) ? r.channels->verdict.analysedChannel : core::AnalysedChannel::Left;
+    }
+
+    // 证据跟着这一步最新的结果走：只有做完才换
+    ++runs_[index(id)];
+    if (out.evidence)
+    {
+        out.evidence->rev = ++evidenceRev_[index(id)];
+        evidence_[index(id)] = std::move(out.evidence);
     }
 
     StepState& s = steps_[index(id)];

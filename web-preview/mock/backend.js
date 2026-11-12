@@ -9,6 +9,7 @@
 // commitUiScale 提交，没有待确认项回 no-pending；setUiScale 回到已提交的档位时待确认项自动消失（回退走的就是这条）。
 // 流程相关：startStep / cancelStep 交给 flow-sim 推进（只推进进度、阶段和拍手判定，不测量任何东西）；reportChange 按过期规则
 // 把对应的步骤和结果标成 stale。测试与预览用 sim.advance(秒) 推进、mutate(fn) 直接改快照、emitMeters(patch) 推电平。
+// getEvidence 给合成的证据波形（evidence.js），只在这一步做完过（evidenceRev > 0）时有。
 // calls 记录全部调用，供冒烟断言；它不属于桥契约。
 
 import {
@@ -22,6 +23,7 @@ import {
 } from "../../web/shared/bridge-api.js";
 import { DESIGN } from "../../web/shared/design-box.js";
 import { LANGS } from "../../web/shared/i18n.js";
+import { synthEvidence } from "./evidence.js";
 import { createFlowSim } from "./flow-sim.js";
 import { buildSnapshot } from "./snapshot.js";
 import { STALE_SECTIONS, STEP_SECTIONS } from "./results.js";
@@ -130,6 +132,12 @@ export function createMockBackend(o = {}) {
             meters = { ...meters, clipLatchL: false, clipLatchR: false };
             emit("miciri.meters", { ...meters });
             return OK;
+        },
+        getEvidence(id) {
+            if (!ENUM_STEP_ID.includes(id)) return fail("bad-step");
+            const step = snap.steps[id];
+            if (!step.evidenceRev) return fail("no-evidence");
+            return { ok: true, evidence: synthEvidence(id, step.evidenceRev, step.durationSec) };
         },
     };
 

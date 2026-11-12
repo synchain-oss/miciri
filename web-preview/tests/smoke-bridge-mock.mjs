@@ -7,6 +7,7 @@
 
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { readText } from "./lib/files.mjs";
 import { createRun, repoRoot } from "./lib/harness.mjs";
 
 const ROOT = repoRoot();
@@ -16,6 +17,7 @@ const api = await at("web/shared/bridge-api.js");
 const { createMockBackend } = await at("web-preview/mock/backend.js");
 const { buildSnapshot, fields } = await at("web-preview/mock/snapshot.js");
 const { createBridge } = await at("web/shared/bridge.js");
+const { EVIDENCE_LIMITS } = await at("web-preview/mock/evidence.js");
 
 // ---- 快照形状 ----
 const snap = buildSnapshot({ lang: "en", uiScale: 0.8, layout: "stereo" });
@@ -84,6 +86,64 @@ run.check(
     mock.calls.every((c) => api.BRIDGE_FUNCTIONS.includes(c.name)),
     "calls 里只应有名表内的函数",
 );
+
+// ---- 证据波形 ----
+{
+    const thr = JSON.parse(readText(ROOT, "thresholds.json")).session;
+    run.eq(
+        [EVIDENCE_LIMITS.hopMinS, EVIDENCE_LIMITS.cellsMax, EVIDENCE_LIMITS.eventsMax],
+        [thr.evidence_hop_min_s.value, thr.evidence_cells_max.value, thr.evidence_events_max.value],
+        "假证据的上限应与 thresholds.json 的 session 分组相等",
+    );
+    const ev = createMockBackend({});
+    run.eq(await ev.getEvidence("nope"), { ok: false, reason: "bad-step" }, "getEvidence 不认识的步骤回 bad-step");
+    run.eq(await ev.getEvidence("position"), { ok: false, reason: "no-evidence" }, "没做完过的步骤回 no-evidence");
+    ev.sim.complete(["position", "gain"]);
+    const snapNow = await ev.requestInitialState();
+    run.eq(
+        [snapNow.steps.position.runs, snapNow.steps.position.evidenceRev, snapNow.steps.quiet.evidenceRev],
+        [1, 1, 0],
+        "做完一步 runs 与 evidenceRev 各加 1，没做的仍是 0",
+    );
+    const got = await ev.getEvidence("position");
+    run.eq(got.ok, true, "做完的步骤 getEvidence 应成功");
+    const p = got.evidence;
+    run.eq(Object.keys(got), ["ok", "evidence"], "回执是 {ok, evidence}");
+    run.eq(Object.keys(p), api.EVIDENCE_PACK, "evidence 的字段应与 EVIDENCE_PACK 一致");
+    run.eq(Object.keys(p.envelope), api.EVIDENCE_ENVELOPE, "envelope 的字段应与 EVIDENCE_ENVELOPE 一致");
+    run.eq([p.stepId, p.rev], ["position", 1], "stepId 与 rev 应对上快照");
+    const { hopSec, min, max } = p.envelope;
+    run.check(
+        min.length === max.length && min.length > 0 && min.length <= EVIDENCE_LIMITS.cellsMax,
+        `包络 min、max 等长且不超过上限，实得 ${min.length}/${max.length}`,
+    );
+    run.check(
+        hopSec >= Math.max(EVIDENCE_LIMITS.hopMinS, p.durationSec / EVIDENCE_LIMITS.cellsMax) - 1e-12 &&
+            min.length * hopSec >= p.durationSec - 1e-9,
+        "hopSec 不低于下限，格数盖住整段",
+    );
+    run.check(
+        min.every(
+            (v, i) => Number.isInteger(v) && Number.isInteger(max[i]) && v >= -1000 && max[i] <= 1000 && v <= max[i],
+        ),
+        "包络是 -1000..1000 的整数且每格 min ≤ max",
+    );
+    run.check(p.events.length > 0 && p.events.length <= EVIDENCE_LIMITS.eventsMax, "位置步有事件且不超过上限");
+    run.check(
+        p.events.every(
+            (e) => Object.keys(e).join() === api.EVIDENCE_EVENT.join() && api.EVIDENCE_EVENT_KINDS.includes(e.kind),
+        ),
+        "每个事件的字段与种类都在名表里",
+    );
+    run.check(
+        p.events.every(
+            (e, i) => e.timeSec >= 0 && e.timeSec <= p.durationSec && (i === 0 || p.events[i - 1].timeSec <= e.timeSec),
+        ),
+        "事件在这一步的时长内且按时间排序",
+    );
+    run.eq([...new Set(p.events.map((e) => e.kind))].sort(), [...api.EVIDENCE_EVENT_KINDS].sort(), "三种事件都有");
+    run.eq((await ev.getEvidence("gain")).evidence.events, [], "别的步骤没有这三种事件");
+}
 
 // ---- 前端桥 ----
 const bridge = createBridge({ mockBackend: createMockBackend({}) });

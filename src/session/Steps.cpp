@@ -23,7 +23,15 @@ using core::StepPhase;
 
 // ---- 编排 ----
 
-StepScript::StepScript(const StepContext& ctx, AnalysisHook hook) : ctx_(ctx), hook_(hook) {}
+StepScript::StepScript(const StepContext& ctx, AnalysisHook hook) : ctx_(ctx), hook_(hook), envelope_(ctx.sampleRate) {}
+
+EvidencePack StepScript::evidence(const core::AllResults& results) const
+{
+    EvidencePack pack;
+    envelope_.finish(pack);
+    pack.events = evidenceEvents(results);
+    return pack;
+}
 
 void StepScript::addPhase(StepPhase phase, int rounds, double seconds)
 {
@@ -82,6 +90,7 @@ void StepScript::feed(const double* left, const double* right, std::size_t frame
         }
         const Segment seg = plan_[segment_];
         const std::size_t k = std::min(frames, seg.frames - inSegment_);
+        envelope_.push(pick(left, right), k);
         take(seg, left, right, k);
         inSegment_ += k;
         consumed_ += k;
@@ -110,6 +119,8 @@ void StepScript::feed(const double* left, const double* right, std::size_t frame
             else
                 ++segment_;
             done_ = segment_ >= plan_.size();
+            if (!done_ && plan_[segment_].phase != seg.phase)
+                envelope_.mark(); // 新阶段从这里开始：这一阶段重来时证据波形退回这里
         }
         updateLive();
     }
@@ -127,6 +138,7 @@ void StepScript::restartPhase(FlowNotice notice)
     consumed_ -= inSegment_;
     segment_ = first;
     inSegment_ = 0;
+    envelope_.rewind();
     noticeLeft_ = std::max<std::size_t>(1, framesFor(thr::session::notice_s));
     live_.notice = notice;
     updateLive();
@@ -406,6 +418,11 @@ public:
         speech.insert(speech.end(), natural_.begin(), natural_.end());
         out.results.click = core::analyseClicks(speech, ctx_.sampleRate);
         analysed();
+        // 三项分析各自从自己那段音频的开头计时，换算到这一步的时间轴（与证据波形同一条轴）。
+        // 字表与自然朗读这几个阶段不会重来，所以三段在轴上首尾相接，口水音那段拼接的音频从爆破音字表开头算起
+        shiftMarks(out.results.plosive, plosiveAt_);
+        shiftMarks(out.results.sibilance, sibilantAt_);
+        shiftMarks(out.results.click, plosiveAt_);
         return out;
     }
 
@@ -419,9 +436,13 @@ private:
             claps_->push(x, frames);
             break;
         case StepPhase::Plosive:
+            if (plosive_.empty())
+                plosiveAt_ = heardFrames();
             append(plosive_, x, frames);
             break;
         case StepPhase::Sibilant:
+            if (sibilant_.empty())
+                sibilantAt_ = heardFrames();
             append(sibilant_, x, frames);
             break;
         default:
@@ -451,9 +472,23 @@ private:
         }
     }
 
+    template<class R>
+    void shiftMarks(std::optional<R>& r, std::size_t at) const
+    {
+        if (!r)
+            return;
+        const double sec = static_cast<double>(at) / ctx_.sampleRate;
+        for (auto& m : r->evidence.marks)
+        {
+            m.startSec += sec;
+            m.endSec += sec;
+        }
+    }
+
     std::unique_ptr<core::ClapAnalyser> claps_;
     std::optional<core::DirectRatioAnalysis> directRatio_;
     std::vector<double> plosive_, sibilant_, natural_;
+    std::size_t plosiveAt_ = 0, sibilantAt_ = 0; // 两份字表在这一步时间轴上的起点（帧）
 };
 
 // ---- 方向：四个方向各唱一段；别的方向明显更响时追加确认，重唱当前方向与那个方向 ----

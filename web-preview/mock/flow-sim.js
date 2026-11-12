@@ -36,8 +36,15 @@ export function createFlowSim(snap, io) {
     let running = null;
     let elapsed = 0;
 
-    const finish = (id) => {
+    // 做完一步：次数与证据版本各加 1（作废、取消不加，和真插件一样）
+    const done = (id) => {
         snap.steps[id].status = "done";
+        snap.steps[id].runs += 1;
+        snap.steps[id].evidenceRev += 1;
+    };
+
+    const finish = (id) => {
+        done(id);
         snap.steps[id].progressSec = snap.steps[id].durationSec;
         Object.assign(snap.results, resultsFor(id));
         // 房间步结束后拍手记录保留（结果页的失败说明和槽位小图要用）
@@ -108,7 +115,7 @@ export function createFlowSim(snap, io) {
         complete(ids) {
             for (const id of ids) {
                 if (!ENUM_STEP_ID.includes(id)) throw new Error(`mock：${id} 不是步骤名`);
-                snap.steps[id].status = "done";
+                done(id);
                 Object.assign(snap.results, resultsFor(id));
             }
             io.push();
