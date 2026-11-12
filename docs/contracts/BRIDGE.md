@@ -89,7 +89,25 @@ status: frozen
   - `notice`（`ENUM_FLOW_NOTICE`）、`noticeSec`：测试中的提示。`success` 是这一步完成；`spoiled` 安静时检测到声音；`clap-clipped` 轻拍削波了；
     `too-quiet` 念得太轻；`gated` 设备的降噪或噪声门让这组拍手作废；`redo` 其他需要重来的情况。除 `success` 外都表示这一步将在 `noticeSec`
     秒后自动重新开始。
+  - `clapDetails`（追加，每项是 `SNAPSHOT_CLAP_DETAIL`）：与 `claps` 一一对应的明细。`timeSec` 这一下在本步里的时刻，`peakDbfs` 峰值，
+    `clipped` 是否削波，`bandStatus`（`ENUM_CLAP_BAND_STATUS`）与 `t20Sec` 按 `bands.t20BandsHz` 的顺序给各频带的状态与 T20（拟合不出为 0）。
+    房间步结束后与 `claps` 一起保留。
 - `steps.<id>.durationSec` 在 `idle` 时也给出这一步的计划时长（准备页写“约 N 秒”）。
+
+## 建议与“最该改”（追加：`fixes`、`advice`、`previous`）
+
+- `fixes`：`ENUM_FIX_ITEM` 的数组，第一项就是“最该改”，空数组表示没有要改的。`no-signal`（接通的状态是问题，包括编辑器按墙钟判出的没有回调）与
+  `digital-clip` 固定在前（有数字削波时 `gain` 不再单列，免得同一个原因说两次）；其余按 影响 × 置信度 ÷ 修改代价 排序，表在
+  `thresholds.json` 的 `priority` 分组。要再测的、过期的结果不进候选。固定在前的两项只看是否过期、不看置信度：削波样本与接通状态都是直接数出来的，
+  这一步即使因为太短等原因要再测，削波或没信号也已经发生，照样列出。候选条件见 `RESULT.md` 的“进最该改”一栏：轻微电流声、没确认的方向、
+  未分档的齿音与口水音都不进。
+- `advice`（`SNAPSHOT_ADVICE`）：`room` 取 `ENUM_ROOM_ADVICE`（T20 × D/R 的决策表，缺一项或要再测时 `unknown`），`distance` 取
+  `ENUM_DISTANCE_ADVICE`，`directionPrompt` 取 `ENUM_DIRECTION_PROMPT`（方向测试的提示放在哪；没测过方向不算问题）。文案由界面按这些名字取词条。
+- `previous`：形状与 `results` 相同，每个区段是被最近一次新结果换下来的那一次（“上次→现在”），没有上次的区段不出现。只在内存里，
+  卸载插件就没了，不进插件 state；`stale` 恒为 `false`，`direction` 的 `repeatIndex` 为 -1。
+- `results.direction` 追加 `repeatIndex`、`confirmedAdvantageDb`：那一对是当前方向与 `repeatIndex`，只在还要重唱这一对、
+  或重唱后确认成立（`kind` 为 `maybe-reversed`）时给出，其余为 -1；`confirmedAdvantageDb` 只在确认成立时给出两次里较小的
+  优势（dB），其余为 `null`（重唱后没确认也是 `null`）。
 
 ## 约束
 

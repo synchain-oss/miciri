@@ -10,6 +10,7 @@ import {
     ENUM_STEP_ID,
     SNAPSHOT_BANDS,
     SNAPSHOT_CONNECT,
+    SNAPSHOT_ADVICE,
     SNAPSHOT_DEVICE,
     SNAPSHOT_LIVE,
     SNAPSHOT_ROOT,
@@ -53,6 +54,7 @@ export function idleLive() {
             directionIndex: 0,
             notice: "none",
             noticeSec: 0,
+            clapDetails: [],
         },
         "live",
     );
@@ -122,6 +124,9 @@ export function buildSnapshot(o = {}) {
             results: {},
             bands: fields(SNAPSHOT_BANDS, { ...BANDS }, "bands"),
             live: idleLive(),
+            fixes: [],
+            advice: fields(SNAPSHOT_ADVICE, { room: "unknown", distance: "none", directionPrompt: "none" }, "advice"),
+            previous: {},
         },
         "snapshot",
     );

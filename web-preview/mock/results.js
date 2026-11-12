@@ -135,6 +135,8 @@ const BUILDERS = {
                 currentIndex: 0,
                 bestOtherAdvantageDb: 0,
                 kind: "best",
+                repeatIndex: -1,
+                confirmedAdvantageDb: null,
             },
             "green",
         ),

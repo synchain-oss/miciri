@@ -716,6 +716,106 @@
       "note": "active frames lie within this many dB of the top percentile"
     }
   },
+  "priority": {
+    "direction_impact": {
+      "value": 9,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: turning the microphone the right way round costs almost nothing and fixes the most; score = impact x confidence / cost"
+    },
+    "direction_cost": {
+      "value": 1,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: turning the microphone the right way round costs almost nothing and fixes the most"
+    },
+    "room_impact": {
+      "value": 9,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: room advice (move closer, treat or change the room); score = impact x confidence / cost"
+    },
+    "room_cost": {
+      "value": 1.2,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: room advice (move closer, treat or change the room)"
+    },
+    "distance_impact": {
+      "value": 7,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: moving closer or backing off; score = impact x confidence / cost"
+    },
+    "distance_cost": {
+      "value": 1,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: moving closer or backing off"
+    },
+    "hum_impact": {
+      "value": 6,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: electrical hum, buzz or whistle (slight hum is never a candidate); score = impact x confidence / cost"
+    },
+    "hum_cost": {
+      "value": 1,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: electrical hum, buzz or whistle (slight hum is never a candidate)"
+    },
+    "gain_impact": {
+      "value": 5,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: input gain outside the good band (digital clipping is fixed first and not scored here); score = impact x confidence / cost"
+    },
+    "gain_cost": {
+      "value": 1,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: input gain outside the good band (digital clipping is fixed first and not scored here)"
+    },
+    "noise_impact": {
+      "value": 6,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: broadband noise with a bad A-weighted SNR; score = impact x confidence / cost"
+    },
+    "noise_cost": {
+      "value": 1.5,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: broadband noise with a bad A-weighted SNR"
+    },
+    "plosive_impact": {
+      "value": 3,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "impact of fixing: plosives (moderate or heavy); score = impact x confidence / cost"
+    },
+    "plosive_cost": {
+      "value": 1,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "relative effort of the fix: plosives (moderate or heavy)"
+    }
+  },
   "session": {
     "gain_s": { "value": 8.0, "state": "pending", "source": "规格起始值", "date": null },
     "quiet_s": { "value": 8.0, "state": "pending", "source": "规格起始值", "date": null },

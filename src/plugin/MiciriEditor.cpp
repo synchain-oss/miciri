@@ -102,7 +102,7 @@ juce::var MiciriEditor::buildSnapshot()
 
     const auto layoutIndex = device.numChannels >= 2 ? core::ChannelLayout::Stereo : core::ChannelLayout::Mono;
     const auto view = processor_.session().view();
-    const auto json = session::snapshotJson(view);
+    const auto json = session::snapshotJson(view, static_cast<core::MicType>(processor_.micType()));
     const auto parsed = juce::JSON::parse(juce::String::fromUTF8(json.data(), static_cast<int>(json.size())));
     auto part = [&parsed](const char* key) {
         const auto v = parsed.getProperty(key, {});
@@ -123,6 +123,18 @@ juce::var MiciriEditor::buildSnapshot()
             c->setProperty("signalState", wireName(core::toString(core::SignalState::NoCallback)));
     }
 
+    // “没有回调”也是无信号：固定在“最该改”的最前
+    // fixes 是数组，不能走 part()（它只认对象，别的都换成空对象）
+    auto fixes = parsed.getProperty("fixes", {});
+    if (!fixes.isArray())
+        fixes = juce::var(juce::Array<juce::var>());
+    if (auto* list = fixes.getArray(); list != nullptr && noCallback)
+    {
+        const auto noSignal = wireName(core::toString(core::FixItem::NoSignal));
+        if (!list->contains(noSignal))
+            list->insert(0, noSignal);
+    }
+
     return makeObject({{"apiVersion", bridge::kApiVersion},
                        {"lang", lang()},
                        {"uiScale", bridge::scaleForJson(uiScale())},
@@ -133,7 +145,10 @@ juce::var MiciriEditor::buildSnapshot()
                        {"steps", part("steps")},
                        {"results", part("results")},
                        {"bands", part("bands")},
-                       {"live", part("live")}});
+                       {"live", part("live")},
+                       {"fixes", fixes},
+                       {"advice", part("advice")},
+                       {"previous", part("previous")}});
 }
 
 juce::var MiciriEditor::buildMeters()

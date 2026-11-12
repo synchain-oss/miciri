@@ -56,6 +56,9 @@ export const SNAPSHOT_ROOT = [
     "results",
     "bands",
     "live",
+    "fixes",
+    "advice",
+    "previous",
 ];
 export const SNAPSHOT_DEVICE = ["sampleRate", "bufferSize", "layout", "hostName", "offlineRender"];
 export const SNAPSHOT_CONNECT = [
@@ -143,7 +146,15 @@ export const RESULT_SIBILANCE = [
     "highBandDisabled",
 ];
 export const RESULT_CLICK = ["perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity"];
-export const RESULT_DIRECTION = ["levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb", "kind"];
+export const RESULT_DIRECTION = [
+    "levelDb",
+    "brightnessDb",
+    "currentIndex",
+    "bestOtherAdvantageDb",
+    "kind",
+    "repeatIndex",
+    "confirmedAdvantageDb",
+];
 export const RESULT_DISTANCE = ["closeEvidence", "farEvidence", "kind"];
 
 // miciri.meters 的载荷；单声道只用 L 一路
@@ -232,7 +243,49 @@ export const SNAPSHOT_LIVE = [
     "directionIndex",
     "notice",
     "noticeSec",
+    "clapDetails",
 ];
 export const ENUM_STEP_PHASE = ["none", "soft-clap", "plosive", "sibilant", "natural", "direction", "confirm"];
 export const ENUM_CLAP_STATE = ["valid", "too-soft", "noisy", "truncated"];
 export const ENUM_FLOW_NOTICE = ["none", "success", "spoiled", "clap-clipped", "too-quiet", "gated", "redo"];
+
+// 追加（建议与“最该改”）：房间步每一下拍手的明细、建议、“最该改”的候选项
+export const SNAPSHOT_CLAP_DETAIL = ["timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec"];
+export const SNAPSHOT_ADVICE = ["room", "distance", "directionPrompt"];
+export const ENUM_CLAP_BAND_STATUS = [
+    "valid",
+    "no-noise-reference",
+    "short-decay",
+    "gated",
+    "low-pnr",
+    "poor-fit",
+    "outlier",
+];
+export const ENUM_ROOM_ADVICE = [
+    "unknown",
+    "good",
+    "fine-not-priority",
+    "move-closer-check-direction",
+    "change-room-and-move-closer",
+    "keep-close-dont-back-off",
+    "move-closer-then-treat",
+];
+export const ENUM_DISTANCE_ADVICE = [
+    "none",
+    "back-off-a-little",
+    "drink-water",
+    "move-closer",
+    "fix-room-or-direction-first",
+];
+export const ENUM_DIRECTION_PROMPT = ["none", "stale", "main-button", "action-with-button", "card-button"];
+export const ENUM_FIX_ITEM = [
+    "no-signal",
+    "digital-clip",
+    "direction",
+    "room",
+    "distance",
+    "hum",
+    "gain",
+    "noise",
+    "plosive",
+];

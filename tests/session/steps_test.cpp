@@ -14,6 +14,7 @@
 #include "core/room/ClapSynth.h"
 #include "plugin/BridgeApi.h"
 #include "session/MiniJson.h"
+#include "session/Advice.h"
 #include "session/Session.h"
 #include "session/Steps.h"
 
@@ -337,6 +338,41 @@ TEST_CASE("ungraded sibilance and clicks are not taken as 'no evidence' and get 
     CHECK(root["results"]["sibilance"]["severity"].text == "light");
 }
 
+TEST_CASE("the replaced distance goes into previous only on a position retest or a changed verdict")
+{
+    core::AllResults r;
+    r.plosive = core::PlosiveResult{}; // 可信、轻：没有太近的证据
+    std::optional<core::DistanceResult> previous;
+    session::refreshDistance(r, previous, StepId::Position); // 第一次没有旧值
+    REQUIRE(r.distance.has_value());
+    CHECK(r.distance->verdict.kind == core::DistanceCase::Fine);
+    CHECK_FALSE(previous.has_value());
+
+    // 别的步完成、结论没变：不记
+    session::refreshDistance(r, previous, StepId::Room);
+    CHECK_FALSE(previous.has_value());
+
+    // 位置重测：换下来的那次进“上次”
+    session::refreshDistance(r, previous, StepId::Position);
+    REQUIRE(previous.has_value());
+    CHECK(previous->verdict.kind == core::DistanceCase::Fine);
+
+    // 结论变了：不是位置步也记
+    previous.reset();
+    r.plosive->verdict.severity = core::Severity::Heavy;
+    session::refreshDistance(r, previous, StepId::Direction);
+    REQUIRE(r.distance.has_value());
+    CHECK(r.distance->verdict.kind != core::DistanceCase::Fine);
+    REQUIRE(previous.has_value());
+    CHECK(previous->verdict.kind == core::DistanceCase::Fine);
+
+    // 重算后没有距离：“上次”一并撤掉
+    r.plosive.reset();
+    session::refreshDistance(r, previous, StepId::Room);
+    CHECK_FALSE(r.distance.has_value());
+    CHECK_FALSE(previous.has_value());
+}
+
 TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order")
 {
     session::SessionView v;
@@ -354,13 +390,22 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     v.results.direction = core::DirectionResult{};
     v.results.distance = core::DistanceResult{};
     v.live.claps = {core::ClapState::Valid, core::ClapState::Truncated};
+    v.live.clapDetails = {core::ReverbClap{}, core::ReverbClap{}};
+    v.previous.gain = core::GainResult{};
     v.results.gain->confidence = core::retest(core::RetestReason::TooShort);
     v.steps[static_cast<std::size_t>(StepId::Gain)].status = core::StepStatus::Done;
     v.steps[static_cast<std::size_t>(StepId::Quiet)].status = core::StepStatus::Done;
     v.stale[static_cast<std::size_t>(session::Section::Hum)] = true;
 
     const JsonNode root = JsonReader(session::snapshotJson(v)).parse();
-    CHECK(root.keys() == std::vector<std::string>{"steps", "results", "bands", "live", "connect", "offlineRender"});
+    CHECK(root.keys() == std::vector<std::string>{"steps", "results", "bands", "live", "connect", "offlineRender",
+                                                  "fixes", "advice", "previous"});
+    CHECK(root["advice"].keys() == names(bridge::kSnapshotAdvice));
+    CHECK(root["previous"].keys() == std::vector<std::string>{"gain"});
+    CHECK(root["previous"]["gain"].keys() == withCommon(bridge::kResultGain));
+    REQUIRE(root["live"]["clapDetails"].items.size() == 2);
+    CHECK(root["live"]["clapDetails"].items[0].keys() == names(bridge::kSnapshotClapDetail));
+    CHECK(root["live"]["clapDetails"].items[0]["bandStatus"].items.size() == thr::reverb::bands_hz.size());
     CHECK(root["steps"].keys() == names(core::kStepIdNames));
     for (const auto& step : root["steps"].members)
         CHECK(step.second.keys() == names(bridge::kSnapshotStep));
@@ -405,6 +450,120 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
         for (std::size_t k = 0; k < session::kSectionCount; ++k)
             CHECK(res[std::string(bridge::kResultSections[k])]["stale"].flag == (k == i));
     }
+}
+
+TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by impact x confidence / cost")
+{
+    session::SessionView v;
+    auto& r = v.results;
+    r.noSignal = core::NoSignalResult{};
+    r.noSignal->verdict.state = core::SignalState::AllZeroFromStart;
+    r.gain = core::GainResult{};
+    r.gain->verdict.digitalClip = false;
+    r.gain->verdict.band = core::GainBand::TooQuiet;
+    r.noise = core::NoiseResult{};
+    r.noise->verdict.band = core::NoiseBand::Bad;
+    r.hum = core::HumResult{};
+    r.hum->verdict.kind = core::HumKind::Buzz;
+    r.reverb = core::ReverbResult{};
+    r.reverb->verdict.band = core::ReverbBand::VeryBoomy;
+    r.directRatio = core::DirectRatioResult{};
+    r.directRatio->verdict.band = core::DrBand::Low;
+    r.plosive = core::PlosiveResult{};
+    r.plosive->verdict.severity = core::Severity::Heavy;
+    r.distance = core::DistanceResult{};
+    r.distance->verdict.kind = core::DistanceCase::TooFar;
+    r.direction = core::DirectionResult{};
+    r.direction->verdict.kind = core::DirectionCase::MaybeReversed;
+    core::DirectionAnalysis a;
+    a.result = *r.direction;
+    a.repeatIndex = 2;
+    a.confirmedAdvantageDb = thr::direction::priority_db;
+    v.direction = a;
+
+    using F = core::FixItem;
+    // 默认的影响与代价排出来的就是规格的先后
+    auto fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
+    CHECK(fixes ==
+          std::vector<F>{F::NoSignal, F::Direction, F::Room, F::Distance, F::Hum, F::Gain, F::Noise, F::Plosive});
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).room == core::RoomAdvice::ChangeRoomAndMoveCloser);
+
+    // 数字削波固定在前；增益不再单列，同一个原因不说两次
+    r.gain->verdict.digitalClip = true;
+    fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
+    CHECK(fixes == std::vector<F>{F::NoSignal, F::DigitalClip, F::Direction, F::Room, F::Distance, F::Hum, F::Noise,
+                                  F::Plosive});
+
+    // 要再测的、过期的、轻微的、没确认的都不进
+    r.noise->confidence = core::retest(core::RetestReason::TooShort);
+    v.stale[static_cast<std::size_t>(session::Section::Plosive)] = true;
+    r.hum->verdict.slight = true;
+    v.direction->confirmedAdvantageDb = thr::direction::priority_db - 1.0;
+    r.noSignal->verdict.state = core::SignalState::Ok;
+    // 数字削波只看过期、不看置信度：增益这一步要再测，削波也已经发生
+    r.gain->confidence = core::retest(core::RetestReason::TooShort);
+    fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
+    CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room, F::Distance});
+    v.stale[static_cast<std::size_t>(session::Section::Gain)] = true;
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).fixes == std::vector<F>{F::Room, F::Distance});
+}
+
+TEST_CASE("the direction prompt and the distance advice only read current, trusted results")
+{
+    session::SessionView v;
+    auto& r = v.results;
+    using P = core::DirectionPrompt;
+    auto prompt = [&v](core::MicType mic) { return session::decideAdvice(v, mic).directionPrompt; };
+    CHECK(prompt(core::MicType::Condenser) == P::CardButton);
+    CHECK(prompt(core::MicType::Headset) == P::None);
+
+    // 增益偏低：可信、当前的才把提示放到操作旁；过期的、要再测的不算
+    r.gain = core::GainResult{};
+    r.gain->verdict.band = core::GainBand::Quiet;
+    CHECK(prompt(core::MicType::Condenser) == P::ActionWithButton);
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    v.stale[static_cast<std::size_t>(session::Section::Gain)] = true;
+    CHECK(prompt(core::MicType::Condenser) == P::CardButton);
+    v.stale[static_cast<std::size_t>(session::Section::Gain)] = false;
+    r.gain->confidence = core::retest(core::RetestReason::TooShort);
+    CHECK(prompt(core::MicType::Condenser) == P::CardButton);
+    r.gain.reset();
+
+    // 距离矛盾：可信时触发；要再测时不触发，距离建议也不给
+    r.distance = core::DistanceResult{};
+    r.distance->verdict.kind = core::DistanceCase::Conflicting;
+    CHECK(prompt(core::MicType::Dynamic) == P::ActionWithButton);
+    r.distance->confidence = core::retest(core::RetestReason::TooShort);
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    CHECK(session::decideAdvice(v, core::MicType::Dynamic).distance == core::DistanceAdvice::None);
+}
+
+TEST_CASE("the direction pair is reported only while a re-sing is due or once it confirmed a reversal")
+{
+    session::SessionView v;
+    v.results.direction = core::DirectionResult{};
+    core::DirectionAnalysis a;
+    a.repeatIndex = 2; // decideDirection 不进确认阶段也会填最响的别的方向
+    auto direction = [&v, &a](core::DirectionCase kind, bool needsRepeat, double advantage) {
+        v.results.direction->verdict.kind = kind;
+        a.result = *v.results.direction;
+        a.needsRepeat = needsRepeat;
+        a.confirmedAdvantageDb = advantage;
+        v.direction = a;
+        return JsonReader(session::snapshotJson(v)).parse()["results"]["direction"];
+    };
+    const auto best = direction(core::DirectionCase::Best, false, 0.0);
+    CHECK(best["repeatIndex"].number == -1.0);
+    CHECK(best["confirmedAdvantageDb"].kind == JsonNode::Kind::Null);
+    const auto due = direction(core::DirectionCase::Uncertain, true, 0.0);
+    CHECK(due["repeatIndex"].number == 2.0);
+    CHECK(due["confirmedAdvantageDb"].kind == JsonNode::Kind::Null);
+    const auto unconfirmed = direction(core::DirectionCase::Uncertain, false, 0.0);
+    CHECK(unconfirmed["repeatIndex"].number == -1.0);
+    CHECK(unconfirmed["confirmedAdvantageDb"].kind == JsonNode::Kind::Null);
+    const auto confirmed = direction(core::DirectionCase::MaybeReversed, false, 12.0);
+    CHECK(confirmed["repeatIndex"].number == 2.0);
+    CHECK(confirmed["confirmedAdvantageDb"].number == 12.0);
 }
 
 TEST_CASE("channel prompts follow the host: no mono tracks means no 'make it mono' advice")

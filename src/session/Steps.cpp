@@ -331,11 +331,19 @@ private:
         analysed();
         const double heard = static_cast<double>(received_) / ctx_.sampleRate;
         live_.claps.clear();
+        live_.clapDetails.clear();
         for (const auto& clap : analysis.claps)
             if (clap.timeSec + thr::reverb::segment_after_s <= heard)
+            {
                 live_.claps.push_back(clapState(clap));
-        if (live_.claps.size() > static_cast<std::size_t>(count(thr::session::room_claps_max)))
-            live_.claps.resize(static_cast<std::size_t>(count(thr::session::room_claps_max)));
+                live_.clapDetails.push_back(clap);
+            }
+        const auto most = static_cast<std::size_t>(count(thr::session::room_claps_max));
+        if (live_.claps.size() > most)
+        {
+            live_.claps.resize(most);
+            live_.clapDetails.resize(most);
+        }
     }
 
     bool finishedEarly() const override
@@ -356,6 +364,7 @@ private:
     {
         capture_ = std::make_unique<core::ClapAnalyser>(ctx_.sampleRate);
         live_.claps.clear();
+        live_.clapDetails.clear();
         received_ = 0;
         sinceLook_ = 0;
         final_.reset();
@@ -463,6 +472,7 @@ public:
     {
         StepOutput out;
         out.results.direction = analysis_.result;
+        out.direction = analysis_;
         return out;
     }
 

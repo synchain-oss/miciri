@@ -14,7 +14,9 @@
 #include <optional>
 #include <vector>
 
+#include "direction/Direction.h"
 #include "result/Results.h"
+#include "room/Room.h"
 
 namespace miciri::session
 {
@@ -29,6 +31,7 @@ struct Live
     double phaseElapsedSec = 0.0; // 当前这一遍的已用与总时长
     double phaseDurationSec = 0.0;
     std::vector<core::ClapState> claps; // 房间步：每一下拍手的判定，按先后
+    std::vector<core::ReverbClap> clapDetails; // 与 claps 一一对应：时间、峰值、是否削波、各频带的 T20 与状态
     int directionIndex = 0;
     core::FlowNotice notice = core::FlowNotice::None;
     double noticeSec = 0.0; // 提示剩余的秒数，到 0 就重来
@@ -51,6 +54,7 @@ struct StepOutput
     core::AllResults results;
     std::optional<double> speechLevelDbfsA;
     std::optional<bool> signalSeen;
+    std::optional<core::DirectionAnalysis> direction; // 方向步：含确认的那一对与较小的优势，“最该改”要用
 };
 
 class StepScript
