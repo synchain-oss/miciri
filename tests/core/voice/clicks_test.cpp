@@ -43,6 +43,10 @@ TEST_CASE("口水音：平稳的元音与底噪不报", "[voice][clicks]")
     CHECK(r.confidence.level == core::Reliability::Trusted);
     CHECK(r.measures.count == 0);
     CHECK(r.measures.perMinute == 0.0);
+    // 没有口水音时最响一下的两项不是测量值，留默认的 0
+    CHECK(r.measures.loudestDbfs == 0.0);
+    CHECK(r.measures.loudestRelDb == 0.0);
+    CHECK(r.evidence.marks.empty());
 }
 
 TEST_CASE("口水音：停顿里的尖峰逐个计数，给每分钟次数与最响一下的电平", "[voice][clicks]")

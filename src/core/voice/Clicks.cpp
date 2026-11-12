@@ -312,7 +312,7 @@ ClickResult summariseClicks(const ClickScan& scan, double residualMultiple)
     r.measures.count = static_cast<std::int64_t>(clusters.size());
     r.measures.perMinute = static_cast<double>(clusters.size()) / scan.seconds * 60.0;
     if (clusters.empty())
-        return r; // 没有口水音：最响一下的两项没有意义，保持 0，界面看 count
+        return r; // 没有口水音：最响一下的两项不是测量值，留默认的 0；上层先看 count
     double loudest = clusters.front().peakDbfs;
     for (const auto& cl : clusters)
     {

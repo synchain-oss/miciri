@@ -104,7 +104,8 @@ std::vector<PlosiveEvent> plosiveEvents(const std::vector<double>& samples, doub
         const double reference = std::max(dsp::median(steady), lowFloorDb + p::reference_floor_margin_db);
         PlosiveEvent e;
         e.startSec = static_cast<double>(j) * static_cast<double>(hop) / rate;
-        e.endSec = static_cast<double>(end) * static_cast<double>(hop) / rate;
+        // 最后一个音节加上帧长可能越过录音结尾，证据不标到录音之外
+        e.endSec = std::min(static_cast<double>(end) * static_cast<double>(hop), static_cast<double>(x.size())) / rate;
         e.ratioDb = peak - reference;
         events.push_back(e);
     }

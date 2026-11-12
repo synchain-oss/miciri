@@ -238,6 +238,7 @@ using SibilanceResult = Result<SibilanceMeasures, SibilanceVerdict>;
 struct ClickMeasures
 {
     double perMinute = 0.0;
+    // count 为 0 时下面两项不是测量值，留默认的 0：先看 count
     double loudestRelDb = 0.0; // 最响一次相对本人语音
     double loudestDbfs = 0.0; // 最响一次的绝对电平，电平管外的圆点
     double analysedSeconds = 0.0;

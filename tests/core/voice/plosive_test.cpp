@@ -53,6 +53,20 @@ TEST_CASE("喷麦：每个音节一个事件，不喷的字比值接近 0", "[vo
     CHECK(r.measures.worstRatioDb < thr::plosive::moderate_above_db);
 }
 
+TEST_CASE("喷麦：录音停在最后一个音节中间时，证据不越过录音结尾", "[voice][plosive]")
+{
+    const double fs = 48000.0;
+    auto x = wordList(fs, listWithOnePop(10.0));
+    x.resize(static_cast<std::size_t>((0.5 + 1.1 * 11.0 + 0.25) * fs));
+    const double seconds = static_cast<double>(x.size()) / fs;
+    const auto events = core::plosiveEvents(x, fs);
+    REQUIRE(events.size() == 12);
+    for (const auto& e : events)
+        CHECK(e.endSec <= seconds);
+    for (const auto& m : core::analysePlosive(x, fs).evidence.marks)
+        CHECK(m.endSec <= seconds);
+}
+
 TEST_CASE("喷麦：严重度取一遍字表的最大值，一个喷的字就够", "[voice][plosive]")
 {
     const double fs = 48000.0;
