@@ -130,7 +130,8 @@ public:
 
 private:
     struct Worker;
-    void stopWorker(bool waitForFinish);
+    void signalStop();
+    bool reapWorker();
     void run(Worker& w);
     void publishLive(const StepScript& script);
     void invalidate(core::StepId id, core::RetestReason why);
@@ -161,4 +162,8 @@ private:
     bool channelPromptDismissed_ = false;
     std::atomic<std::uint64_t> version_{0};
 };
+
+// 快照 JSON：键是 steps、results、bands、live、connect、offlineRender，
+// 字段名与顺序按桥契约（BridgeApi.h）。编辑器把它并进 miciri.state，再补上墙钟给的 callbackAgeSec。
+std::string snapshotJson(const SessionView& view);
 } // namespace miciri::session

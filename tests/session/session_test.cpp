@@ -12,6 +12,7 @@
 
 #include "config/Thresholds.h"
 #include "core/level/Synth.h"
+#include "session/MiniJson.h"
 #include "session/Session.h"
 
 using namespace miciri;
@@ -155,10 +156,11 @@ TEST_CASE("a step paced like real time completes, runs the analyses, and later e
     CHECK(s.context().channel == core::AnalysedChannel::Left);
     CHECK_FALSE(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
 
-    // 采样率变了：已有结果全部过期
+    // 采样率变了：已有结果全部过期，步骤显示 stale
     s.prepare(fs * 2, 1);
-    CHECK(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
-    CHECK_FALSE(s.view().stale[static_cast<std::size_t>(session::Section::Gain)]); // 没做过的不算
+    auto root = JsonReader(session::snapshotJson(s.view())).parse();
+    CHECK(root["results"]["noSignal"]["stale"].flag);
+    CHECK(root["steps"]["connect"]["status"].text == "stale");
 }
 
 TEST_CASE("a change reported while a step runs leaves that step's output stale and its levels unused")
@@ -262,11 +264,64 @@ TEST_CASE("a sample-rate change mid-step voids that step")
     CHECK(stepOf(s, StepId::Gain).status == StepStatus::Invalid);
     CHECK(stepOf(s, StepId::Gain).invalidReason == RetestReason::RateChanged);
     CHECK_FALSE(s.tap().armed());
-    // 同样的采样率再 prepare 一次不算变化
-    REQUIRE(s.startStep(StepId::Gain) == session::Session::Start::Ok);
+    // 被叫停的那一步退出之前回 busy（prepare 不等它），退出之后就能开始；同样的采样率再 prepare 一次不算变化
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Gain) == session::Session::Start::Ok; }));
     s.prepare(44100.0, 1);
     CHECK(s.running());
     s.cancelStep();
+}
+
+namespace
+{
+std::atomic<bool> gHold{false};
+std::atomic<int> gHeld{0};
+// 停在分析里，直到放行：模拟工作线程正在做一次长分析
+void holdingAnalysis() noexcept
+{
+    gHeld.fetch_add(1);
+    while (gHold.load())
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
+} // namespace
+
+TEST_CASE("cancel and prepare do not wait for an analysis in progress; starting again is busy until it ends")
+{
+    for (const bool viaPrepare : {false, true})
+    {
+        gHold = true;
+        gHeld = 0;
+        session::Session s(holdingAnalysis);
+        std::thread audio;
+        // REQUIRE 失败提前退出时，先放行分析、收回推样本的线程，再析构 Session：报出失败原因，而不是卡到超时
+        struct Release
+        {
+            std::thread& t;
+            ~Release()
+            {
+                gHold = false;
+                if (t.joinable())
+                    t.join();
+            }
+        } release{audio};
+        s.prepare(48000.0, 1);
+        REQUIRE(s.startStep(StepId::Room) == session::Session::Start::Ok); // 房间步边收边看拍手，会调分析
+        audio = std::thread([&] { pump(s.tap(), std::vector<double>(48000, 0.01), 1, 48000.0, 1.0); });
+        REQUIRE(waitFor([&] { return gHeld.load() > 0; }));
+        const auto t0 = Clock::now();
+        if (viaPrepare)
+            s.prepare(44100.0, 1);
+        else
+            s.cancelStep();
+        CHECK(Clock::now() - t0 < std::chrono::milliseconds(500));
+        CHECK_FALSE(s.running());
+        CHECK_FALSE(s.tap().armed());
+        CHECK(s.startStep(StepId::Gain) == session::Session::Start::Busy); // 旧线程没退出：不重新 arm
+        CHECK_FALSE(s.tap().armed());
+        gHold = false;
+        REQUIRE(waitFor([&] { return s.startStep(StepId::Gain) == session::Session::Start::Ok; }));
+        s.cancelStep();
+        audio.join();
+    }
 }
 
 TEST_CASE("cancel restores the step's earlier status and stops capturing")
@@ -277,12 +332,13 @@ TEST_CASE("cancel restores the step's earlier status and stops capturing")
     std::thread audio([&] { pump(s.tap(), std::vector<double>(4800, 0.01), 1, 48000.0, 1.0); });
     std::this_thread::sleep_for(std::chrono::milliseconds(30));
     for (int i = 0; i < 20; ++i)
-        (void)s.view(); // 消息线程同时在读快照
+        (void)session::snapshotJson(s.view()); // 消息线程同时在读快照
     s.cancelStep();
     audio.join();
     CHECK_FALSE(s.running());
     CHECK_FALSE(s.tap().armed());
     CHECK(stepOf(s, StepId::Room).status == StepStatus::Idle);
-    CHECK(s.startStep(StepId::Room) == session::Session::Start::Ok);
+    // 取消不等收尾：被叫停的那一步退出之前回 busy，退出之后就能重新开始
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Room) == session::Session::Start::Ok; }));
     // 析构时正在跑：先停工作线程再退出，不挂住
 }

@@ -25,8 +25,8 @@ status: frozen
 | `setUiScale` / `commitUiScale` | 缩放档位 / 无 | 窗口缩放的 10 秒确认回退：先设置，确认才提交；没有待确认项回 `no-pending` |
 | `setGuideSeen` | 布尔 | 指南已看 |
 | `setMicType` | `ENUM_MIC_TYPE` 之一 | 影响“增益偏低”是否算问题、耳机麦是否做方向测试 |
-| `startStep` | `ENUM_STEP_ID` 之一 | 开始或重测一步；步骤正忙回 `busy`，不认识回 `bad-step` |
-| `cancelStep` | 无 | 放弃当前步 |
+| `startStep` | `ENUM_STEP_ID` 之一 | 开始或重测一步；步骤正忙回 `busy`，不认识回 `bad-step`，此刻不能测试回 `disabled` |
+| `cancelStep` | 无 | 放弃当前步：这一步回到开始前的状态，旧结果不动 |
 | `reportChange` | `ENUM_CHANGE_KIND` 之一 | 用户说“我动过了”：对应结果按过期规则标 `stale` |
 | `dismissChannelPrompt` | 无 | “两路是同一个声音”的“不再提醒” |
 | `openExternal` | 链接 | 交给系统浏览器，页面不自己打开外链 |
@@ -34,7 +34,9 @@ status: frozen
 | `clearClipLatch` | 无 | 用户点削波灯：清掉锁存，单声道和立体声都清 |
 
 失败原因（`BRIDGE_REASONS`）：`bad-lang` 语言不认识；`bad-scale` 缩放档位越界；`bad-step` 步骤名不认识；`bad-arg` 其他参数类型不符；
-`no-pending` 没有待确认的缩放；`scale-locked` 此时不允许改缩放；`not-ready` 宿主在显示兜底面板；`busy` 当前步骤正忙。
+`no-pending` 没有待确认的缩放；`scale-locked` 此时不允许改缩放；`not-ready` 宿主在显示兜底面板；`busy` 当前步骤正忙；
+`disabled` 此刻不能测试：宿主在离线渲染、宿主是插件验证工具、音频还没准备好，或分配采集缓冲、起分析线程失败（追加）。
+`busy` 也包括刚取消或作废的那一步还在做收尾分析的片刻（取消不等分析做完），稍后重试即可。
 越界或类型不符一律由 C++ 侧夹取或拒绝，界面不校验。
 
 ## 事件（原生推给界面，`BRIDGE_EVENTS`）
@@ -52,16 +54,21 @@ status: frozen
 `SNAPSHOT_ROOT`：`apiVersion`、`lang`、`uiScale`、`guideSeen`、`micType`，加四个对象：
 
 - `device`（`SNAPSHOT_DEVICE`）：采样率、缓冲大小、`layout`（`ENUM_CHANNEL_LAYOUT`）、宿主名（用于“没有单声道轨的宿主”那条文案）、
-  `offlineRender`（宿主正在离线渲染，测试暂停；追加字段）。
+  `offlineRender`（宿主正在离线渲染，测试暂停；追加字段）。宿主自己报离线渲染时为真；宿主没报、但测试中音频到得明显快于实时
+  （`session.realtime_ratio_max` 倍以上）时也为真，并保持到下一次开始测试。
 - `connect`（`SNAPSHOT_CONNECT`）：接通与诊断面板所需。`signalState` 取 `ENUM_SIGNAL_STATE`；`channelStatusL/R` 取
   `ENUM_CHANNEL_STATUS`；`channelPrompt` 取 `ENUM_CHANNEL_PROMPT`，是声道检查结果加宿主能力换算出的界面提示；
-  `callbackAgeSec` 由编辑器的消息线程定时器按墙钟读心跳得出，其余都来自采样计数。
+  `callbackAgeSec` 由编辑器的消息线程定时器按墙钟读心跳得出，其余都来自采样计数。接通的诊断来自 `startStep("connect")`
+  的观察窗（`no_signal.low_flat_window_s` 秒）：`noiseDbfs` 是观察窗内帧电平的 P10，`allZero` 表示观察窗里严格全 0 达到
+  `no_signal.strict_zero_window_s` 秒且没有正常信号；没做过接通时 `signalState` 是 `waiting`、`noiseDbfs` 是 `null`。
 - `steps`：键是 `ENUM_STEP_ID`，值有 `SNAPSHOT_STEP` 的字段；`status` 取 `ENUM_STEP_STATUS`，`invalidReason` 取 `ENUM_RETEST_REASON`。
-  作废的原因里，`offline-render`（宿主在离线渲染，或测试中音频明显快于实时）与 `layout-changed`（测试中声道数变了）是追加的；
-  `overflow`、`callback-gap`、`rate-changed` 同样只出现在作废上。
+  作废的原因里，`offline-render`（宿主在离线渲染，或音频明显快于实时）与 `layout-changed`（测试中声道数变了）是追加的；
+  `overflow`、`callback-gap`、`rate-changed` 同样只出现在作废上。做完的一步只要它产出的某一项过期，`status` 就是 `stale`。
 - `results`：键是 `RESULT_SECTIONS`，没做过的步骤没有这个键。每个区段的字段 = 该结果的专有字段（`RESULT_<区段>`）
   加 `RESULT_COMMON`：`tone`（`ENUM_TONE`）、`reliability`、`retestReason`、`stale`。专有字段的名字就是
   `src/core/result/Results.h` 里 measures 与 verdict 字段的 camelCase 名，档位字段（`band`、`kind`、`severity`、`state`）取对应的 `ENUM_*`。
+  `tone` 是卡片的颜色：再测时一律 `none`；齿音与口水音不分档，`severity` 停在 `light` 只表示“未分档”，`tone` 也是 `none`，
+  界面不能按 `light` 着成绿色；设备处理与距离没有色调。
   数组量（`t20Sec`、`bandPnrDb`、`bandR2`、`levelDb`、`brightnessDb`）是 JSON 数组。
 
 ## 流程页用的追加字段（`bands`、`live`）
@@ -73,10 +80,12 @@ status: frozen
   没有步骤在跑时 `phase` 是 `none`，`claps` 是空数组，`clapsNeeded`、`clapsMax` 仍有值（准备页要写“凑够几下、最多几下”）。
   - `phase`（`ENUM_STEP_PHASE`）：位置步依次是 `soft-clap`、`plosive`、`sibilant`、`natural`；方向步是 `direction` 与 `confirm`；
     其余步骤只有 `none`。界面只认枚举名，不认顺序：哪几个阶段、第几部分由界面的步骤表决定，阶段增减不改契约。
-  - `round`、`rounds`：当前阶段里第几遍或第几下（从 1 起）和总数；`phaseElapsedSec`、`phaseDurationSec`：当前阶段已用和总时长（采样计数）。
-  - `claps`：房间步到目前为止每一下拍手的判定（`ENUM_CLAP_STATE`，按拍的先后），没拍的不在数组里；
-    `clapsNeeded`、`clapsMax`：凑够几下有效、最多拍几下。出现 `truncated` 整组作废。房间步结束后 `claps` 保留到下一次开始这一步，失败页要用它画每一下的判定。
-  - `directionIndex`：方向步当前是第几个方向（0 起）。
+  - `round`、`rounds`：当前阶段里第几遍或第几下（从 1 起）和总数；`phaseElapsedSec`、`phaseDurationSec`：当前这一遍（这一下）
+    已用和总时长（采样计数）。只有一遍的阶段（包括 `none`）就是整个阶段。
+  - `claps`：房间步到目前为止每一下拍手的判定（`ENUM_CLAP_STATE`，按拍的先后），尾巴还没收完的那一下先不报，没拍的不在数组里；
+    `clapsNeeded`、`clapsMax`：凑够几下有效、最多拍几下。`valid` 是 500 Hz 与 1 kHz 都量出了衰减；`truncated` 是其中一个频带的尾巴被门限切掉，
+    只作废这一下；门限作废的太多、主指标给不出时整组作废，这时 `notice` 是 `gated`。房间步结束后 `claps` 保留到下一次开始这一步，失败页要用它画每一下的判定。
+  - `directionIndex`：方向步当前是第几个方向（0 起，0 是开始时面对的方向）。`confirm` 阶段两遍，第 1 遍是 0，第 2 遍是那个更响的方向。
   - `notice`（`ENUM_FLOW_NOTICE`）、`noticeSec`：测试中的提示。`success` 是这一步完成；`spoiled` 安静时检测到声音；`clap-clipped` 轻拍削波了；
     `too-quiet` 念得太轻；`gated` 设备的降噪或噪声门让这组拍手作废；`redo` 其他需要重来的情况。除 `success` 外都表示这一步将在 `noticeSec`
     秒后自动重新开始。

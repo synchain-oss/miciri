@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 编辑器的实现。快照与事件的字段名只用 BridgeApi.h 里已有的；枚举值取自 core 的线上名字表。
+// 步骤、结果、档位边界、实时信息与接通诊断由 Session 写成 JSON（字段与顺序按契约，见 session/Session.h），
+// 这里解析后并进快照，只补上墙钟一侧的 callbackAgeSec 与宿主报的离线渲染。
 #include "MiciriEditor.h"
 
 #include <cmath>
@@ -38,6 +40,26 @@ juce::var makeObject(std::initializer_list<std::pair<const char*, juce::var>> fi
 juce::String wireName(std::string_view v)
 {
     return juce::String(v.data(), v.size());
+}
+
+constexpr const char* kBadStep = "bad-step";
+constexpr const char* kBusy = "busy";
+constexpr const char* kDisabled = "disabled";
+static_assert(bridge::listed(bridge::kReasons, kBadStep) && bridge::listed(bridge::kReasons, kBusy) &&
+                  bridge::listed(bridge::kReasons, kDisabled),
+              "错误原因必须出现在 BridgeApi.h 的 kReasons 里");
+
+// 参数是某个枚举的线上名字：返回它的下标，不认识返回 -1
+template<std::size_t N>
+int wireIndex(const juce::Array<juce::var>& args, const std::array<std::string_view, N>& names)
+{
+    if (args.size() < 1 || !args[0].isString())
+        return -1;
+    const auto wanted = args[0].toString().toStdString();
+    for (std::size_t i = 0; i < N; ++i)
+        if (names[i] == wanted)
+            return static_cast<int>(i);
+    return -1;
 }
 } // namespace
 
@@ -79,14 +101,27 @@ juce::var MiciriEditor::buildSnapshot()
     const bool noCallback = ageSec > thr::no_signal::no_callback_s;
 
     const auto layoutIndex = device.numChannels >= 2 ? core::ChannelLayout::Stereo : core::ChannelLayout::Mono;
-    const auto signalState = noCallback ? core::SignalState::NoCallback : core::SignalState::Waiting;
+    const auto view = processor_.session().view();
+    const auto json = session::snapshotJson(view);
+    const auto parsed = juce::JSON::parse(juce::String::fromUTF8(json.data(), static_cast<int>(json.size())));
+    auto part = [&parsed](const char* key) {
+        const auto v = parsed.getProperty(key, {});
+        return v.isObject() ? v : makeObject({});
+    };
 
     const auto deviceObj = makeObject({{"sampleRate", device.sampleRate},
                                        {"bufferSize", device.bufferSize},
                                        {"layout", wireName(core::toString(layoutIndex))},
-                                       {"hostName", hostName_}});
-    const auto connectObj =
-        makeObject({{"signalState", wireName(core::toString(signalState))}, {"callbackAgeSec", roundTenth(ageSec)}});
+                                       {"hostName", hostName_},
+                                       {"offlineRender", processor_.offlineRendering() || view.offlineRender}});
+    // 接通诊断来自 Session；“没有回调”只有墙钟看得出，盖过 Session 给的状态
+    const auto connectObj = part("connect");
+    if (auto* c = connectObj.getDynamicObject())
+    {
+        c->setProperty("callbackAgeSec", roundTenth(ageSec)); // 覆盖 Session 的占位，键序不变
+        if (noCallback)
+            c->setProperty("signalState", wireName(core::toString(core::SignalState::NoCallback)));
+    }
 
     return makeObject({{"apiVersion", bridge::kApiVersion},
                        {"lang", lang()},
@@ -95,8 +130,10 @@ juce::var MiciriEditor::buildSnapshot()
                        {"micType", wireName(core::kMicTypeNames[static_cast<std::size_t>(processor_.micType())])},
                        {"device", deviceObj},
                        {"connect", connectObj},
-                       {"steps", makeObject({})},
-                       {"results", makeObject({})}});
+                       {"steps", part("steps")},
+                       {"results", part("results")},
+                       {"bands", part("bands")},
+                       {"live", part("live")}});
 }
 
 juce::var MiciriEditor::buildMeters()
@@ -120,16 +157,20 @@ void MiciriEditor::emitTick()
     const bool deviceChanged = device.sampleRate != lastDevice_.sampleRate ||
                                device.bufferSize != lastDevice_.bufferSize ||
                                device.numChannels != lastDevice_.numChannels;
-    if (deviceChanged || ++ticksSinceState_ >= kStateEveryTicks)
+    const auto version = processor_.session().version();
+    ++ticksSinceState_;
+    const bool sessionChanged = version != lastSessionVersion_ && ticksSinceState_ >= kSessionStateTicks;
+    if (deviceChanged || sessionChanged || ticksSinceState_ >= kStateEveryTicks)
     {
         lastDevice_ = device;
+        lastSessionVersion_ = version;
         ticksSinceState_ = 0;
         emitState();
     }
 }
 
-// 只实现不依赖 Session 的函数；步骤类函数（startStep、cancelStep、reportChange、dismissChannelPrompt、
-// showLicense）要等对应模块落地，之前统一回 not-ready，不改任何状态。
+// showLicense 要等对应模块落地，之前回 not-ready，不改任何状态。
+// cancelStep 不等工作线程：只让它停下、撤销采集，立即返回；它还在收尾分析时，startStep 回 busy，界面稍后重试。
 void MiciriEditor::handleBridgeCall(const juce::String& name, const juce::Array<juce::var>& args,
                                     NativeCompletion complete)
 {
@@ -149,19 +190,57 @@ void MiciriEditor::handleBridgeCall(const juce::String& name, const juce::Array<
     }
     if (name == "setMicType")
     {
-        int index = -1;
-        if (args.size() >= 1 && args[0].isString())
-        {
-            const auto wanted = args[0].toString().toStdString();
-            for (std::size_t i = 0; i < core::kMicTypeNames.size(); ++i)
-                if (core::kMicTypeNames[i] == wanted)
-                    index = static_cast<int>(i);
-        }
-        if (!processor_.setMicType(index))
+        if (!processor_.setMicType(wireIndex(args, core::kMicTypeNames)))
         {
             complete(bridge::failResponse(bridge::kBadArg));
             return;
         }
+        complete(bridge::okResponse());
+        emitState();
+        return;
+    }
+    if (name == "startStep")
+    {
+        const int index = wireIndex(args, core::kStepIdNames);
+        if (index < 0)
+        {
+            complete(bridge::failResponse(kBadStep));
+            return;
+        }
+        const auto outcome =
+            processor_.session().startStep(static_cast<core::StepId>(index), processor_.offlineRendering());
+        if (outcome == session::Session::Start::Busy)
+            complete(bridge::failResponse(kBusy));
+        else if (outcome == session::Session::Start::Disabled || outcome == session::Session::Start::Failed)
+            complete(bridge::failResponse(kDisabled));
+        else
+            complete(bridge::okResponse());
+        emitState();
+        return;
+    }
+    if (name == "cancelStep")
+    {
+        processor_.session().cancelStep();
+        complete(bridge::okResponse());
+        emitState();
+        return;
+    }
+    if (name == "reportChange")
+    {
+        const int index = wireIndex(args, core::kChangeKindNames);
+        if (index < 0)
+        {
+            complete(bridge::failResponse(bridge::kBadArg));
+            return;
+        }
+        processor_.session().reportChange(static_cast<core::ChangeKind>(index));
+        complete(bridge::okResponse());
+        emitState();
+        return;
+    }
+    if (name == "dismissChannelPrompt")
+    {
+        processor_.session().dismissChannelPrompt();
         complete(bridge::okResponse());
         emitState();
         return;
