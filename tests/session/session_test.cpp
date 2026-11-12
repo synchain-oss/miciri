@@ -170,6 +170,7 @@ TEST_CASE("a change reported while a step runs leaves that step's output stale a
     const auto x = voice(fs, thr::no_signal::low_flat_window_s + 0.5, 0.1, 6);
     std::thread audio([&] { pump(s.tap(), x, 1, fs, 1.3); });
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    REQUIRE(s.running()); // 改动必须落在这一步进行中，否则测的是收尾后的过期
     s.reportChange(core::ChangeKind::Room); // 换房间：全部过期，包括这一步的接通
     audio.join();
     REQUIRE(waitFor([&] { return !s.running(); }));

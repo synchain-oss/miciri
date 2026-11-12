@@ -222,11 +222,15 @@ void Session::prepare(double sampleRate, int channels)
         if (!rateChanged && !layoutChanged && sampleRate_ > 0.0)
             return;
     }
+    // 不在这里 join：prepare 从宿主的 prepareToPlay 调进来，工作线程可能正在做整段分析。
+    // 只让它停下、撤销采集；它收到停止就不再改状态，线程留给下一次 startStep、cancelStep 或析构回收（那里都先 join 再
+    // arm）
     std::optional<StepId> voided;
     if (worker_ != nullptr)
     {
         voided = worker_->id;
-        stopWorker(true);
+        worker_->stop.store(true, std::memory_order_release);
+        tap_.disarm();
     }
     const std::lock_guard<std::mutex> lock(state_);
     if (voided && current_ == voided)
