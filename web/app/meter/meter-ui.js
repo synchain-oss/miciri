@@ -59,7 +59,7 @@ export function createMeterCard(o) {
         const bands = el("div", { class: "lt__bands", aria: { hidden: "true" } });
         const zone = el("i", { class: "lt__zone" });
         const slot = el("div", { class: "lt__slot" }, liquid, bands, peak, zone);
-        const lbl = el("span", { class: "lt__lbl", text: id });
+        const lbl = el("span", { class: "lt__lbl", text: id, aria: { hidden: "true" } });
         const node = el(
             "div",
             { class: "lt", data: { ch: id } },
@@ -80,9 +80,11 @@ export function createMeterCard(o) {
     const marks = el("div", { class: "lt-marks" });
     zoneLabel.append(zoneText, marks);
     const tip = el("div", { class: "lt-tip", role: "tooltip", hidden: true });
+    // 电平表里有可点的削波灯（button）。role=img 的子节点按规范是展示性的，里面不能再放可聚焦控件（axe nested-interactive），
+    // 所以外层用 group：名字照旧带电平表与结果标记，削波灯作为独立的按钮被读到。
     const meter = el(
         "div",
-        { class: "meter", role: "img", data: { ch: "mono", part: "meter" } },
+        { class: "meter", role: "group", data: { ch: "mono", part: "meter" } },
         scale,
         tube("L"),
         tube("R"),
