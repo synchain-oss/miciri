@@ -223,7 +223,12 @@ export function peekSegments(state, id) {
             ];
         if (id === "room" && r.reverb)
             return [
-                { key: "flow.sum.room", vars: { w: { word: reverbWord(r.reverb) }, v: r.reverb.tMidSec.toFixed(2) } },
+                Number.isFinite(r.reverb.tMidSec)
+                    ? {
+                          key: "flow.sum.room",
+                          vars: { w: { word: reverbWord(r.reverb) }, v: r.reverb.tMidSec.toFixed(2) },
+                      }
+                    : { key: "flow.w.unk" },
             ];
         if (id === "position" && r.directRatio) {
             const kv = (k, w) => ({ key: "flow.sum.kv", vars: { k: { word: k }, w: { word: w } } });
@@ -414,7 +419,9 @@ const RESTART = "flow.rm.restart";
 export function remoteModel(state, o = {}) {
     const ids = visibleSteps(state);
     const running = ids.find((id) => statusOf(state, id) === "running");
-    const live = state.live || {};
+    // 契约：快照里没有 bands 或 live（旧的原生端）就不进测试中视图，由准备页兜底
+    if (!state.bands || !state.live) return null;
+    const live = state.live;
     if (!running) {
         if (!o.justFinished) return null;
         const next = neighbour(state, o.justFinished, 1);
@@ -719,6 +726,7 @@ export function resultModel(state, id) {
                         stale: false,
                         retest: true,
                         why: WHY[rv.retestReason] || "flow.cf.why.fewclaps",
+                        need: live.clapsNeeded,
                     },
                 ],
                 cols: 1,
@@ -734,7 +742,14 @@ export function resultModel(state, id) {
         const boomy = rv.band === "boomy" || rv.band === "very-boomy";
         return {
             cards: [
-                { id: "room", word: reverbWord(rv), nums: [num(rv.tMidSec.toFixed(2), "s")], note: null, ...sec(rv) },
+                {
+                    id: "room",
+                    word: reverbWord(rv),
+                    nums: [num(rv.tMidSec.toFixed(2), "s")],
+                    note: null,
+                    need: live.clapsNeeded,
+                    ...sec(rv),
+                },
             ],
             cols: 1,
             side: false,

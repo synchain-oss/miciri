@@ -501,13 +501,17 @@ const SLOT_ICON = { valid: "check", soft: "up", noisy: "wave", gate: "cut", wait
 export const slotEl = (s, ctx) =>
     el("div", { class: "slot", data: { s } }, ic(SLOT_ICON[s], 26), el("span", { text: ctx.t(`flow.sl.${s}`) }));
 
-/** 四点雷达：半径 = R × (1 + 相对 dB ÷ 20)，虚线圈在 0、−6、−12 dB；最响的点实心，当前方向画虚线圈。rel 顺序：当前、转 90°、转 180°、转 270°。 */
+/** 雷达的显示刻度（只决定怎么画，不是判据）：半径 = R × (1 + 相对 dB ÷ 满量程)，虚线圈画在这几档相对 dB 上。 */
+const RADAR_FULL_DB = 20;
+const RADAR_RINGS_DB = [0, -6, -12];
+
+/** 四点雷达：最响的点实心，当前方向画虚线圈。rel 顺序：当前、转 90°、转 180°、转 270°。 */
 function radar(v, ctx) {
     const { t } = ctx;
     const R = 68;
     const C = 100;
     const ANG = [-90, 0, 90, 180];
-    const rad = (d) => Math.max(0.1, 1 + d / 20) * R;
+    const rad = (d) => Math.max(0.1, 1 + d / RADAR_FULL_DB) * R;
     const pt = (i, r) => [C + r * Math.cos((ANG[i] * Math.PI) / 180), C + r * Math.sin((ANG[i] * Math.PI) / 180)];
     const f = (n) => n.toFixed(1);
     const pts = v.rel.map((d, i) => pt(i, rad(d)));
@@ -515,7 +519,7 @@ function radar(v, ctx) {
     const chart = svg(
         "svg",
         { viewBox: "0 0 200 200", width: 200, height: 200, role: "img", "aria-label": t("flow.dir.radar.aria") },
-        [0, -6, -12].map((d) => svg("circle", { class: "rd__ring", cx: C, cy: C, r: f(rad(d)) })),
+        RADAR_RINGS_DB.map((d) => svg("circle", { class: "rd__ring", cx: C, cy: C, r: f(rad(d)) })),
         ANG.map((_, i) => svg("line", { class: "rd__axis", x1: C, y1: C, x2: f(pt(i, R)[0]), y2: f(pt(i, R)[1]) })),
         svg("polygon", { class: "rd__poly", points: pts.map((p) => `${f(p[0])},${f(p[1])}`).join(" ") }),
         svg("circle", { class: "rd__cur", cx: f(pts[0][0]), cy: f(pts[0][1]), r: 9 }),

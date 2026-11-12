@@ -231,6 +231,42 @@ run.eq(dirRes.viz.rel, [-2, 0, -3, -6], "方向雷达：把当前方向转到第
 run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
 run.eq(flow.resultModel(snap(), "gain"), null, "没有结果时结果页没有数据");
 
+// 评审补的边界：旧的原生端没有 bands 或 live 时不进测试中视图；已完成的房间结果读数为空时摘要卡不崩；
+// “有效拍手不够”的原因里要有数字（原因词条里有 {need} 占位符）
+{
+    const noLive = running("gain", {});
+    delete noLive.live;
+    run.eq(flow.remoteModel(noLive), null, "快照没有 live：不进测试中视图");
+    const noBands = running("gain", {});
+    delete noBands.bands;
+    run.eq(flow.remoteModel(noBands), null, "快照没有 bands：不进测试中视图");
+    const gated = done(snap(), ["room"]);
+    gated.results.reverb = { ...gated.results.reverb, gated: true, tMidSec: null };
+    let seg = null;
+    let threw = false;
+    try {
+        seg = flow.peekSegments(gated, "room");
+    } catch {
+        threw = true;
+    }
+    run.check(!threw && seg.length === 1, "房间已完成但读数为空：摘要卡不抛错");
+    const few = done(snap(), ["room"]);
+    few.results.reverb = {
+        ...few.results.reverb,
+        gated: true,
+        tMidSec: null,
+        reliability: "retest",
+        retestReason: "few-claps",
+    };
+    few.steps.room.status = "invalid";
+    few.live.clapsNeeded = 4;
+    const fm = flow.resultModel(few, "room");
+    run.check(
+        fm.cards[0].why === "flow.cf.why.fewclaps" && fm.cards[0].need === 4,
+        "房间失败：原因里的“需要几次”取自 live.clapsNeeded",
+    );
+}
+
 // ---- ④ 数字随快照走 ----
 const alt = {
     ...BANDS,

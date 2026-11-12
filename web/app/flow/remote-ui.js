@@ -8,13 +8,11 @@
 // 电平条的数据来自 miciri.meters；只有在显示时才跑 rAF，隐藏后零开销。
 
 import { el } from "../../shared/dom.js";
-import { advance, fmtDb, rest, ratio } from "../meter/meter-core.js";
+import { advance, BAR_FLOOR, fmtDb, rest, ratio } from "../meter/meter-core.js";
 import { slotEl, tv } from "./flow-ui.js";
 import { ic } from "./icons.js";
 import { STEP_KEY } from "./flow-core.js";
 
-/** 全宽电平条的刻度下限（dBFS）；上限是 0。目标区取自快照里的 bands。 */
-const BAR_FLOOR = -60;
 const SILENT_MS = 250;
 
 const setText = (node, text) => {
@@ -107,7 +105,7 @@ export function createRemote(o) {
             ? el(
                   "div",
                   { class: "rm__bl", aria: { hidden: "true" } },
-                  el("span", { style: { left: "0" }, text: "−60 dB" }),
+                  el("span", { style: { left: "0" }, text: `${fmtDb(BAR_FLOOR, 0)} dB` }),
                   zone
                       ? el("span", {
                             style: { left: `${(ratio(zone.lo, BAR_FLOOR) * 100).toFixed(1)}%` },
