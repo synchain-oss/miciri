@@ -11,7 +11,7 @@
 | 位置 | 追加项 | 用途 |
 |---|---|---|
 | `ENUM_RETEST_REASON` | `offline-render`、`layout-changed` | 一步作废的原因：宿主在离线渲染（宿主报的，或测试中音频明显快于实时）；测试中声道数变了 |
-| `thresholds.json` | 新分组 `session` | 各步与各阶段的时长、房间步的拍手数、测试中提示的倒数、采集环容量、快于实时的判据 |
+| `thresholds.json` | 新分组 `session` | 各步与各阶段的时长、房间步的拍手数、测试中提示的倒数与自动重来的上限、采集环容量、快于实时的判据 |
 
 C++ 一侧是 `src/core/result/Enums.h` 的 `RetestReason`，与 JS 同一提交改，`bridge_parity_test` 逐项对拍。
 
@@ -21,7 +21,8 @@ C++ 一侧是 `src/core/result/Enums.h` 的 `RetestReason`，与 JS 同一提交
   这时音频一块接一块地来，比实时快得多；Session 拿收到的音频时长和墙钟比，快于 `session.realtime_ratio_max` 倍就把当前步作废，
   原因记 `offline-render`。界面要能说出“宿主在渲染”，所以它是单独的一项，而不是笼统的重来。局限写在 `docs/KNOWN_ISSUES.md`。
 - 声道数在测试中途变了，已收的样本没法接着用，单独记 `layout-changed`；采样率变化仍是 `rate-changed`。
-- 步骤时长、拍手数原来只写在规格里，按“代码里不写魔法数”的规则放进 `session` 分组。
+- 步骤时长、拍手数原来只写在规格里，按“代码里不写魔法数”的规则放进 `session` 分组。规格没有给的几项（看拍手的间隔、倒数、
+  重来上限、采集环、快于实时的判据）是实现时定的起始值，来源记“工程起始值”，与取自规格的区分开，标定时不当成规格要求。
 
 ## 兼容性
 

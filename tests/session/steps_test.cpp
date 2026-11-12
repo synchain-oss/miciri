@@ -47,6 +47,26 @@ std::vector<double> silence(double fs, double seconds)
     return std::vector<double>(static_cast<std::size_t>(std::llround(fs * seconds)), 0.0);
 }
 
+// 一整阶段的轻拍，每一下都削波
+std::vector<double> clippedSoftClaps(double fs)
+{
+    ClapTrain c;
+    c.fs = fs;
+    c.claps = static_cast<int>(thr::session::soft_claps);
+    c.leadSec = 0.6;
+    c.gapSec = thr::session::soft_clap_round_s;
+    std::vector<double> claps = makeClaps(c);
+    for (int i = 0; i < c.claps; ++i)
+    {
+        const auto at = static_cast<std::size_t>(clapTime(c, i) * fs);
+        for (std::size_t n = 0; n < 24; ++n)
+            claps[at + n] = n % 2 ? -1.0 : 1.0;
+    }
+    claps.resize(
+        static_cast<std::size_t>(std::llround(thr::session::soft_claps * thr::session::soft_clap_round_s * fs)));
+    return claps;
+}
+
 } // namespace
 
 TEST_CASE("planned step lengths come from the thresholds")
@@ -94,21 +114,7 @@ TEST_CASE("position step walks its phases and redoes clipped soft claps after a 
     CHECK(s->live().rounds == static_cast<int>(thr::session::soft_claps));
 
     // 三下都削波的轻拍：阶段收满时要求重拍
-    ClapTrain c;
-    c.fs = fs;
-    c.claps = static_cast<int>(thr::session::soft_claps);
-    c.leadSec = 0.6;
-    c.gapSec = thr::session::soft_clap_round_s;
-    std::vector<double> claps = makeClaps(c);
-    for (int i = 0; i < c.claps; ++i)
-    {
-        const auto at = static_cast<std::size_t>(clapTime(c, i) * fs);
-        for (std::size_t n = 0; n < 24; ++n)
-            claps[at + n] = n % 2 ? -1.0 : 1.0;
-    }
-    claps.resize(
-        static_cast<std::size_t>(std::llround(thr::session::soft_claps * thr::session::soft_clap_round_s * fs)));
-    feedAll(*s, claps);
+    feedAll(*s, clippedSoftClaps(fs));
     CHECK(s->live().notice == FlowNotice::ClapClipped);
     CHECK(s->live().phase == StepPhase::SoftClap);
     CHECK(s->live().round == 1);
@@ -133,6 +139,32 @@ TEST_CASE("position step walks its phases and redoes clipped soft claps after a 
     CHECK(out.results.plosive.has_value());
     CHECK(out.results.sibilance.has_value());
     CHECK(out.results.click.has_value());
+}
+
+TEST_CASE("a step restarts a phase at most restarts_max times, then carries on and lets the analysis say retest")
+{
+    const double fs = 48000.0;
+    auto s = session::makeScript(StepId::Position, mono(fs), nullptr);
+    const auto claps = clippedSoftClaps(fs);
+    const auto restarts = static_cast<int>(thr::session::restarts_max);
+    for (int i = 0; i < restarts; ++i)
+    {
+        feedAll(*s, claps);
+        REQUIRE(s->live().notice == FlowNotice::ClapClipped);
+        feedAll(*s, silence(fs, thr::session::notice_s));
+    }
+    feedAll(*s, claps);
+    CHECK(s->live().notice == FlowNotice::None);
+    CHECK(s->live().phase == StepPhase::Plosive);
+    feedAll(*s,
+            voice(fs,
+                  2 * thr::session::word_list_rounds * thr::session::word_list_round_s + thr::click::analysis_window_s,
+                  0.1, 7));
+    REQUIRE(s->done());
+    const auto out = s->finish();
+    REQUIRE(out.results.directRatio.has_value());
+    CHECK(out.results.directRatio->confidence.level == core::Reliability::Retest);
+    CHECK(out.results.directRatio->confidence.reason == core::RetestReason::Clipped);
 }
 
 TEST_CASE("room step reports each clap and stops once enough are valid")
@@ -182,7 +214,8 @@ TEST_CASE("room step voids a gated set and restarts after the countdown")
 TEST_CASE("direction step adds the confirming pair when another direction is clearly louder")
 {
     const double fs = 48000.0;
-    auto s = session::makeScript(StepId::Direction, mono(fs), nullptr);
+    gAnalyses = 0;
+    auto s = session::makeScript(StepId::Direction, mono(fs), countAnalysis);
     const double take = thr::session::direction_take_s;
     for (int d = 0; d < 4; ++d)
     {
@@ -191,6 +224,7 @@ TEST_CASE("direction step adds the confirming pair when another direction is cle
         feedAll(*s, voice(fs, take, level, 10 + static_cast<std::uint64_t>(d)));
     }
     REQUIRE_FALSE(s->done());
+    CHECK(gAnalyses == 4); // 每量一个方向计一次
     CHECK(s->live().phase == StepPhase::Confirm);
     CHECK(s->live().rounds == 2);
     CHECK(s->plannedSec() == Catch::Approx(6 * take));
@@ -198,6 +232,7 @@ TEST_CASE("direction step adds the confirming pair when another direction is cle
     CHECK(s->live().directionIndex == 0);
     feedAll(*s, voice(fs, take, 0.2, 21));
     CHECK(s->done());
+    CHECK(gAnalyses == 6); // 确认的两遍各计一次
     const auto out = s->finish();
     REQUIRE(out.results.direction.has_value());
     CHECK(out.results.direction->verdict.kind == core::DirectionCase::MaybeReversed);
@@ -223,6 +258,34 @@ TEST_CASE("expiry rules follow the contract")
     CHECK(layout[static_cast<std::size_t>(Section::Gain)]);
     CHECK(layout[static_cast<std::size_t>(Section::Hum)]);
     CHECK_FALSE(layout[static_cast<std::size_t>(Section::Reverb)]);
+}
+
+TEST_CASE("a change forgets the levels measured on the old chain, so the quiet step cannot pass off a stale SNR")
+{
+    session::StepContext ctx = mono();
+    ctx.speechLevelDbfsA = -20.0;
+    ctx.noiseFloorRms = 1e-4;
+    // 调增益、挪位置、换房间都让增益一项过期，三种都要忘掉
+    for (const auto kind : {core::ChangeKind::Gain, core::ChangeKind::Position, core::ChangeKind::Room})
+    {
+        session::StepContext c = ctx;
+        session::forgetStale(c, session::staleOnChange(kind));
+        CHECK_FALSE(c.speechLevelDbfsA.has_value());
+        CHECK(c.noiseFloorRms == 0.0);
+    }
+    session::StepContext kept = ctx;
+    session::forgetStale(kept, session::SectionSet{});
+    CHECK(kept.speechLevelDbfsA == ctx.speechLevelDbfsA);
+
+    // 调增益后只重做安静步：没有新的说话电平，SNR 要再测，不当成新鲜可信的结果
+    session::StepContext after = ctx;
+    session::forgetStale(after, session::staleOnChange(core::ChangeKind::Gain));
+    auto quiet = session::makeScript(StepId::Quiet, after, nullptr);
+    feedAll(*quiet, voice(mono().sampleRate, thr::session::quiet_s, 0.001, 9));
+    REQUIRE(quiet->done());
+    const auto out = quiet->finish();
+    REQUIRE(out.results.noise.has_value());
+    CHECK(out.results.noise->confidence.level == core::Reliability::Retest);
 }
 
 TEST_CASE("ungraded sibilance and clicks are not taken as 'no evidence' by the distance ruler")

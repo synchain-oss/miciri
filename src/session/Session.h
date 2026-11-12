@@ -59,6 +59,9 @@ SectionSet staleOnChange(core::ChangeKind kind);
 SectionSet staleOnLayoutChange();
 // 哪一步产出这一项
 core::StepId producerOf(Section s);
+// 前面几步留给后面几步的量，跟着过期规则一起作废：增益一项过期，说话电平与底噪都是旧链路上量的，
+// 不能再拿来算 SNR 或平顶容差（后面的步拿不到就按再测处理）
+void forgetStale(StepContext& ctx, const SectionSet& stale);
 // 距离标尺：由喷麦、齿音、口水音（太近）与 D/R、SNR（太远）合成；位置步没做过时为空。
 // 未分档的项（见 Grading.h）按没测处理。
 std::optional<core::DistanceResult> deriveDistance(const core::AllResults& results);
@@ -98,6 +101,7 @@ public:
         Ok,
         Busy, // 已有一步在跑
         Disabled, // 验证宿主、离线渲染，或还没 prepare
+        Failed, // 分配采集环或起线程失败；状态已回滚
     };
 
     explicit Session(AnalysisHook hook = nullptr);
@@ -121,6 +125,8 @@ public:
     // 状态每变一次加一；编辑器据此决定要不要推快照
     std::uint64_t version() const noexcept { return version_.load(std::memory_order_acquire); }
     bool running() const;
+    // 后面几步会用到的量（测试与快照用）
+    StepContext context() const;
 
 private:
     struct Worker;

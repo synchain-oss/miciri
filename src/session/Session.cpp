@@ -112,6 +112,15 @@ SectionSet staleOnLayoutChange()
     return setOf({Section::Gain, Section::Noise, Section::Hum});
 }
 
+void forgetStale(StepContext& ctx, const SectionSet& stale)
+{
+    if (stale[static_cast<std::size_t>(Section::Gain)])
+    {
+        ctx.speechLevelDbfsA.reset();
+        ctx.noiseFloorRms = 0.0;
+    }
+}
+
 StepId producerOf(Section s)
 {
     switch (s)
@@ -230,9 +239,15 @@ void Session::prepare(double sampleRate, int channels)
     }
     sampleRate_ = sampleRate;
     channels_ = std::max(1, channels);
+    SectionSet hit{};
+    if (layoutChanged)
+        hit = staleOnLayoutChange();
+    if (rateChanged)
+        hit.fill(true);
     for (std::size_t i = 0; i < kSectionCount; ++i)
-        if (present(results_, static_cast<Section>(i)) && (rateChanged || (layoutChanged && staleOnLayoutChange()[i])))
+        if (hit[i] && present(results_, static_cast<Section>(i)))
             stale_[i] = true;
+    forgetStale(context_, hit);
     if (layoutChanged)
     {
         // 声道提示跟着布局走：撤掉，之后的单声道分析用左路
@@ -274,10 +289,24 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
         live_ = worker->script->live();
         runningPlannedSec_ = worker->script->plannedSec();
     }
-    tap_.arm(worker->sampleRate, channels, thr::session::capture_buffer_s);
-    worker->armedAt = Clock::now();
+    // 分配环、起线程都可能失败：失败就回滚，不让这一步一直停在进行中，也不把异常抛给宿主
+    try
+    {
+        tap_.arm(worker->sampleRate, channels, thr::session::capture_buffer_s);
+        worker->armedAt = Clock::now();
+        worker->thread = std::thread([this, w = worker.get()] { run(*w); });
+    }
+    catch (...)
+    {
+        tap_.disarm();
+        const std::lock_guard<std::mutex> lock(state_);
+        steps_[index(id)] = before_;
+        current_.reset();
+        live_ = Live{};
+        bump();
+        return Start::Failed;
+    }
     worker_ = std::move(worker);
-    worker_->thread = std::thread([this, w = worker_.get()] { run(*w); });
     bump();
     return Start::Ok;
 }
@@ -302,6 +331,7 @@ void Session::reportChange(core::ChangeKind kind)
     for (std::size_t i = 0; i < kSectionCount; ++i)
         if (hit[i] && present(results_, static_cast<Section>(i)))
             stale_[i] = true;
+    forgetStale(context_, hit);
     bump();
 }
 
@@ -316,6 +346,12 @@ bool Session::running() const
 {
     const std::lock_guard<std::mutex> lock(state_);
     return current_.has_value();
+}
+
+StepContext Session::context() const
+{
+    const std::lock_guard<std::mutex> lock(state_);
+    return context_;
 }
 
 SessionView Session::view() const

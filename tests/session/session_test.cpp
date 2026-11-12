@@ -127,11 +127,11 @@ TEST_CASE("a step paced like real time completes, runs the analyses, and later e
     gAnalyses = 0;
     session::Session s(countAnalysis);
     const double fs = 16000.0;
-    s.prepare(fs, 1);
+    s.prepare(fs, 2);
     REQUIRE(s.startStep(StepId::Connect) == session::Session::Start::Ok);
     CHECK(s.startStep(StepId::Gain) == session::Session::Start::Busy);
     const auto x = voice(fs, thr::no_signal::low_flat_window_s + 0.5, 0.1, 5);
-    pump(s.tap(), x, 1, fs, 1.3);
+    pump(s.tap(), x, 2, fs, 1.3);
     REQUIRE(waitFor([&] { return !s.running(); }));
     CHECK(stepOf(s, StepId::Connect).status == StepStatus::Done);
     REQUIRE(s.view().results.noSignal.has_value());
@@ -139,6 +139,21 @@ TEST_CASE("a step paced like real time completes, runs the analyses, and later e
     CHECK(gAnalyses > 0);
     CHECK(s.view().live.notice == core::FlowNotice::Success);
     CHECK_FALSE(s.tap().armed());
+    REQUIRE(s.view().results.channels.has_value());
+    CHECK(s.context().noiseFloorRms > 0.0);
+
+    // 调了增益：旧链路上量的底噪不再留给增益步
+    s.reportChange(core::ChangeKind::Gain);
+    CHECK(s.context().noiseFloorRms == 0.0);
+
+    // 声道数变了：声道提示撤掉，“不再提示”复位，单声道分析回到左路；接通的结果不过期
+    s.dismissChannelPrompt();
+    CHECK(s.view().channelPromptDismissed);
+    s.prepare(fs, 1);
+    CHECK_FALSE(s.view().results.channels.has_value());
+    CHECK_FALSE(s.view().channelPromptDismissed);
+    CHECK(s.context().channel == core::AnalysedChannel::Left);
+    CHECK_FALSE(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
 
     // 采样率变了：已有结果全部过期
     s.prepare(fs * 2, 1);
@@ -195,6 +210,14 @@ TEST_CASE("a channel count that changes mid-step voids it")
     REQUIRE(s.startStep(StepId::Gain) == session::Session::Start::Ok);
     pump(s.tap(), std::vector<double>(4800, 0.01), 1, 48000.0, 0.0);
     REQUIRE(waitFor([&] { return !s.running(); }));
+    CHECK(stepOf(s, StepId::Gain).invalidReason == RetestReason::LayoutChanged);
+
+    // 宿主中途按别的声道数重新 prepare，也一样作废
+    REQUIRE(s.startStep(StepId::Gain) == session::Session::Start::Ok);
+    s.prepare(48000.0, 1);
+    CHECK_FALSE(s.running());
+    CHECK_FALSE(s.tap().armed());
+    CHECK(stepOf(s, StepId::Gain).status == StepStatus::Invalid);
     CHECK(stepOf(s, StepId::Gain).invalidReason == RetestReason::LayoutChanged);
 }
 

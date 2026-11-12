@@ -95,9 +95,11 @@ void StepScript::feed(const double* left, const double* right, std::size_t frame
             const bool phaseEnds = early || segment_ + 1 == plan_.size() || plan_[segment_ + 1].phase != seg.phase;
             if (phaseEnds)
             {
+                // 重来有上限：一直重来不成，就按收到的音频往下走，由分析给出再测与原因
                 const FlowNotice notice = endOfPhase(seg.phase);
-                if (notice != FlowNotice::None)
+                if (notice != FlowNotice::None && restarts_ < std::lround(thr::session::restarts_max))
                 {
+                    ++restarts_;
                     restartPhase(notice);
                     continue;
                 }
@@ -493,6 +495,7 @@ private:
         else if (phase == StepPhase::Confirm)
         {
             const auto current = core::measureDirectionTake(confirm_[0], ctx_.sampleRate);
+            analysed();
             const auto other = core::measureDirectionTake(confirm_[1], ctx_.sampleRate);
             analysed();
             analysis_ = core::decideDirection(takes_, kCurrent, core::DirectionRepeat{current.levelDb, other.levelDb});
