@@ -291,9 +291,21 @@ TEST_CASE("cancel and prepare do not wait for an analysis in progress; starting 
         gHold = true;
         gHeld = 0;
         session::Session s(holdingAnalysis);
+        std::thread audio;
+        // REQUIRE 失败提前退出时，先放行分析、收回推样本的线程，再析构 Session：报出失败原因，而不是卡到超时
+        struct Release
+        {
+            std::thread& t;
+            ~Release()
+            {
+                gHold = false;
+                if (t.joinable())
+                    t.join();
+            }
+        } release{audio};
         s.prepare(48000.0, 1);
         REQUIRE(s.startStep(StepId::Room) == session::Session::Start::Ok); // 房间步边收边看拍手，会调分析
-        std::thread audio([&] { pump(s.tap(), std::vector<double>(48000, 0.01), 1, 48000.0, 1.0); });
+        audio = std::thread([&] { pump(s.tap(), std::vector<double>(48000, 0.01), 1, 48000.0, 1.0); });
         REQUIRE(waitFor([&] { return gHeld.load() > 0; }));
         const auto t0 = Clock::now();
         if (viaPrepare)
