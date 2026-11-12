@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <deque>
 
 #include "config/Thresholds.h"
 
@@ -70,8 +71,32 @@ std::vector<ClapEvent> ClapCapture::findClaps() const
     const double loudest = *std::max_element(work.begin(), work.end());
     const double floor =
         std::max(loudest * std::pow(10.0, -thr::clap::rel_db / 20.0), std::pow(10.0, thr::clap::floor_dbfs / 20.0));
+
+    // 只认有起音的样本：它前面 [onset_lookback_ms, peak_search_ms) 里的最大值要比它低 onset_db。
+    // 衰减尾巴里的随机峰前面总是同样响或更响的尾巴，这样很混的房间里尾巴不会被当成新的一下。
+    // 窗口最大值用单调队列滑动求，整段只走一遍。
+    const std::size_t look = samplesFor(thr::clap::onset_lookback_ms * 1e-3, rate());
+    const std::size_t rise = samplesFor(thr::clap::peak_search_ms * 1e-3, rate());
+    const double onset = std::pow(10.0, thr::clap::onset_db / 20.0);
+    std::deque<std::size_t> window;
+    for (std::size_t k = 0; k < analysed_.size(); ++k)
+    {
+        if (k >= rise)
+        {
+            const std::size_t j = k - rise;
+            const double v = std::fabs(analysed_[j]);
+            while (!window.empty() && std::fabs(analysed_[window.back()]) <= v)
+                window.pop_back();
+            window.push_back(j);
+        }
+        while (!window.empty() && window.front() + look < k)
+            window.pop_front();
+        if (!window.empty() && work[k] < onset * std::fabs(analysed_[window.front()]))
+            work[k] = 0.0;
+    }
+
     const std::size_t half = samplesFor(0.5 * thr::clap::min_gap_s, rate());
-    const double window = thr::clap::clip_window_ms * 1e-3;
+    const double clipWindow = thr::clap::clip_window_ms * 1e-3;
     while (claps.size() < static_cast<std::size_t>(thr::clap::max_count))
     {
         const auto it = std::max_element(work.begin(), work.end());
@@ -79,7 +104,7 @@ std::vector<ClapEvent> ClapCapture::findClaps() const
             break;
         const auto k = static_cast<std::size_t>(it - work.begin());
         const double t = static_cast<double>(k) / rate();
-        claps.push_back({k, dsp::amplitudeToDb(*it), clipWithin(t - window, t + window)});
+        claps.push_back({k, dsp::amplitudeToDb(*it), clipWithin(t - clipWindow, t + clipWindow)});
         std::fill(work.begin() + static_cast<std::ptrdiff_t>(k > half ? k - half : 0),
                   work.begin() + static_cast<std::ptrdiff_t>(std::min(work.size(), k + half + 1)), 0.0);
     }

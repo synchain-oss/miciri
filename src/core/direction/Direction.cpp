@@ -61,14 +61,22 @@ DirectionAnalysis decideDirection(const std::array<DirectionTake, 4>& takes, int
 {
     DirectionAnalysis out;
     DirectionMeasures& m = out.result.measures;
-    const int current = std::clamp(currentIndex, 0, 3);
-    m.currentIndex = current;
     for (std::size_t i = 0; i < 4; ++i)
     {
         m.levelDb[i] = takes[i].levelDb;
         m.brightnessDb[i] = takes[i].brightnessDb;
     }
     DirectionCase& kind = out.result.verdict.kind;
+    // 当前方向不明（越界）时不猜：当作正面会给出确定的结论
+    if (currentIndex < 0 || currentIndex > 3)
+    {
+        m.currentIndex = -1;
+        kind = DirectionCase::Uncertain;
+        out.result.confidence = retest(RetestReason::Ambiguous);
+        return out;
+    }
+    const int current = currentIndex;
+    m.currentIndex = current;
     if (std::any_of(takes.begin(), takes.end(), [](const DirectionTake& t) { return !t.active; }))
     {
         kind = DirectionCase::Uncertain;

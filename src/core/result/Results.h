@@ -304,4 +304,11 @@ Tone toneOf(const ReverbVerdict& v);
 Tone toneOf(const DirectRatioVerdict& v);
 Tone toneOf(const DirectionVerdict& v);
 Tone toneOf(Severity s);
+// 卡片的颜色：再测的结果没有结论，一律无色；可信时才按档位映射。toneOf 只看档位、不看置信度，
+// 卡片与桥取颜色用这个。
+template<class Measures, class Verdict>
+Tone cardTone(const Result<Measures, Verdict>& r)
+{
+    return r.confidence.level == Reliability::Retest ? Tone::None : toneOf(r.verdict);
+}
 } // namespace miciri::core

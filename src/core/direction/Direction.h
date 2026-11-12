@@ -39,7 +39,8 @@ struct DirectionAnalysis
     int repeatIndex = -1; // 最响的别的方向
     double confirmedAdvantageDb = 0.0; // 两次里较小的那个优势；没确认过时为 0
 };
-// takes 按方向编号排列（0 到 3），currentIndex 是用户当前的方向。repeat 在 needsRepeat 之后由重测给出。
+// takes 按方向编号排列（0 到 3），currentIndex 是用户当前的方向（越界时“不确定”加再测）。
+// repeat 在 needsRepeat 之后由重测给出。
 DirectionAnalysis decideDirection(const std::array<DirectionTake, 4>& takes, int currentIndex,
                                   const std::optional<DirectionRepeat>& repeat = std::nullopt);
 } // namespace miciri::core

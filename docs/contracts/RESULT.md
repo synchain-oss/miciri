@@ -32,7 +32,7 @@ status: frozen
 | `deviceProcessing` | `detected` | 只作横幅；极低不上升态下不显示 | 否 |
 | `reverb`、`directRatio` | `band`（`gated`、`lowerBoundOnly`） | 拍手算。T20 门限只作废那一下的那个频带，`gated` 表示作废太多、主指标给不出；给不出值的频带 `t20Sec` 为 0。D/R 只用没削波的几下，尾部测不到时只报下限 | 按决策表（`src/core/decide`） |
 | `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 算法未实现，先定字段；档位来自实录 | 按排序 |
-| `direction` | `kind` | 只回答“当前方向是不是最响最亮”；没测过不算问题 | 差 ≥10 dB 才进 |
+| `direction` | `kind` | 只回答“当前方向是不是最响”；亮度只显示、不参与判断；放反要重测那一对确认；没测过不算问题 | 两次的差都 ≥10 dB 才进 |
 | `distance` | `kind` | 由别的结果的证据合成（`src/core/decide`），没有自己的阈值；只有弱证据时置信度为再测 | 按排序 |
 
 喷麦、齿音、口水音的算法后做：在算法落地前不得产生这些结果，字段名与枚举先冻结，让界面与桥可以并行开发。
@@ -43,7 +43,8 @@ status: frozen
 增益 偏低琥珀、过低红、偏高琥珀、过高红、数字削波红（平顶最多把绿抬到琥珀）；噪声 差红、一般琥珀、好绿；电流声 hum 和 buzz 琥珀、啸叫红、标了轻微的一律琥珀；
 T20 干和正常绿、偏混琥珀、很混红，`gated`（门限作废太多、给不出）时无色；D/R 低红、中琥珀、高绿；喷麦、齿音、口水音 轻绿、中琥珀、重红；方向 最响和差别不大绿、可能放反红、不确定无色。距离没有色调。`worse(a, b)` 取更严重者。
 
-`toneOf` 给的是卡片的颜色。电平管上的标记另有规则：电流声检出就红，不看 `tone`；底噪和口水音跟结果档位。电平管要的绝对电平是 `noiseDbfs`、`noisePeakDbfs`、`hum.levelDbfs`、`hum.peakDbfs`、`click.loudestDbfs`。
+再测（`confidence.level` 为 `retest`）的结果没有结论，卡片无色：卡片颜色取 `cardTone(result)`，它在再测时给无色、可信时才用 `toneOf`；
+`toneOf` 只是档位到颜色的映射，不看置信度。电平管上的标记另有规则：电流声检出就红，不看 `tone`；底噪和口水音跟结果档位。电平管要的绝对电平是 `noiseDbfs`、`noisePeakDbfs`、`hum.levelDbfs`、`hum.peakDbfs`、`click.loudestDbfs`。
 
 ## 过期规则（Session 实现，这里只记契约）
 

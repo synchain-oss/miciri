@@ -3,6 +3,9 @@
 // 方向的测量与判断、决策表的每一格、距离标尺（用合成的证据）、方向测试的提示方式。
 #include <catch2/catch_test_macros.hpp>
 
+#include <cmath>
+#include <limits>
+
 #include "config/Thresholds.h"
 #include "core/level/Synth.h"
 #include "decide/Decide.h"
@@ -60,6 +63,14 @@ TEST_CASE("direction level is the median of active K-weighted frames, brightness
         CHECK(core::measureDirectionTake(airy, fs).brightnessDb > a.brightnessDb + 3.0);
     }
     CHECK_FALSE(core::measureDirectionTake(std::vector<double>(48000, 0.0), 48000.0).active);
+    CHECK_FALSE(core::measureDirectionTake({}, 48000.0).active);
+    CHECK_FALSE(core::measureDirectionTake(std::vector<double>(1000, 0.1), 48000.0).active); // 不到一帧
+    std::vector<double> broken = voice(48000.0, 4.0, 0.1, 3);
+    broken[1000] = std::numeric_limits<double>::quiet_NaN();
+    broken[2000] = std::numeric_limits<double>::infinity();
+    const core::DirectionTake t = core::measureDirectionTake(broken, 48000.0);
+    CHECK((t.active && std::isfinite(t.levelDb) && std::isfinite(t.brightnessDb)));
+    CHECK(core::measureDirectionTake(voice(22050.0, 4.0, 0.1, 3), 22050.0).active);
 }
 
 TEST_CASE("direction verdicts")
@@ -99,6 +110,16 @@ TEST_CASE("direction verdicts")
     {
         CHECK(core::decideDirection(takesAt({-30.0, -31.0, -32.5, -31.5}), 2).result.verdict.kind ==
               DirectionCase::SmallDifference);
+    }
+    SECTION("an unknown current direction is not guessed")
+    {
+        for (int index : {-1, 4})
+        {
+            const core::DirectionAnalysis d = core::decideDirection(takes, index);
+            CHECK(d.result.verdict.kind == DirectionCase::Uncertain);
+            CHECK(d.result.confidence.reason == core::RetestReason::Ambiguous);
+            CHECK(d.result.measures.levelDb[3] == within(-45.0, 1e-9));
+        }
     }
     SECTION("a missing take asks for a retest")
     {

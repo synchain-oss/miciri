@@ -221,7 +221,8 @@ ClapBand measureT20(const Energy& en, const Segment& s, double rate, double segm
     return out;
 }
 
-// 一个频带给不出值时，说给用户听的原因：有效次数够但离散太大是不稳定；否则门限优先，其次峰噪比
+// 一个频带给不出值时，说给用户听的原因：有效次数够但离散太大是不稳定；否则取作废得最多的那种
+// （门限、峰噪比、其余的衰减问题），一样多时门限优先、其次峰噪比
 RetestReason bandFailure(const std::vector<ReverbClap>& claps, std::size_t band, std::size_t valid)
 {
     if (valid >= static_cast<std::size_t>(thr::reverb::repeat_min_kept))
@@ -230,9 +231,12 @@ RetestReason bandFailure(const std::vector<ReverbClap>& claps, std::size_t band,
         return std::count_if(claps.begin(), claps.end(),
                              [&](const ReverbClap& c) { return c.bands[band].status == st; });
     };
-    if (count(ClapBandStatus::Gated) > 0)
+    const auto gated = count(ClapBandStatus::Gated);
+    const auto lowPnr = count(ClapBandStatus::LowPnr);
+    const auto decay = count(ClapBandStatus::ShortDecay) + count(ClapBandStatus::PoorFit);
+    if (gated > 0 && gated >= lowPnr && gated >= decay)
         return RetestReason::GateDetected;
-    if (count(ClapBandStatus::LowPnr) > 0)
+    if (lowPnr > 0 && lowPnr >= decay)
         return RetestReason::LowPnr;
     return RetestReason::Unstable;
 }
@@ -386,8 +390,8 @@ DirectRatioAnalysis ClapAnalyser::finishDirectRatio() const
     const auto filter = dsp::makeButterworthBandpass(
         static_cast<int>(thr::clap::filter_order), thr::direct_ratio::band_hz[0], thr::direct_ratio::band_hz[1], rate);
     std::vector<double> clean;
+    std::size_t clippedUsable = 0;
     bool lowerBound = false;
-    bool anyClipped = false;
     const double window = thr::clap::clip_window_ms * 1e-3;
     for (std::size_t i = 0; i < events.size(); ++i)
     {
@@ -398,7 +402,7 @@ DirectRatioAnalysis ClapAnalyser::finishDirectRatio() const
         clap.clipped = events[i].clipped;
         if (clap.clipped)
         {
-            anyClipped = true;
+            clippedUsable += clap.usable ? 1 : 0;
             out.result.evidence.marks.push_back(
                 {EvidenceKind::DigitalClip, clap.timeSec - window, clap.timeSec + window, clap.peakDbfs, -1});
         }
@@ -410,9 +414,12 @@ DirectRatioAnalysis ClapAnalyser::finishDirectRatio() const
         out.claps.push_back(clap);
     }
 
-    if (clean.size() < static_cast<std::size_t>(thr::direct_ratio::min_clean_claps))
+    // 不够数：是削波把能用的几下刷掉了才说“拍轻一点”，否则是拍得太少
+    const auto needed = static_cast<std::size_t>(thr::direct_ratio::min_clean_claps);
+    if (clean.size() < needed)
     {
-        out.result.confidence = retest(anyClipped ? RetestReason::Clipped : RetestReason::FewClaps);
+        out.result.confidence =
+            retest(clean.size() + clippedUsable >= needed ? RetestReason::Clipped : RetestReason::FewClaps);
         return out;
     }
     DirectRatioMeasures& m = out.result.measures;

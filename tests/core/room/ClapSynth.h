@@ -4,6 +4,7 @@
 // 白噪声的直达与尾巴在任何频带里的能量比都相同，所以 D/R 有解析真值；衰减斜率就是 T60。
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <functional>

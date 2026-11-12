@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 #include "config/Thresholds.h"
 #include "core/room/ClapSynth.h"
@@ -163,6 +164,34 @@ TEST_CASE("gates in most claps leave the main bands short and mark the result ga
     CHECK(a.result.confidence.reason == core::RetestReason::GateDetected);
     CHECK(a.result.verdict.gated);
     CHECK(core::toneOf(a.result.verdict) == core::Tone::None);
+    CHECK(core::cardTone(a.result) == core::Tone::None);
+}
+
+TEST_CASE("one gated clap among noisy ones is reported as noise, not as a gate")
+{
+    ClapTrain c;
+    c.noiseRms = c.tailGain * fromDb(-25.0);
+    std::vector<double> x = makeClaps(c);
+    zeroOut(x, c.fs, clapTime(c, 2) + 0.12, clapTime(c, 2) + 1.0);
+    const core::ReverbAnalysis a = core::analyseReverb(x, c.fs);
+    CHECK(countStatus(a, ClapBandStatus::Gated) > 0);
+    CHECK(a.result.confidence.reason == core::RetestReason::LowPnr);
+    CHECK_FALSE(a.result.verdict.gated);
+}
+
+TEST_CASE("a very reverberant room: tail peaks are not taken for new claps")
+{
+    // 直达只比尾巴起点高 10 dB，T60 1.5 s：半秒处的尾巴峰值仍高过“最响减 25 dB”，但前面总有同样响的尾巴，没有起音
+    ClapTrain c;
+    c.direct = c.tailGain * fromDb(10.0);
+    c.t60 = [](int) { return 1.5; };
+    const core::ReverbAnalysis a = core::analyseReverb(makeClaps(c), c.fs);
+    REQUIRE(a.claps.size() == 8);
+    for (int i = 0; i < 8; ++i)
+        CHECK(a.claps[static_cast<std::size_t>(i)].timeSec == within(clapTime(c, i), 0.01));
+    REQUIRE(a.result.confidence.level == core::Reliability::Trusted);
+    CHECK(a.result.measures.tMidSec == within(1.5, 0.08 * 1.5));
+    CHECK(a.result.verdict.band == core::ReverbBand::VeryBoomy);
 }
 
 TEST_CASE("repeatability drops claps far from the median, not the whole band")
@@ -201,7 +230,11 @@ TEST_CASE("too few claps and too little peak-to-noise ask for a retest")
 {
     ClapTrain few;
     few.claps = 2;
-    CHECK(core::analyseReverb(makeClaps(few), few.fs).result.confidence.reason == core::RetestReason::FewClaps);
+    const core::ReverbAnalysis two = core::analyseReverb(makeClaps(few), few.fs);
+    CHECK(two.result.confidence.reason == core::RetestReason::FewClaps);
+    // 再测的结果没有结论：档位还是默认的“正常”（绿），卡片必须无色
+    CHECK(core::toneOf(two.result.verdict) == core::Tone::Green);
+    CHECK(core::cardTone(two.result) == core::Tone::None);
 
     ClapTrain noisy;
     noisy.noiseRms = noisy.tailGain * fromDb(-25.0);
@@ -285,6 +318,16 @@ TEST_CASE("D/R uses only the clean claps")
         clip(i);
     const core::DirectRatioAnalysis all = core::analyseDirectRatio(x, c.fs);
     CHECK(all.result.confidence.reason == core::RetestReason::Clipped);
+    CHECK(core::cardTone(all.result) == core::Tone::None);
+
+    // 只拍了一下：就算它削波了，不够数的原因也是拍得太少
+    ClapTrain one = c;
+    one.claps = 1;
+    std::vector<double> single = makeClaps(one);
+    const auto at = static_cast<std::size_t>(clapTime(one, 0) * one.fs);
+    for (std::size_t n = 0; n < 24; ++n)
+        single[at + n] = n % 2 ? -1.0 : 1.0;
+    CHECK(core::analyseDirectRatio(single, one.fs).result.confidence.reason == core::RetestReason::FewClaps);
 }
 
 TEST_CASE("an unmeasurable tail gives only a lower bound")
@@ -311,4 +354,72 @@ TEST_CASE("results do not depend on how the samples are split into blocks")
     for (std::size_t b = 0; b < 4; ++b)
         CHECK(split.result.measures.t20Sec[b] == whole.result.measures.t20Sec[b]);
     CHECK(blocks.finishDirectRatio().result.measures.drDb == core::analyseDirectRatio(x, c.fs).result.measures.drDb);
+}
+
+namespace
+{
+bool finite(const core::ReverbMeasures& m)
+{
+    bool ok = std::isfinite(m.tMidSec) && std::isfinite(m.repeatMaxOverMin);
+    for (std::size_t b = 0; b < 4; ++b)
+        ok = ok && std::isfinite(m.t20Sec[b]) && std::isfinite(m.bandPnrDb[b]) && std::isfinite(m.bandR2[b]);
+    return ok;
+}
+} // namespace
+
+TEST_CASE("degenerate input ends in a definite retest, never NaN")
+{
+    const double fs = 48000.0;
+    const std::vector<std::vector<double>> inputs{
+        {}, // 空
+        std::vector<double>(static_cast<std::size_t>(5 * fs), 0.0), // 整段数字静音
+        whiteNoise(static_cast<std::size_t>(0.05 * fs), 1e-3, 3), // 比分析窗还短
+        std::vector<double>(static_cast<std::size_t>(fs), std::numeric_limits<double>::quiet_NaN()),
+        std::vector<double>(static_cast<std::size_t>(fs), std::numeric_limits<double>::infinity()),
+    };
+    for (std::size_t i = 0; i < inputs.size(); ++i)
+    {
+        INFO("input " << i);
+        const core::ReverbAnalysis r = core::analyseReverb(inputs[i], fs);
+        CHECK(r.result.confidence.reason == core::RetestReason::FewClaps);
+        CHECK(finite(r.result.measures));
+        const core::DirectRatioAnalysis d = core::analyseDirectRatio(inputs[i], fs);
+        CHECK(d.result.confidence.reason == core::RetestReason::FewClaps);
+        CHECK(std::isfinite(d.result.measures.drDb));
+    }
+}
+
+TEST_CASE("NaN and Inf inside a recording count as zero samples")
+{
+    ClapTrain c;
+    c.claps = 5;
+    std::vector<double> x = makeClaps(c);
+    const std::vector<double> clean = x;
+    for (int i = 0; i < 4; ++i)
+    {
+        const auto at = static_cast<std::size_t>((clapTime(c, i) + 1.7) * c.fs);
+        x[at] = std::numeric_limits<double>::quiet_NaN();
+        x[at + 7] = -std::numeric_limits<double>::infinity();
+    }
+    const core::ReverbAnalysis a = core::analyseReverb(x, c.fs);
+    REQUIRE(a.result.confidence.level == core::Reliability::Trusted);
+    CHECK(finite(a.result.measures));
+    CHECK(a.result.measures.tMidSec == within(0.4, 0.04));
+    const core::DirectRatioAnalysis d = core::analyseDirectRatio(x, c.fs);
+    CHECK(d.result.measures.drDb == within(core::analyseDirectRatio(clean, c.fs).result.measures.drDb, 0.1));
+}
+
+TEST_CASE("a low sample rate still covers every band")
+{
+    ClapTrain c;
+    c.fs = 22050.0;
+    const core::ReverbAnalysis a = core::analyseReverb(makeClaps(c), c.fs);
+    REQUIRE(a.result.confidence.level == core::Reliability::Trusted);
+    for (double v : a.result.measures.t20Sec)
+        CHECK(v == within(0.4, 0.08 * 0.4));
+    c.claps = 4;
+    c.tailDelayMs = 15.0;
+    c.tailGain = 0.002;
+    c.direct = std::sqrt(tailEnergyFrom(c, 0.4, 0.0) * std::pow(10.0, 0.8));
+    CHECK(core::analyseDirectRatio(makeClaps(c), c.fs).result.measures.drDb == within(8.0, 1.0));
 }

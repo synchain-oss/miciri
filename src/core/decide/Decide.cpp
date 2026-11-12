@@ -117,7 +117,7 @@ DirectionPrompt decideDirectionPrompt(const DirectionPromptInput& in)
         return DirectionPrompt::MainButton;
     if (in.distance == DistanceCase::Conflicting)
         return DirectionPrompt::ActionWithButton;
-    // 动圈本来就要较大增益，增益偏低不算它的问题
+    // 这一行对增益偏低和底噪差都只看 USB、电容与不确定：动圈本来就要较大增益，底噪也随之抬高
     if (in.gainLowOrNoiseBad && in.mic != MicType::Dynamic)
         return DirectionPrompt::ActionWithButton;
     return DirectionPrompt::CardButton;

@@ -19,11 +19,16 @@
 
 `reverb`、`directRatio`、`direction`、`distance` 从“只定字段”变成会产生；喷麦、齿音、口水音仍只定字段。
 
+- 方向：以前写“当前方向是不是最响最亮”，现在只看最响，亮度只显示、不参与判断。原因（按实录调整）：从背面进来的主要是
+  房间声，亮度反而可能比正面高，“最亮”会把放反的情况判成正常。
+- 色调：新增 `cardTone(result)`（只追加）。再测的结果没有结论，卡片无色；以前 `toneOf` 只看档位，再测时会带着默认档位的颜色
+  （比如 T20 拍手太少时显示绿色）。`toneOf` 本身不变。
+
 ## 阈值
 
 - 删除 `reverb.repeat_max_over_min`，由 `reverb.repeat_outlier_frac` 与 `reverb.repeat_min_kept` 取代：按实录调整，
   收满八九下时“最大比最小”偏严。
-- 新增分组 `clap`（拍手的检测、分段、噪声窗、削波），房间与位置共用。
+- 新增分组 `clap`（拍手的检测与起音、分段、噪声窗、削波），房间与位置共用。
 - `reverb`、`direct_ratio`、`direction` 追加实现用的窗长、块长与门限判据的参数，见 `thresholds.json`。
 
 ## 没有改的
