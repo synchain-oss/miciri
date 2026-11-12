@@ -98,7 +98,8 @@ status: frozen
 
 - `fixes`：`ENUM_FIX_ITEM` 的数组，第一项就是“最该改”，空数组表示没有要改的。`no-signal`（接通的状态是问题，包括编辑器按墙钟判出的没有回调）与
   `digital-clip` 固定在前（有数字削波时 `gain` 不再单列，免得同一个原因说两次）；其余按 影响 × 置信度 ÷ 修改代价 排序，表在
-  `thresholds.json` 的 `priority` 分组。要再测的、过期的结果不进候选。候选条件见 `RESULT.md` 的“进最该改”一栏：轻微电流声、没确认的方向、
+  `thresholds.json` 的 `priority` 分组。要再测的、过期的结果不进候选。固定在前的两项只看是否过期、不看置信度：削波样本与接通状态都是直接数出来的，
+  这一步即使因为太短等原因要再测，削波或没信号也已经发生，照样列出。候选条件见 `RESULT.md` 的“进最该改”一栏：轻微电流声、没确认的方向、
   未分档的齿音与口水音都不进。
 - `advice`（`SNAPSHOT_ADVICE`）：`room` 取 `ENUM_ROOM_ADVICE`（T20 × D/R 的决策表，缺一项或要再测时 `unknown`），`distance` 取
   `ENUM_DISTANCE_ADVICE`，`directionPrompt` 取 `ENUM_DIRECTION_PROMPT`（方向测试的提示放在哪；没测过方向不算问题）。文案由界面按这些名字取词条。

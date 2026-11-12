@@ -465,8 +465,12 @@ TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by
     r.hum->verdict.slight = true;
     v.direction->confirmedAdvantageDb = thr::direction::priority_db - 1.0;
     r.noSignal->verdict.state = core::SignalState::Ok;
+    // 数字削波只看过期、不看置信度：增益这一步要再测，削波也已经发生
+    r.gain->confidence = core::retest(core::RetestReason::TooShort);
     fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
     CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room, F::Distance});
+    v.stale[static_cast<std::size_t>(session::Section::Gain)] = true;
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).fixes == std::vector<F>{F::Room, F::Distance});
 }
 
 TEST_CASE("the direction prompt and the distance advice only read current, trusted results")
