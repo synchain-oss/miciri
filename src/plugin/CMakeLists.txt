@@ -63,6 +63,7 @@ target_sources(Miciri PRIVATE
 target_include_directories(Miciri PRIVATE "${CMAKE_CURRENT_LIST_DIR}")
 target_link_libraries(Miciri PRIVATE
   miciri_core
+  miciri_session
   juce::juce_audio_processors
   juce::juce_data_structures
   juce::juce_gui_extra)

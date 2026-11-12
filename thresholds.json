@@ -715,5 +715,59 @@
       "date": "2026-11-12",
       "note": "active frames lie within this many dB of the top percentile"
     }
+  },
+  "session": {
+    "gain_s": { "value": 8.0, "state": "pending", "source": "规格起始值", "date": null },
+    "quiet_s": { "value": 8.0, "state": "pending", "source": "规格起始值", "date": null },
+    "room_max_s": { "value": 20.0, "state": "pending", "source": "规格起始值", "date": null },
+    "room_claps_needed": { "value": 4, "state": "pending", "source": "规格起始值", "date": null },
+    "room_claps_max": { "value": 8, "state": "pending", "source": "规格起始值", "date": null },
+    "live_clap_every_s": {
+      "value": 0.5,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "how often the room step re-reads the claps so far to give per-clap feedback"
+    },
+    "soft_claps": { "value": 3, "state": "pending", "source": "规格起始值", "date": null },
+    "soft_clap_round_s": { "value": 2.0, "state": "pending", "source": "规格起始值", "date": null },
+    "word_list_rounds": { "value": 2, "state": "pending", "source": "规格起始值", "date": null },
+    "word_list_round_s": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "direction_take_s": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
+    "notice_s": {
+      "value": 3.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "countdown shown before a phase or step restarts by itself; counted in samples"
+    },
+    "restarts_max": {
+      "value": 3,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "how many times one step may restart a phase by itself (clipped soft claps, gated claps); after that it carries on and the analysis reports the retest"
+    },
+    "realtime_ratio_max": {
+      "value": 1.5,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "audio arriving faster than this multiple of real time means an offline render the host did not announce; the step is voided"
+    },
+    "realtime_check_min_s": {
+      "value": 1.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "wall-clock time before the mid-step speed check starts; the check at the end of a step always runs"
+    },
+    "capture_buffer_s": {
+      "value": 4.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "audio the capture ring holds while the worker is busy; a full ring voids the step as an overflow"
+    }
   }
 }
