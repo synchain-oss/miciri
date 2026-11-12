@@ -316,6 +316,14 @@ try {
         0,
         "所有按钮都应有可访问名",
     );
+    // 电平表里有可点的削波灯：外层若是 role=img，子节点按规范是展示性的，不能再含可聚焦控件（axe nested-interactive）
+    run.eq(
+        await page.eval(
+            `(() => { const m = ${q('[data-part="meter"]')}; return m ? [m.getAttribute("role"), !!(m.getAttribute("aria-label") || "").trim(), m.querySelectorAll("button").length > 0] : null; })()`,
+        ),
+        ["group", true, true],
+        "电平表应是有名字的 group，里面的削波灯是按钮",
+    );
     run.eq(
         await page.eval(
             `[...${FD}.querySelectorAll("button[aria-label]")].filter((b) => { const v = b.textContent.trim().toLowerCase(); return v && !b.getAttribute("aria-label").toLowerCase().includes(v); }).map((b) => b.dataset.part || b.id)`,

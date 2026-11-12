@@ -71,6 +71,13 @@ function Invoke-Build([string[]]$Arguments) {
     if ($r.Code -ne 0) { return New-Result 'FAIL' "退出码 $($r.Code)" ($r.Lines | Select-Object -Last 25) }
     New-Result 'PASS'
 }
+# run-all 末行形如 `run-all：通过 a / 跳过 b / 失败 c（内部跳过项 d）`。两个跳过数缺一个就返回 $null，调用方按失败算，不当 0 处理
+function Read-RunAllSummary([string]$Line) {
+    if ($Line -notmatch '跳过 (\d+) /') { return $null }
+    $file = [int]$Matches[1]
+    if ($Line -notmatch '内部跳过项 (\d+)') { return $null }
+    @{ File = $file; Inner = [int]$Matches[1] }
+}
 function Get-Gates {
     @(
         @{ Id = 'G1'; Tier = 'Quick'; Name = '预检（身份、hooks、Node）'; Run = {
@@ -157,11 +164,11 @@ function Get-Gates {
                 # 有脚本整套跳过或套内跳过项时不能记 PASS：写明是哪一项、为什么
                 $sum = @($r.Lines | Where-Object { $_ -match '^run-all：' }) | Select-Object -Last 1
                 if (-not $sum) { return New-Result 'FAIL' 'run-all 没有输出汇总行' ($r.Lines | Select-Object -Last 10) }
-                $nFile = if ($sum -match '跳过 (\d+) /') { [int]$Matches[1] } else { 0 }
-                $nInner = if ($sum -match '内部跳过项 (\d+)') { [int]$Matches[1] } else { 0 }
-                if ($nFile + $nInner -gt 0) {
+                $skips = Read-RunAllSummary $sum
+                if (-not $skips) { return New-Result 'FAIL' 'run-all 汇总行格式无法解析，不能确认有没有跳过' @($sum) }
+                if ($skips.File + $skips.Inner -gt 0) {
                     $why = @($r.Lines | Where-Object { $_ -match '^\[跳过' })
-                    return New-Result 'SKIP' "页面冒烟有跳过（整套 $nFile、套内 $nInner），不记通过" ($why + $sum)
+                    return New-Result 'SKIP' "页面冒烟有跳过（整套 $($skips.File)、套内 $($skips.Inner)），不记通过" ($why + $sum)
                 }
                 # 记 PASS 就要能看出 axe 真的跑了：没有它的通过记录（脚本被删、被过滤）按失败算
                 $axeLine = @($r.Lines | Where-Object { $_ -match '^\[通过\] smoke-axe-page\.mjs' })
@@ -198,6 +205,11 @@ function Invoke-SelfTest {
     $line = Format-Summary @{ PASS = 5; FAIL = 0; SKIP = 3; FLAKY = 0 } 0 ('a' * 40) 'Standard' ([TimeSpan]::FromSeconds(185))
     & $check '汇总行格式' ($line -ceq 'PASS 5 / FAIL 0 / SKIP 3 / FLAKY 0  EXIT=0  @aaaaaaa  Standard  3m05s')
     & $check '脱敏：仓根写成 .' ((Format-Redacted "$Root\scripts\x.ps1") -ceq '.\scripts\x.ps1')
+    $sk = Read-RunAllSummary 'run-all：通过 9 / 跳过 1 / 失败 0（内部跳过项 2）'
+    & $check 'run-all 汇总行：读出整套与套内跳过数' ($sk -and $sk.File -eq 1 -and $sk.Inner -eq 2)
+    & $check 'run-all 汇总行：缺字段时返回 $null，不当 0' (-not (Read-RunAllSummary 'run-all：通过 9 / 失败 0') -and -not (Read-RunAllSummary 'run-all：通过 9 / 跳过 0 / 失败 0'))
+    $runAll = Join-Path $Root 'web-preview/tests/run-all.mjs'
+    & $check 'run-all.mjs 仍按解析器认的格式写汇总行' ((-not (Test-Path -LiteralPath $runAll)) -or ((Get-Content -LiteralPath $runAll -Raw -Encoding utf8) -match [regex]::Escape('跳过 ${count.skip} / 失败 ${count.fail}（内部跳过项 ${inner.length}）')))
     $ids = @(Get-Gates | ForEach-Object { $_.Id })
     & $check 'gate 编号不重复' ($ids.Count -eq ($ids | Sort-Object -Unique).Count)
     & $check '每个 gate 的档位都在规则里' (@(Get-Gates | Where-Object { $_.Tier -notin $Rules.tiers }).Count -eq 0)
