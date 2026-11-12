@@ -40,7 +40,7 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 
 `no_signal`、`channel_check`、`gain`、`noise`、`hum`、`device_processing`：值来自合成验证，少数起始值标 `pending`。
 `reverb`、`direct_ratio`、`plosive`、`sibilance`、`click`、`direction`：规格里的起始值，全部 `pending`；
-喷麦、齿音、口水音的档界与口水音的残差倍数还没有值（`null`）。`distance` 没有自己的阈值，由别的结果的证据合成。
+喷麦的档界与口水音的残差倍数是按实录调整过的起始值，仍未标定；齿音、口水音的档界和喷麦的低基频界还没有值（`null`）。`distance` 没有自己的阈值，由别的结果的证据合成。
 
 ## 没有带进来的内容
 

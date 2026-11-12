@@ -366,15 +366,69 @@
       "date": null,
       "note": "band to compare on real recordings"
     },
-    "moderate_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
-    "heavy_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "moderate_above_db": {
+      "value": 9.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "worst syllable of one word-list take; adjusted on real recordings of one voice, uncalibrated"
+    },
+    "heavy_above_db": {
+      "value": 12.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "worst syllable of one word-list take; adjusted on real recordings of one voice, uncalibrated"
+    },
     "low_f0_sensitivity_below_hz": {
       "value": null,
       "state": "pending",
       "source": "待实录标定",
       "date": null,
       "note": "sensitivity drops at low fundamentals"
-    }
+    },
+    "analysis_rate_max_hz": { "value": 48000.0, "state": "pending", "source": "规格起始值", "date": null },
+    "filter_order": { "value": 4, "state": "pending", "source": "规格起始值", "date": null },
+    "envelope_highpass_hz": { "value": 80.0, "state": "pending", "source": "规格起始值", "date": null },
+    "envelope_frame_ms": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "envelope_hop_ms": { "value": 2.5, "state": "pending", "source": "规格起始值", "date": null },
+    "floor_percentile": {
+      "value": 10,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "of the take's own envelope frames; the word list leaves pauses between words"
+    },
+    "onset_rise_db": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null },
+    "onset_over_floor_db": { "value": 20.0, "state": "pending", "source": "规格起始值", "date": null },
+    "onset_baseline_ms": {
+      "value": [5.0, 30.0],
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "the rise is measured against the quietest frame this far before the frame"
+    },
+    "onset_backtrack_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
+    "onset_refractory_ms": { "value": 80.0, "state": "pending", "source": "规格起始值", "date": null },
+    "syllable_merge_ms": {
+      "value": 130.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "a burst followed by the vowel onset within this gap is one syllable"
+    },
+    "quiet_before_ms": { "value": 100.0, "state": "pending", "source": "规格起始值", "date": null },
+    "quiet_before_over_floor_db": { "value": 20.0, "state": "pending", "source": "规格起始值", "date": null },
+    "event_end_over_floor_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "event_min_ms": { "value": 20.0, "state": "pending", "source": "规格起始值", "date": null },
+    "peak_window_ms": { "value": [-20.0, 150.0], "state": "pending", "source": "规格起始值", "date": null },
+    "vowel_band_hz": { "value": [200.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "vowel_window_ms": { "value": [100.0, 600.0], "state": "pending", "source": "规格起始值", "date": null },
+    "vowel_min_ms": { "value": 40.0, "state": "pending", "source": "规格起始值", "date": null },
+    "vowel_within_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
+    "vowel_min_frames": { "value": 6, "state": "pending", "source": "规格起始值", "date": null },
+    "reference_floor_margin_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
+    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null }
   },
   "sibilance": {
     "mid_high_band_hz": { "value": [3000.0, 6000.0], "state": "pending", "source": "规格起始值", "date": null },
@@ -389,15 +443,124 @@
     },
     "off_axis_try_deg": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
     "moderate_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
-    "heavy_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null }
+    "heavy_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "analysis_rate_max_hz": { "value": 48000.0, "state": "pending", "source": "规格起始值", "date": null },
+    "frame_ms": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "hop_ms": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "wideband_hz": { "value": [80.0, 20000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "noise_frame_percentile": {
+      "value": 20,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "frames at or below this percentile of the wideband level make the noise spectrum"
+    },
+    "centroid_band_hz": { "value": [1000.0, 16000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "centroid_min_hz": { "value": 3000.0, "state": "pending", "source": "规格起始值", "date": null },
+    "flatness_min": {
+      "value": 0.1,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "geometric over arithmetic mean of the 3-12 kHz bins"
+    },
+    "unvoiced_band_hz": { "value": [200.0, 1500.0], "state": "pending", "source": "规格起始值", "date": null },
+    "unvoiced_over_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
+    "over_noise_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "event_min_ms": { "value": 40.0, "state": "pending", "source": "规格起始值", "date": null },
+    "gap_max_ms": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "noise_subtract_floor_db": {
+      "value": -10.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "after subtracting the noise spectrum each bin keeps at least this much of the noise"
+    },
+    "bandwidth_over_noise_db": {
+      "value": 10.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "effective bandwidth: highest frequency the speech stays this far over the noise, searching up without a break"
+    },
+    "bandwidth_search_from_hz": { "value": 1000.0, "state": "pending", "source": "规格起始值", "date": null },
+    "bandwidth_smoothing_hz": { "value": 250.0, "state": "pending", "source": "规格起始值", "date": null },
+    "bandwidth_active_percentile": { "value": 95, "state": "pending", "source": "规格起始值", "date": null },
+    "bandwidth_active_within_db": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null }
   },
   "click": {
     "highpass_hz": { "value": 2000.0, "state": "pending", "source": "规格起始值", "date": null },
     "fricative_min_ms": { "value": 30.0, "state": "pending", "source": "规格起始值", "date": null },
     "analysis_window_s": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
-    "residual_median_multiple": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "residual_median_multiple": {
+      "value": 20.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "LPC residual over its local scale; starting range 15-20 adjusted on real recordings, uncalibrated"
+    },
     "moderate_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
-    "heavy_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null }
+    "heavy_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "analysis_rate_max_hz": { "value": 48000.0, "state": "pending", "source": "规格起始值", "date": null },
+    "filter_order": { "value": 4, "state": "pending", "source": "规格起始值", "date": null },
+    "candidate_multiple": {
+      "value": 10.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "residual samples over this multiple are grouped into candidates; the candidate's own peak must reach residual_median_multiple"
+    },
+    "lpc_order": { "value": 32, "state": "pending", "source": "规格起始值", "date": null },
+    "lpc_window_ms": { "value": 25.0, "state": "pending", "source": "规格起始值", "date": null },
+    "lpc_block_ms": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "lpc_white_noise_frac": {
+      "value": 0.0001,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "added to the zero-lag autocorrelation so the predictor stays stable"
+    },
+    "scale_block_ms": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "scale_halfwidth_ms": {
+      "value": 150.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "running median of the block medians of the residual magnitude"
+    },
+    "spike_merge_ms": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "peak_window_ms": { "value": [-2.0, 4.0], "state": "pending", "source": "规格起始值", "date": null },
+    "envelope_ms": { "value": 2.0, "state": "pending", "source": "规格起始值", "date": null },
+    "fricative_start_ms": { "value": 4.0, "state": "pending", "source": "规格起始值", "date": null },
+    "fricative_median_db": {
+      "value": -10.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "high-passed envelope after the spike, relative to the spike's envelope peak"
+    },
+    "fricative_min_db": { "value": -15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "plosive_low_band_hz": { "value": [20.0, 300.0], "state": "pending", "source": "规格起始值", "date": null },
+    "voice_band_hz": { "value": [200.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "plosive_before_ms": { "value": [-30.0, -5.0], "state": "pending", "source": "规格起始值", "date": null },
+    "plosive_after_ms": { "value": [10.0, 60.0], "state": "pending", "source": "规格起始值", "date": null },
+    "plosive_rise_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "speech_frame_ms": { "value": 50.0, "state": "pending", "source": "规格起始值", "date": null },
+    "speech_percentile": { "value": 95, "state": "pending", "source": "规格起始值", "date": null },
+    "speech_within_db": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "min_rel_speech_db": { "value": -35.0, "state": "pending", "source": "规格起始值", "date": null },
+    "context_search_ms": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "context_window_ms": { "value": [4.0, 40.0], "state": "pending", "source": "规格起始值", "date": null },
+    "context_max_rel_db": {
+      "value": -14.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "high-frequency background around the spike, relative to the speech; louder backgrounds are sibilant onsets or aspiration; adjusted on real recordings, uncalibrated"
+    },
+    "cluster_gap_ms": { "value": 100.0, "state": "pending", "source": "规格起始值", "date": null },
+    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null }
   },
   "direction": {
     "repeat_trigger_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
