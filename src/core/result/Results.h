@@ -6,7 +6,7 @@
 //   confidence  可信，或“再测一次”加原因
 //   evidence    证据标记（时间段、频率、电平），给证据波形和详情用
 // 不依赖 JUCE。字段名的 camelCase 就是桥快照里的字段名（见 docs/contracts/RESULT.md 与 BRIDGE.md）。
-// 房间、位置、喷麦、齿音、口水音、方向、距离这几项先定字段，算法后做；未实现前不要产生这些结果。
+// 喷麦、齿音、口水音这几项先定字段，算法后做；未实现前不要产生这些结果。
 #pragma once
 
 #include <array>
@@ -180,19 +180,20 @@ struct DeviceProcessingVerdict
 };
 using DeviceProcessingResult = Result<DeviceProcessingMeasures, DeviceProcessingVerdict>;
 
-// ---- 算法未实现的几项：只定字段 ----
+// ---- 房间与位置（拍手）----
 struct ReverbMeasures
 {
-    std::array<double, 4> t20Sec{}; // 500、1k、2k、4k
-    double tMidSec = 0.0; // (500 + 1k) / 2
-    std::array<double, 4> bandPnrDb{};
-    std::array<double, 4> bandR2{};
-    double repeatMaxOverMin = 0.0;
+    std::array<double, 4> t20Sec{}; // 500、1k、2k、4k；该频带给不出值时为 0
+    double tMidSec = 0.0; // (500 + 1k) / 2；两个频带都有值才有，否则为 0
+    std::array<double, 4> bandPnrDb{}; // 各频带峰噪比的中位数（有噪声参考的每一下）
+    std::array<double, 4> bandR2{}; // 各频带留下的几下拟合 R² 的中位数
+    double repeatMaxOverMin = 0.0; // 去掉偏离中位数的几下之后，各频带留下的最大比最小，取最差的频带
 };
 struct ReverbVerdict
 {
     ReverbBand band = ReverbBand::Normal;
-    bool gated = false; // 尾部出现数字零或骤降：整组作废
+    // 门限（尾部数字零或骤降）只作废那一下的那个频带；本标志表示门限作废的太多，主指标给不出（再测原因 gate-detected）
+    bool gated = false;
 };
 using ReverbResult = Result<ReverbMeasures, ReverbVerdict>;
 
@@ -207,6 +208,7 @@ struct DirectRatioVerdict
 };
 using DirectRatioResult = Result<DirectRatioMeasures, DirectRatioVerdict>;
 
+// ---- 算法未实现的几项：只定字段 ----
 struct PlosiveMeasures
 {
     double worstRatioDb = 0.0; // 取最大值，不取中位数
@@ -247,6 +249,7 @@ struct ClickVerdict
 };
 using ClickResult = Result<ClickMeasures, ClickVerdict>;
 
+// ---- 方向 ----
 struct DirectionMeasures
 {
     std::array<double, 4> levelDb{}; // 四个方向，活跃段 K 加权中位数
@@ -260,6 +263,7 @@ struct DirectionVerdict
 };
 using DirectionResult = Result<DirectionMeasures, DirectionVerdict>;
 
+// ---- 距离标尺：由喷麦、齿音、口水音与 D/R、SNR 的证据合成 ----
 struct DistanceMeasures
 {
     int closeEvidence = 0; // 指向太近的独立证据数：喷麦、齿音、口水音

@@ -331,6 +331,65 @@
       "note": "upper bound on zero-run marks kept as evidence; the counts stay exact"
     }
   },
+  "clap": {
+    "analysis_rate_max_hz": {
+      "value": 48000,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "higher rates are decimated first; clipping and zero runs are still found at the original rate"
+    },
+    "rel_db": {
+      "value": 25.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "a clap peaks within this many dB of the loudest one"
+    },
+    "floor_dbfs": { "value": -50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "min_gap_s": { "value": 1.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "max_count": { "value": 12, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "segment_before_s": { "value": 0.7, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "noise_window_ms": {
+      "value": [-550.0, -100.0],
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "relative to the clap peak"
+    },
+    "peak_search_ms": { "value": 5.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "next_guard_ms": { "value": 50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "clip_window_ms": { "value": 10.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "clip_min_run_samples": {
+      "value": 1,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "a clap that reaches the digital clip level for this many samples counts as clipped"
+    },
+    "min_noise_ms": {
+      "value": 200.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "the noise window may be cut by the start of the capture, down to this length"
+    },
+    "envelope_block_ms": { "value": 10.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "truncate_over_noise_db": {
+      "value": 4.77,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "the decay ends at the first envelope block below the noise plus this margin"
+    },
+    "filter_order": {
+      "value": 4,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "Butterworth prototype order of the band filters"
+    }
+  },
   "reverb": {
     "bands_hz": { "value": [500.0, 1000.0, 2000.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
     "fit_start_db": { "value": -5.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -343,9 +402,43 @@
       "note": "synthetic checks used 30; the final value comes from real recordings"
     },
     "fit_r2_min": { "value": 0.95, "state": "pending", "source": "规格起始值", "date": null },
-    "repeat_max_over_min": { "value": 1.4, "state": "pending", "source": "规格起始值", "date": null },
-    "gate_tail_drop_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "repeat_outlier_frac": {
+      "value": 0.3,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "per band, claps further than this from the median are dropped"
+    },
+    "repeat_min_kept": { "value": 3, "state": "pending", "source": "规格起始值", "date": null },
+    "gate_margin_db": {
+      "value": 20.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "a drop only counts as a gate while the band is still this far above its noise"
+    },
+    "gate_tail_drop_db": {
+      "value": 10.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "beyond the decay the fitted slope predicts"
+    },
     "gate_tail_drop_ms": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
+    "gate_block_ms": { "value": 1.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "gate_before_ms": { "value": 30.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "gate_after_ms": { "value": 30.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "gate_search_from_ms": {
+      "value": 20.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "the window before a drop starts this long after the band peak, past the direct sound"
+    },
+    "gate_zero_run_ms": { "value": 1.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "segment_after_s": { "value": 1.6, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "pnr_smooth_ms": { "value": 5.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "min_tail_ms": { "value": 30.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
     "dry_below_s": { "value": 0.25, "state": "pending", "source": "规格起始值", "date": null },
     "normal_below_s": { "value": 0.45, "state": "pending", "source": "规格起始值", "date": null },
     "boomy_below_s": { "value": 0.7, "state": "pending", "source": "规格起始值", "date": null }
@@ -355,7 +448,17 @@
     "direct_window_start_ms": { "value": -2.5, "state": "pending", "source": "规格起始值", "date": null },
     "direct_window_end_ms": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null },
     "low_below_db": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
-    "high_above_db": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null }
+    "high_above_db": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null },
+    "segment_after_s": { "value": 1.2, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "tail_snr_window_ms": { "value": 50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "tail_snr_min_db": {
+      "value": 6.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "below this the tail is not measurable and only a lower bound is reported"
+    },
+    "min_clean_claps": { "value": 2, "state": "pending", "source": "待实录标定", "date": null }
   },
   "plosive": {
     "event_band_hz": { "value": [20.0, 200.0], "state": "pending", "source": "规格起始值", "date": null },
@@ -404,6 +507,15 @@
     "priority_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
     "small_difference_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
     "brightness_num_band_hz": { "value": [3000.0, 10000.0], "state": "pending", "source": "规格起始值", "date": null },
-    "brightness_den_band_hz": { "value": [300.0, 1000.0], "state": "pending", "source": "规格起始值", "date": null }
+    "brightness_den_band_hz": { "value": [300.0, 1000.0], "state": "pending", "source": "规格起始值", "date": null },
+    "frame_ms": { "value": 100, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "active_top_percentile": { "value": 95, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "active_within_top_db": {
+      "value": 20.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "active frames lie within this many dB of the top percentile"
+    }
   }
 }

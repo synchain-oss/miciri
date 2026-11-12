@@ -39,14 +39,17 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 ## 分组
 
 `no_signal`、`channel_check`、`gain`、`noise`、`hum`、`device_processing`：值来自合成验证，少数起始值标 `pending`。
-`reverb`、`direct_ratio`、`plosive`、`sibilance`、`click`、`direction`：规格里的起始值，全部 `pending`；
-喷麦、齿音、口水音的档界与口水音的残差倍数还没有值（`null`）。`distance` 没有自己的阈值，由别的结果的证据合成。
+`clap`：拍手的检测、分段、噪声窗、削波与截断，房间与位置共用，值来自合成验证。
+`reverb`、`direct_ratio`、`direction`：规格里的档界与判据是起始值，标 `pending`；实现用的窗长与块长来自合成验证。
+`plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；喷麦、齿音、口水音的档界与口水音的残差倍数还没有值（`null`）。
+`distance` 没有自己的阈值，由别的结果的证据合成；决策表用 T20 与 D/R 的档位，也没有自己的阈值。
 
 ## 没有带进来的内容
 
 - 声道检查里“两路差 ≥80 dB”的旧判据已废弃：它对“同一信号加各自底噪”全部漏判，由“差减底噪和”与“差相对信号”取代。
 - 电流声的“占噪声能量低于 9.1% 就不报”不再存在：占比低于 `hum.slight_energy_share_frac`（比例；`HumMeasures.energySharePct` 是百分比，比较前除以 100） 仍报，只标“轻微”，不进最该改。
 - 噪声的“丢弃跳变帧”：合成实验里没有可测效果，不设阈值。
+- T20 重复性的“最大比最小 < 1.4”：按实录调整，收满八九下时偏严，改成每个频带去掉偏离中位数超过 `reverb.repeat_outlier_frac` 的几下、剩下不少于 `reverb.repeat_min_kept` 下。
 
 ## 变更
 
