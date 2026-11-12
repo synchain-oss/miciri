@@ -392,9 +392,7 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     CHECK(root["live"]["claps"].items[1].text == "truncated");
     CHECK(root["live"]["clapsNeeded"].number == Catch::Approx(thr::session::room_claps_needed));
     // callbackAgeSec 由编辑器按墙钟补上，其余都在这里
-    auto connect = names(bridge::kSnapshotConnect);
-    connect.erase(std::find(connect.begin(), connect.end(), "callbackAgeSec"));
-    CHECK(root["connect"].keys() == connect);
+    CHECK(root["connect"].keys() == names(bridge::kSnapshotConnect));
 
     // 区段枚举与契约的区段名一一对应：只把第 i 项标过期，快照里过期的就是第 i 个名字
     REQUIRE(session::kSectionCount == bridge::kResultSections.size());

@@ -326,6 +326,7 @@ void putConnect(Json& j, const SessionView& v)
     const auto& ch = v.results.channels;
     j.open();
     j.key("signalState").wire(ns ? ns->verdict.state : SignalState::Waiting);
+    j.key("callbackAgeSec").num(std::nan("")); // 占位保住名表的键序；值由编辑器按墙钟填
     j.key("allZero").boolean(ns && ns->measures.zeroSeconds >= thr::no_signal::strict_zero_window_s &&
                              ns->verdict.state != SignalState::Ok);
     j.key("noiseDbfs");

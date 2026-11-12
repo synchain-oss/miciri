@@ -271,6 +271,47 @@ TEST_CASE("a sample-rate change mid-step voids that step")
     s.cancelStep();
 }
 
+namespace
+{
+std::atomic<bool> gHold{false};
+std::atomic<int> gHeld{0};
+// 停在分析里，直到放行：模拟工作线程正在做一次长分析
+void holdingAnalysis() noexcept
+{
+    gHeld.fetch_add(1);
+    while (gHold.load())
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
+} // namespace
+
+TEST_CASE("cancel and prepare do not wait for an analysis in progress; starting again is busy until it ends")
+{
+    for (const bool viaPrepare : {false, true})
+    {
+        gHold = true;
+        gHeld = 0;
+        session::Session s(holdingAnalysis);
+        s.prepare(48000.0, 1);
+        REQUIRE(s.startStep(StepId::Room) == session::Session::Start::Ok); // 房间步边收边看拍手，会调分析
+        std::thread audio([&] { pump(s.tap(), std::vector<double>(48000, 0.01), 1, 48000.0, 1.0); });
+        REQUIRE(waitFor([&] { return gHeld.load() > 0; }));
+        const auto t0 = Clock::now();
+        if (viaPrepare)
+            s.prepare(44100.0, 1);
+        else
+            s.cancelStep();
+        CHECK(Clock::now() - t0 < std::chrono::milliseconds(500));
+        CHECK_FALSE(s.running());
+        CHECK_FALSE(s.tap().armed());
+        CHECK(s.startStep(StepId::Gain) == session::Session::Start::Busy); // 旧线程没退出：不重新 arm
+        CHECK_FALSE(s.tap().armed());
+        gHold = false;
+        REQUIRE(waitFor([&] { return s.startStep(StepId::Gain) == session::Session::Start::Ok; }));
+        s.cancelStep();
+        audio.join();
+    }
+}
+
 TEST_CASE("cancel restores the step's earlier status and stops capturing")
 {
     session::Session s;

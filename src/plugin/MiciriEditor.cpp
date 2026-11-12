@@ -118,7 +118,7 @@ juce::var MiciriEditor::buildSnapshot()
     const auto connectObj = part("connect");
     if (auto* c = connectObj.getDynamicObject())
     {
-        c->setProperty("callbackAgeSec", roundTenth(ageSec));
+        c->setProperty("callbackAgeSec", roundTenth(ageSec)); // 覆盖 Session 的占位，键序不变
         if (noCallback)
             c->setProperty("signalState", wireName(core::toString(core::SignalState::NoCallback)));
     }
@@ -170,7 +170,7 @@ void MiciriEditor::emitTick()
 }
 
 // showLicense 要等对应模块落地，之前回 not-ready，不改任何状态。
-// cancelStep 要等工作线程停下：这一步已经收完、正在分析时，会等到分析结束（通常不到一秒）。
+// cancelStep 不等工作线程：只让它停下、撤销采集，立即返回；它还在收尾分析时，startStep 回 busy，界面稍后重试。
 void MiciriEditor::handleBridgeCall(const juce::String& name, const juce::Array<juce::var>& args,
                                     NativeCompletion complete)
 {
