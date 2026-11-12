@@ -338,6 +338,41 @@ TEST_CASE("ungraded sibilance and clicks are not taken as 'no evidence' and get 
     CHECK(root["results"]["sibilance"]["severity"].text == "light");
 }
 
+TEST_CASE("the replaced distance goes into previous only on a position retest or a changed verdict")
+{
+    core::AllResults r;
+    r.plosive = core::PlosiveResult{}; // 可信、轻：没有太近的证据
+    std::optional<core::DistanceResult> previous;
+    session::refreshDistance(r, previous, StepId::Position); // 第一次没有旧值
+    REQUIRE(r.distance.has_value());
+    CHECK(r.distance->verdict.kind == core::DistanceCase::Fine);
+    CHECK_FALSE(previous.has_value());
+
+    // 别的步完成、结论没变：不记
+    session::refreshDistance(r, previous, StepId::Room);
+    CHECK_FALSE(previous.has_value());
+
+    // 位置重测：换下来的那次进“上次”
+    session::refreshDistance(r, previous, StepId::Position);
+    REQUIRE(previous.has_value());
+    CHECK(previous->verdict.kind == core::DistanceCase::Fine);
+
+    // 结论变了：不是位置步也记
+    previous.reset();
+    r.plosive->verdict.severity = core::Severity::Heavy;
+    session::refreshDistance(r, previous, StepId::Direction);
+    REQUIRE(r.distance.has_value());
+    CHECK(r.distance->verdict.kind != core::DistanceCase::Fine);
+    REQUIRE(previous.has_value());
+    CHECK(previous->verdict.kind == core::DistanceCase::Fine);
+
+    // 重算后没有距离：“上次”一并撤掉
+    r.plosive.reset();
+    session::refreshDistance(r, previous, StepId::Room);
+    CHECK_FALSE(r.distance.has_value());
+    CHECK_FALSE(previous.has_value());
+}
+
 TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order")
 {
     session::SessionView v;

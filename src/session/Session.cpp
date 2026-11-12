@@ -174,6 +174,17 @@ std::optional<core::DistanceResult> deriveDistance(const core::AllResults& r)
     return d ? std::optional<core::DistanceResult>{d->result} : std::nullopt;
 }
 
+void refreshDistance(core::AllResults& r, std::optional<core::DistanceResult>& previous, StepId completed)
+{
+    auto old = r.distance;
+    r.distance = deriveDistance(r);
+    if (!r.distance)
+        previous.reset();
+    else if (old && (completed == StepId::Position || r.distance->verdict.kind != old->verdict.kind ||
+                     r.distance->confidence.level != old->confidence.level))
+        previous = std::move(old);
+}
+
 struct Session::Worker
 {
     StepId id = StepId::Connect;
@@ -526,15 +537,7 @@ void Session::complete(StepId id, StepOutput&& out)
     take(r.sibilance, o.sibilance, previous_.sibilance, Section::Sibilance);
     take(r.click, o.click, previous_.click, Section::Click);
     take(r.direction, o.direction, previous_.direction, Section::Direction);
-    // 距离每完成一步都重算：重测了位置、或结论变了，被换下来的那次进“上次”；
-    // 重算后没有距离时“上次”一并撤掉（和声道一样，不留只有“上次”的项）
-    auto oldDistance = r.distance;
-    r.distance = deriveDistance(r);
-    if (!r.distance)
-        previous_.distance.reset();
-    else if (oldDistance && (id == StepId::Position || r.distance->verdict.kind != oldDistance->verdict.kind ||
-                             r.distance->confidence.level != oldDistance->confidence.level))
-        previous_.distance = std::move(oldDistance);
+    refreshDistance(r, previous_.distance, id); // 距离每完成一步都重算，规则见 Session.h
     if (out.direction)
         direction_ = out.direction;
     if (id == StepId::Position)

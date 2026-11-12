@@ -66,6 +66,9 @@ void forgetStale(StepContext& ctx, const SectionSet& stale);
 // 距离标尺：由喷麦、齿音、口水音（太近）与 D/R、SNR（太远）合成；位置步没做过时为空。
 // 未分档的项（见 Grading.h）按没测处理。
 std::optional<core::DistanceResult> deriveDistance(const core::AllResults& results);
+// 每完成一步都重算距离：重测了位置、或结论（档位、置信度）变了，被换下来的那次进 previous；
+// 重算后没有距离时 previous 一并撤掉（和声道一样，不留只有“上次”的项）
+void refreshDistance(core::AllResults& results, std::optional<core::DistanceResult>& previous, core::StepId completed);
 // 同上，连同距离的建议
 std::optional<core::DistanceDecision> decideDistanceOf(const core::AllResults& results);
 
