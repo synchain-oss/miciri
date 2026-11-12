@@ -102,7 +102,7 @@ juce::var MiciriEditor::buildSnapshot()
 
     const auto layoutIndex = device.numChannels >= 2 ? core::ChannelLayout::Stereo : core::ChannelLayout::Mono;
     const auto view = processor_.session().view();
-    const auto json = session::snapshotJson(view, processor_.micType());
+    const auto json = session::snapshotJson(view, static_cast<core::MicType>(processor_.micType()));
     const auto parsed = juce::JSON::parse(juce::String::fromUTF8(json.data(), static_cast<int>(json.size())));
     auto part = [&parsed](const char* key) {
         const auto v = parsed.getProperty(key, {});
