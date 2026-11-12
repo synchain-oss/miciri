@@ -204,7 +204,7 @@ ClickScan scanClicks(const std::vector<double>& samples, double sampleRate)
         return scan;
     const double speechDb = *scan.speechDb;
 
-    const auto hp = voice::filtered(voice::butterworth(order, c::highpass_hz, rate, true), x);
+    const auto hp = voice::filtered(voice::highpass(order, c::highpass_hz, rate), x);
     const auto env =
         movingRms(hp, static_cast<std::size_t>(std::max<long long>(1, voice::offsetSamples(c::envelope_ms, rate))));
     const auto lowBand =

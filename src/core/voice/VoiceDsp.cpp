@@ -4,26 +4,26 @@
 #include <algorithm>
 #include <cmath>
 
+#include "room/Butterworth.h"
+
 namespace miciri::core::voice
 {
-dsp::BiquadCascade butterworth(int order, double hz, double sampleRate, bool highpass)
+dsp::BiquadCascade highpass(int order, double hz, double sampleRate)
 {
-    if (!highpass && hz * 2.0 >= sampleRate)
-        return {};
     const double w0 = 2.0 * dsp::kPi * hz / sampleRate;
     const double c = std::cos(w0);
     const double s = std::sin(w0);
     std::vector<dsp::Biquad> stages;
-    // 巴特沃斯的极点在单位圆上等角分布，第 k 对的品质因数是 1 / (2 cos θk)
+    // 模拟原型的极点在 s 平面左半的圆周上等角分布，第 k 对共轭极点的品质因数是 1 / (2 cos θk)
     for (int k = 0; k < order / 2; ++k)
     {
         const double theta = dsp::kPi * (2.0 * k + 1.0) / (2.0 * order);
         const double alpha = s * std::cos(theta);
         const double a0 = 1.0 + alpha;
-        const double edge = highpass ? (1.0 + c) / 2.0 : (1.0 - c) / 2.0;
+        const double edge = (1.0 + c) / 2.0;
         dsp::Biquad q;
         q.b0 = edge / a0;
-        q.b1 = (highpass ? -2.0 : 2.0) * edge / a0;
+        q.b1 = -2.0 * edge / a0;
         q.b2 = edge / a0;
         q.a1 = -2.0 * c / a0;
         q.a2 = (1.0 - alpha) / a0;
@@ -34,10 +34,7 @@ dsp::BiquadCascade butterworth(int order, double hz, double sampleRate, bool hig
 
 dsp::BiquadCascade bandpass(int order, double loHz, double hiHz, double sampleRate)
 {
-    auto stages = butterworth(order, loHz, sampleRate, true).stages();
-    const auto low = butterworth(order, hiHz, sampleRate, false).stages();
-    stages.insert(stages.end(), low.begin(), low.end());
-    return dsp::BiquadCascade(std::move(stages));
+    return dsp::makeButterworthBandpass(order, loHz, hiHz, sampleRate);
 }
 
 std::vector<double> filtered(dsp::BiquadCascade cascade, const std::vector<double>& x)

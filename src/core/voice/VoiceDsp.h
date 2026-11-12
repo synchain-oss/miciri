@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 喷麦、齿音、口水音三项共用的小件：巴特沃斯滤波、帧功率、汉宁窗短时谱、毫秒换样本数、证据标记截断。
+// 喷麦、齿音、口水音三项共用的小件：巴特沃斯高通与带通、帧功率、汉宁窗短时谱、毫秒换样本数、证据标记截断。
 // 只给 voice 模块内部用。不依赖 JUCE，double 精度，没有全局状态。
 #pragma once
 
@@ -12,10 +12,9 @@
 
 namespace miciri::core::voice
 {
-// 偶数阶巴特沃斯高通或低通，二阶节级联（截止频率处预畸变的双线性变换）。
-// 低通截止不低于奈奎斯特频率时没有东西可滤，返回空级联（直通）。
-dsp::BiquadCascade butterworth(int order, double hz, double sampleRate, bool highpass);
-// 带通：同阶高通与低通串联。只用于一个倍频程以上的宽带，此时通带内与直接设计的带通一致。
+// 偶数阶巴特沃斯高通，二阶节级联（截止频率处预畸变的双线性变换）
+dsp::BiquadCascade highpass(int order, double hz, double sampleRate);
+// 带通：直接设计的巴特沃斯带通（与房间分析共用），order 是原型阶数
 dsp::BiquadCascade bandpass(int order, double loHz, double hiHz, double sampleRate);
 std::vector<double> filtered(dsp::BiquadCascade cascade, const std::vector<double>& x);
 

@@ -59,7 +59,7 @@ Values measure()
 
 // 期望值：由本文件在 48 kHz 上生成
 const Values kGolden{
-    {"plosive.worstRatioDb", 18.0127196578},
+    {"plosive.worstRatioDb", 17.9298235631},
     {"plosive.events", 6.0},
     {"sibilance.midHighDb", -35.8026582897},
     {"sibilance.highDb", -32.5900046635},
@@ -68,7 +68,7 @@ const Values kGolden{
     {"click.count", 4.0},
     {"click.perMinute", 40.0},
     {"click.loudestDbfs", -21.4053231159},
-    {"click.loudestRelDb", 7.8404255865},
+    {"click.loudestRelDb", 7.8875158418},
     {"click.analysedSeconds", 6.0},
 };
 } // namespace

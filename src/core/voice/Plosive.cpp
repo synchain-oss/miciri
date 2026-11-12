@@ -60,7 +60,7 @@ std::vector<PlosiveEvent> plosiveEvents(const std::vector<double>& samples, doub
     const auto frames = [hopMs](double ms) { return std::llround(ms / hopMs); };
 
     const auto wide =
-        voice::framePowerDb(voice::filtered(voice::butterworth(order, p::envelope_highpass_hz, rate, true), x), n, hop);
+        voice::framePowerDb(voice::filtered(voice::highpass(order, p::envelope_highpass_hz, rate), x), n, hop);
     const auto low = voice::framePowerDb(
         voice::filtered(voice::bandpass(order, p::event_band_hz[0], p::event_band_hz[1], rate), x), n, hop);
     const auto vowel = voice::framePowerDb(

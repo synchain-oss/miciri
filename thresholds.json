@@ -493,14 +493,14 @@
     "moderate_above_db": {
       "value": 9.0,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "规格起始值，待实录标定",
       "date": null,
       "note": "worst syllable of one word-list take; adjusted on real recordings of one voice, uncalibrated"
     },
     "heavy_above_db": {
       "value": 12.0,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "规格起始值，待实录标定",
       "date": null,
       "note": "worst syllable of one word-list take; adjusted on real recordings of one voice, uncalibrated"
     },
@@ -626,7 +626,7 @@
     "residual_median_multiple": {
       "value": 20.0,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "规格起始值，待实录标定",
       "date": null,
       "note": "LPC residual over its local scale; starting range 15-20 adjusted on real recordings, uncalibrated"
     },
@@ -693,7 +693,7 @@
     "context_max_rel_db": {
       "value": -14.0,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "规格起始值，待实录标定",
       "date": null,
       "note": "high-frequency background around the spike, relative to the speech; louder backgrounds are sibilant onsets or aspiration; adjusted on real recordings, uncalibrated"
     },
