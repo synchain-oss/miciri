@@ -24,6 +24,7 @@
 #include <string>
 #include <thread>
 
+#include "decide/Decide.h"
 #include "result/Results.h"
 #include "session/AudioTap.h"
 #include "session/Steps.h"
@@ -65,6 +66,8 @@ void forgetStale(StepContext& ctx, const SectionSet& stale);
 // 距离标尺：由喷麦、齿音、口水音（太近）与 D/R、SNR（太远）合成；位置步没做过时为空。
 // 未分档的项（见 Grading.h）按没测处理。
 std::optional<core::DistanceResult> deriveDistance(const core::AllResults& results);
+// 同上，连同距离的建议
+std::optional<core::DistanceDecision> decideDistanceOf(const core::AllResults& results);
 
 struct HostTraits
 {
@@ -85,6 +88,8 @@ struct SessionView
     std::array<StepState, kStepCount> steps{};
     std::array<double, kStepCount> durationSec{};
     core::AllResults results;
+    core::AllResults previous; // 每一项被新结果换下来之前的那一次（“上次→现在”），只在内存里
+    std::optional<core::DirectionAnalysis> direction; // 最近一次方向步的分析：确认的那一对与较小的优势
     SectionSet stale{};
     Live live;
     bool running = false;
@@ -153,6 +158,8 @@ private:
     std::optional<core::StepId> current_;
     StepState before_; // 当前步开始前的状态，取消时恢复
     core::AllResults results_;
+    core::AllResults previous_;
+    std::optional<core::DirectionAnalysis> direction_;
     SectionSet stale_{};
     SectionSet changedDuring_{}; // 当前这一步进行中，用户上报的改动让哪几项过期；这一步的这几项产出照样过期
     Live live_;
@@ -165,5 +172,5 @@ private:
 
 // 快照 JSON：键是 steps、results、bands、live、connect、offlineRender，
 // 字段名与顺序按桥契约（BridgeApi.h）。编辑器把它并进 miciri.state，再补上墙钟给的 callbackAgeSec。
-std::string snapshotJson(const SessionView& view);
+std::string snapshotJson(const SessionView& view, core::MicType mic = core::MicType::Unknown);
 } // namespace miciri::session

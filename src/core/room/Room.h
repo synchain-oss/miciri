@@ -23,18 +23,7 @@
 
 namespace miciri::core
 {
-// 一下拍手在一个频带里的情况，按判断顺序：先看有没有噪声参考与可拟合的衰减，再看门限，再看峰噪比与 R²；
-// 有效的几下在汇总时还可能因偏离中位数被去掉
-enum class ClapBandStatus : std::uint8_t
-{
-    Valid,
-    NoNoiseReference, // 拍手前的噪声窗被录音开头截得短于 min_noise_ms
-    ShortDecay, // 衰减太短或不到 -25 dB
-    Gated,
-    LowPnr,
-    PoorFit,
-    Outlier
-};
+// 一下拍手在一个频带里的情况：ClapBandStatus，取值见 result/Enums.h（进桥名表，在那里定义）
 
 struct ClapBand
 {

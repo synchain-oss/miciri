@@ -14,6 +14,7 @@
 #include "core/room/ClapSynth.h"
 #include "plugin/BridgeApi.h"
 #include "session/MiniJson.h"
+#include "session/Advice.h"
 #include "session/Session.h"
 #include "session/Steps.h"
 
@@ -354,13 +355,22 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     v.results.direction = core::DirectionResult{};
     v.results.distance = core::DistanceResult{};
     v.live.claps = {core::ClapState::Valid, core::ClapState::Truncated};
+    v.live.clapDetails = {core::ReverbClap{}, core::ReverbClap{}};
+    v.previous.gain = core::GainResult{};
     v.results.gain->confidence = core::retest(core::RetestReason::TooShort);
     v.steps[static_cast<std::size_t>(StepId::Gain)].status = core::StepStatus::Done;
     v.steps[static_cast<std::size_t>(StepId::Quiet)].status = core::StepStatus::Done;
     v.stale[static_cast<std::size_t>(session::Section::Hum)] = true;
 
     const JsonNode root = JsonReader(session::snapshotJson(v)).parse();
-    CHECK(root.keys() == std::vector<std::string>{"steps", "results", "bands", "live", "connect", "offlineRender"});
+    CHECK(root.keys() == std::vector<std::string>{"steps", "results", "bands", "live", "connect", "offlineRender",
+                                                  "fixes", "advice", "previous"});
+    CHECK(root["advice"].keys() == names(bridge::kSnapshotAdvice));
+    CHECK(root["previous"].keys() == std::vector<std::string>{"gain"});
+    CHECK(root["previous"]["gain"].keys() == withCommon(bridge::kResultGain));
+    REQUIRE(root["live"]["clapDetails"].items.size() == 2);
+    CHECK(root["live"]["clapDetails"].items[0].keys() == names(bridge::kSnapshotClapDetail));
+    CHECK(root["live"]["clapDetails"].items[0]["bandStatus"].items.size() == thr::reverb::bands_hz.size());
     CHECK(root["steps"].keys() == names(core::kStepIdNames));
     for (const auto& step : root["steps"].members)
         CHECK(step.second.keys() == names(bridge::kSnapshotStep));
@@ -405,6 +415,52 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
         for (std::size_t k = 0; k < session::kSectionCount; ++k)
             CHECK(res[std::string(bridge::kResultSections[k])]["stale"].flag == (k == i));
     }
+}
+
+TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by impact x confidence / cost")
+{
+    session::SessionView v;
+    auto& r = v.results;
+    r.noSignal = core::NoSignalResult{};
+    r.noSignal->verdict.state = core::SignalState::AllZeroFromStart;
+    r.gain = core::GainResult{};
+    r.gain->verdict.digitalClip = true;
+    r.gain->verdict.band = core::GainBand::TooQuiet;
+    r.noise = core::NoiseResult{};
+    r.noise->verdict.band = core::NoiseBand::Bad;
+    r.hum = core::HumResult{};
+    r.hum->verdict.kind = core::HumKind::Buzz;
+    r.reverb = core::ReverbResult{};
+    r.reverb->verdict.band = core::ReverbBand::VeryBoomy;
+    r.directRatio = core::DirectRatioResult{};
+    r.directRatio->verdict.band = core::DrBand::Low;
+    r.plosive = core::PlosiveResult{};
+    r.plosive->verdict.severity = core::Severity::Heavy;
+    r.distance = core::DistanceResult{};
+    r.distance->verdict.kind = core::DistanceCase::TooFar;
+    r.direction = core::DirectionResult{};
+    r.direction->verdict.kind = core::DirectionCase::MaybeReversed;
+    core::DirectionAnalysis a;
+    a.result = *r.direction;
+    a.repeatIndex = 2;
+    a.confirmedAdvantageDb = thr::direction::priority_db;
+    v.direction = a;
+
+    using F = core::FixItem;
+    // 默认的影响与代价排出来的就是规格的先后
+    auto fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
+    CHECK(fixes == std::vector<F>{F::NoSignal, F::DigitalClip, F::Direction, F::Room, F::Distance, F::Hum, F::Gain,
+                                  F::Noise, F::Plosive});
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).room == core::RoomAdvice::ChangeRoomAndMoveCloser);
+
+    // 要再测的、过期的、轻微的、没确认的都不进
+    r.noise->confidence = core::retest(core::RetestReason::TooShort);
+    v.stale[static_cast<std::size_t>(session::Section::Plosive)] = true;
+    r.hum->verdict.slight = true;
+    v.direction->confirmedAdvantageDb = thr::direction::priority_db - 1.0;
+    r.noSignal->verdict.state = core::SignalState::Ok;
+    fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
+    CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room, F::Distance, F::Gain});
 }
 
 TEST_CASE("channel prompts follow the host: no mono tracks means no 'make it mono' advice")

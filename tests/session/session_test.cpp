@@ -180,6 +180,14 @@ TEST_CASE("a change reported while a step runs leaves that step's output stale a
     REQUIRE(s.view().results.noSignal.has_value());
     CHECK(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
     CHECK(s.context().noiseFloorRms == 0.0); // 没有改动时这里大于 0，见上面按实时喂完一步的用例
+
+    // 再做一次接通：换下来的那次留作“上次”
+    CHECK_FALSE(s.view().previous.noSignal.has_value());
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Connect) == session::Session::Start::Ok; }));
+    pump(s.tap(), x, 1, fs, 1.3);
+    REQUIRE(waitFor([&] { return !s.running(); }));
+    CHECK(s.view().previous.noSignal.has_value());
+    CHECK_FALSE(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
 }
 
 TEST_CASE("audio arriving much faster than real time voids the step without analysing it")

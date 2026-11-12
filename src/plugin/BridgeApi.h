@@ -31,8 +31,9 @@ inline constexpr auto kEvents = names("miciri.state", "miciri.meters", "miciri.e
 inline constexpr auto kReasons = names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked",
                                        "not-ready", "busy", "disabled");
 
-inline constexpr auto kSnapshotRoot = names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device",
-                                            "connect", "steps", "results", "bands", "live");
+inline constexpr auto kSnapshotRoot =
+    names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device", "connect", "steps", "results", "bands",
+          "live", "fixes", "advice", "previous");
 inline constexpr auto kSnapshotDevice = names("sampleRate", "bufferSize", "layout", "hostName", "offlineRender");
 inline constexpr auto kSnapshotConnect =
     names("signalState", "callbackAgeSec", "allZero", "noiseDbfs", "channelStatusL", "channelStatusR", "channelPrompt",
@@ -62,8 +63,8 @@ inline constexpr auto kResultSibilance =
     names("midHighDb", "highDb", "effectiveBandwidthHz", "events", "severity", "highBandDisabled");
 inline constexpr auto kResultClick =
     names("perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity");
-inline constexpr auto kResultDirection =
-    names("levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb", "kind");
+inline constexpr auto kResultDirection = names("levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb",
+                                               "kind", "repeatIndex", "confirmedAdvantageDb");
 inline constexpr auto kResultDistance = names("closeEvidence", "farEvidence", "kind");
 
 inline constexpr auto kMeterFields =
@@ -74,8 +75,12 @@ inline constexpr auto kSnapshotBands =
     names("tpTooQuietDbfs", "tpQuietDbfs", "tpLoudDbfs", "tpTooLoudDbfs", "targetPeakDbfs", "snrBadBelowDb",
           "snrGoodAboveDb", "t20DryBelowS", "t20NormalBelowS", "t20BoomyBelowS", "drLowBelowDb", "drHighAboveDb",
           "clipAdviceDropDb", "t20BandsHz");
-inline constexpr auto kSnapshotLive = names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps",
-                                            "clapsNeeded", "clapsMax", "directionIndex", "notice", "noticeSec");
+inline constexpr auto kSnapshotLive =
+    names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps", "clapsNeeded", "clapsMax",
+          "directionIndex", "notice", "noticeSec", "clapDetails");
+// 追加（建议与“最该改”）：房间步每一下拍手的明细、建议
+inline constexpr auto kSnapshotClapDetail = names("timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec");
+inline constexpr auto kSnapshotAdvice = names("room", "distance", "directionPrompt");
 
 // 对拍用的登记表：JS 的 export 名 -> 该表的内容
 struct Table
@@ -144,6 +149,13 @@ inline std::vector<Table> contractTables()
         table("ENUM_STEP_PHASE", c::kStepPhaseNames),
         table("ENUM_CLAP_STATE", c::kClapStateNames),
         table("ENUM_FLOW_NOTICE", c::kFlowNoticeNames),
+        table("SNAPSHOT_CLAP_DETAIL", kSnapshotClapDetail),
+        table("SNAPSHOT_ADVICE", kSnapshotAdvice),
+        table("ENUM_CLAP_BAND_STATUS", c::kClapBandStatusNames),
+        table("ENUM_ROOM_ADVICE", c::kRoomAdviceNames),
+        table("ENUM_DISTANCE_ADVICE", c::kDistanceAdviceNames),
+        table("ENUM_DIRECTION_PROMPT", c::kDirectionPromptNames),
+        table("ENUM_FIX_ITEM", c::kFixItemNames),
     };
 }
 } // namespace miciri::bridge

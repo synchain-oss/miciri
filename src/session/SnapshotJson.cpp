@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "config/Thresholds.h"
+#include "session/Advice.h"
 #include "session/Grading.h"
 #include "session/Session.h"
 
@@ -256,13 +257,17 @@ void put(Json& j, const ClickResult& r, bool stale)
     j.close();
 }
 
-void put(Json& j, const DirectionResult& r, bool stale)
+// analysis 给出确认的那一对（当前方向与 repeatIndex）和两次里较小的优势；没有确认过时 repeatIndex 为 -1、优势为 null
+void put(Json& j, const DirectionResult& r, bool stale, const core::DirectionAnalysis* analysis = nullptr)
 {
     const auto& m = r.measures;
     j.open();
     j.key("levelDb").nums(m.levelDb).key("brightnessDb").nums(m.brightnessDb);
     j.key("currentIndex").integer(m.currentIndex).key("bestOtherAdvantageDb").num(m.bestOtherAdvantageDb);
     j.key("kind").wire(r.verdict.kind);
+    const bool confirmed = analysis != nullptr && analysis->repeatIndex >= 0 && !analysis->needsRepeat;
+    j.key("repeatIndex").integer(analysis != nullptr ? analysis->repeatIndex : -1);
+    j.key("confirmedAdvantageDb").num(confirmed ? analysis->confirmedAdvantageDb : std::nan(""));
     common(j, r, toneOf(r.verdict), stale);
     j.close();
 }
@@ -371,11 +376,55 @@ void putLive(Json& j, const Live& l)
     j.key("clapsMax").integer(std::lround(thr::session::room_claps_max));
     j.key("directionIndex").integer(l.directionIndex);
     j.key("notice").wire(l.notice).key("noticeSec").num(l.noticeSec);
+    j.key("clapDetails").openArray();
+    for (const auto& c : l.clapDetails)
+    {
+        j.open();
+        j.key("timeSec").num(c.timeSec).key("peakDbfs").num(c.peakDbfs).key("clipped").boolean(c.clipped);
+        j.key("bandStatus").openArray();
+        for (const auto& b : c.bands)
+            j.wire(b.status);
+        j.closeArray();
+        j.key("t20Sec").openArray();
+        for (const auto& b : c.bands)
+            j.num(b.t20Sec);
+        j.closeArray();
+        j.close();
+    }
+    j.closeArray();
+    j.close();
+}
+
+// 结果的各区段；previous 用同一形状，没有“上次”的区段不出现
+void putResults(Json& j, const core::AllResults& r, const SectionSet& stale, const core::DirectionAnalysis* direction)
+{
+    j.open();
+    section(j, "noSignal", r.noSignal, stale, Section::NoSignal);
+    section(j, "channels", r.channels, stale, Section::Channels);
+    section(j, "gain", r.gain, stale, Section::Gain);
+    section(j, "noise", r.noise, stale, Section::Noise);
+    section(j, "hum", r.hum, stale, Section::Hum);
+    section(j, "deviceProcessing", r.deviceProcessing, stale, Section::DeviceProcessing);
+    section(j, "reverb", r.reverb, stale, Section::Reverb);
+    section(j, "directRatio", r.directRatio, stale, Section::DirectRatio);
+    section(j, "plosive", r.plosive, stale, Section::Plosive);
+    section(j, "sibilance", r.sibilance, stale, Section::Sibilance);
+    section(j, "click", r.click, stale, Section::Click);
+    if (r.direction)
+        put(j.key("direction"), *r.direction, stale[static_cast<std::size_t>(Section::Direction)], direction);
+    section(j, "distance", r.distance, stale, Section::Distance);
+    j.close();
+}
+
+void putAdvice(Json& j, const Advice& a)
+{
+    j.open();
+    j.key("room").wire(a.room).key("distance").wire(a.distance).key("directionPrompt").wire(a.directionPrompt);
     j.close();
 }
 } // namespace
 
-std::string snapshotJson(const SessionView& v)
+std::string snapshotJson(const SessionView& v, core::MicType mic)
 {
     Json j;
     j.open();
@@ -390,27 +439,19 @@ std::string snapshotJson(const SessionView& v)
     }
     j.close();
 
-    const auto& r = v.results;
-    j.key("results").open();
-    section(j, "noSignal", r.noSignal, v.stale, Section::NoSignal);
-    section(j, "channels", r.channels, v.stale, Section::Channels);
-    section(j, "gain", r.gain, v.stale, Section::Gain);
-    section(j, "noise", r.noise, v.stale, Section::Noise);
-    section(j, "hum", r.hum, v.stale, Section::Hum);
-    section(j, "deviceProcessing", r.deviceProcessing, v.stale, Section::DeviceProcessing);
-    section(j, "reverb", r.reverb, v.stale, Section::Reverb);
-    section(j, "directRatio", r.directRatio, v.stale, Section::DirectRatio);
-    section(j, "plosive", r.plosive, v.stale, Section::Plosive);
-    section(j, "sibilance", r.sibilance, v.stale, Section::Sibilance);
-    section(j, "click", r.click, v.stale, Section::Click);
-    section(j, "direction", r.direction, v.stale, Section::Direction);
-    section(j, "distance", r.distance, v.stale, Section::Distance);
-    j.close();
+    putResults(j.key("results"), v.results, v.stale, v.direction ? &*v.direction : nullptr);
 
     putBands(j.key("bands"));
     putLive(j.key("live"), v.live);
     putConnect(j.key("connect"), v);
     j.key("offlineRender").boolean(v.offlineRender);
+    const Advice advice = decideAdvice(v, mic);
+    j.key("fixes").openArray();
+    for (const auto f : advice.fixes)
+        j.wire(f);
+    j.closeArray();
+    putAdvice(j.key("advice"), advice);
+    putResults(j.key("previous"), v.previous, SectionSet{}, nullptr);
     j.close();
     return j.str();
 }

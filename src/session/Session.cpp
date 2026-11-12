@@ -143,7 +143,7 @@ StepId producerOf(Section s)
     }
 }
 
-std::optional<core::DistanceResult> deriveDistance(const core::AllResults& r)
+std::optional<core::DistanceDecision> decideDistanceOf(const core::AllResults& r)
 {
     using core::EvidenceLevel;
     if (!r.plosive && !r.directRatio)
@@ -165,7 +165,13 @@ std::optional<core::DistanceResult> deriveDistance(const core::AllResults& r)
     }
     if (trusted(r.noise))
         e.lowSnr = r.noise->verdict.band == core::NoiseBand::Bad ? EvidenceLevel::Strong : EvidenceLevel::None;
-    return core::decideDistance(e).result;
+    return core::decideDistance(e);
+}
+
+std::optional<core::DistanceResult> deriveDistance(const core::AllResults& r)
+{
+    const auto d = decideDistanceOf(r);
+    return d ? std::optional<core::DistanceResult>{d->result} : std::nullopt;
 }
 
 struct Session::Worker
@@ -384,6 +390,8 @@ SessionView Session::view() const
     const std::lock_guard<std::mutex> lock(state_);
     v.steps = steps_;
     v.results = results_;
+    v.previous = previous_;
+    v.direction = direction_;
     v.stale = stale_;
     v.live = live_;
     v.running = current_.has_value();
@@ -494,27 +502,34 @@ void Session::complete(StepId id, StepOutput&& out)
     if (current_ != id)
         return;
     core::AllResults& r = results_;
-    auto take = [this](auto& to, auto& from, Section s) {
+    // 换下来的旧结果留作“上次”，只在内存里
+    auto take = [this](auto& to, auto& from, auto& before, Section s) {
         if (from)
         {
+            if (to)
+                before = std::move(to);
             to = std::move(from);
             stale_[index(s)] = changedDuring_[index(s)];
         }
     };
     core::AllResults& o = out.results;
-    take(r.noSignal, o.noSignal, Section::NoSignal);
-    take(r.channels, o.channels, Section::Channels);
-    take(r.gain, o.gain, Section::Gain);
-    take(r.noise, o.noise, Section::Noise);
-    take(r.hum, o.hum, Section::Hum);
-    take(r.deviceProcessing, o.deviceProcessing, Section::DeviceProcessing);
-    take(r.reverb, o.reverb, Section::Reverb);
-    take(r.directRatio, o.directRatio, Section::DirectRatio);
-    take(r.plosive, o.plosive, Section::Plosive);
-    take(r.sibilance, o.sibilance, Section::Sibilance);
-    take(r.click, o.click, Section::Click);
-    take(r.direction, o.direction, Section::Direction);
+    take(r.noSignal, o.noSignal, previous_.noSignal, Section::NoSignal);
+    take(r.channels, o.channels, previous_.channels, Section::Channels);
+    take(r.gain, o.gain, previous_.gain, Section::Gain);
+    take(r.noise, o.noise, previous_.noise, Section::Noise);
+    take(r.hum, o.hum, previous_.hum, Section::Hum);
+    take(r.deviceProcessing, o.deviceProcessing, previous_.deviceProcessing, Section::DeviceProcessing);
+    take(r.reverb, o.reverb, previous_.reverb, Section::Reverb);
+    take(r.directRatio, o.directRatio, previous_.directRatio, Section::DirectRatio);
+    take(r.plosive, o.plosive, previous_.plosive, Section::Plosive);
+    take(r.sibilance, o.sibilance, previous_.sibilance, Section::Sibilance);
+    take(r.click, o.click, previous_.click, Section::Click);
+    take(r.direction, o.direction, previous_.direction, Section::Direction);
+    if (id == StepId::Position && r.distance)
+        previous_.distance = r.distance;
     r.distance = deriveDistance(r);
+    if (out.direction)
+        direction_ = out.direction;
     if (id == StepId::Position)
         stale_[index(Section::Distance)] = changedDuring_[index(Section::Distance)];
 
@@ -535,10 +550,14 @@ void Session::complete(StepId id, StepOutput&& out)
     StepState& s = steps_[index(id)];
     s.status = StepStatus::Done;
     s.invalidReason = RetestReason::None;
-    const auto claps = id == StepId::Room ? live_.claps : std::vector<core::ClapState>{};
+    Live kept;
+    if (id == StepId::Room) // 房间步结束后保留，失败页要画每一下的判定
+    {
+        kept.claps = live_.claps;
+        kept.clapDetails = live_.clapDetails;
+    }
     current_.reset();
-    live_ = Live{};
-    live_.claps = claps; // 房间步结束后保留，失败页要画每一下的判定
+    live_ = std::move(kept);
     live_.notice = core::FlowNotice::Success;
     bump();
 }
