@@ -151,7 +151,7 @@ export function createRemote(o) {
 
     function patch(m) {
         setText(refs.cmd, tr(m.cmd));
-        if (refs.words) setText(refs.words, t(m.words));
+        if (refs.words) setText(refs.words, t(m.words, m.wordsVars));
         if (refs.sub) setText(refs.sub, tr(m.sub));
         if (refs.sub2) setText(refs.sub2, tr(m.sub2));
         if (refs.num) setText(refs.num, String(m.count));

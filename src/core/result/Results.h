@@ -239,6 +239,7 @@ struct ClickMeasures
 {
     double perMinute = 0.0;
     // count 为 0 时下面两项不是测量值，留默认的 0：先看 count
+    // “最响一次”是约 2 kHz 高通之后的峰值，不是整段信号的峰值
     double loudestRelDb = 0.0; // 最响一次相对本人语音
     double loudestDbfs = 0.0; // 最响一次的绝对电平，电平管外的圆点
     double analysedSeconds = 0.0;

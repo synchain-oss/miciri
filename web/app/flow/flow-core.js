@@ -172,8 +172,8 @@ export const humWord = (h) =>
 export const reverbWord = (r) => (r.gated ? "flow.w.unk" : REVERB_WORD[r.band] || "flow.w.untested");
 export const drWord = (d) => DR_WORD[d.band] || "flow.w.untested";
 export const plosiveWord = (p) => PLOSIVE_WORD[p.severity] || "flow.w.untested";
-export const sibWord = (s) => SIB_WORD[s.severity] || "flow.w.untested";
-export const clickWord = (c) => CLICK_WORD[c.severity] || "flow.w.untested";
+export const sibWord = (s) => (ungraded(s) ? "flow.w.ungraded" : SIB_WORD[s.severity] || "flow.w.untested");
+export const clickWord = (c) => (ungraded(c) ? "flow.w.ungraded" : CLICK_WORD[c.severity] || "flow.w.untested");
 export const dirWord = (d) => DIR_WORD[d.kind] || "flow.w.untested";
 
 /** 被分析的那一路：单声道取 L。 */
@@ -422,6 +422,7 @@ const RESTART = "flow.rm.restart";
 export function remoteModel(state, o = {}) {
     const ids = visibleSteps(state);
     const running = ids.find((id) => statusOf(state, id) === "running");
+    if (running === "connect" || o.justFinished === "connect") return null;
     // 契约：快照里没有 bands 或 live（旧的原生端）就不进测试中视图，由准备页兜底
     if (!state.bands || !state.live) return null;
     const live = state.live;
@@ -488,9 +489,14 @@ export function remoteModel(state, o = {}) {
         if (p.dots) m.dots = { total: live.rounds, on: Math.max(0, live.round - 1), cur: live.round };
     } else if (running === "direction") {
         if (live.phase === "confirm") {
+            const pair = confirmPair(state);
             Object.assign(m, {
-                cmd: { key: "flow.rm.dir.confirm", vars: { sec: Math.round(live.phaseDurationSec) } },
-                words: "flow.rm.dir.pair",
+                cmd: {
+                    key: pair.b ? "flow.rm.dir.confirm" : "flow.rm.dir.confirm.gen",
+                    vars: { sec: Math.round(live.phaseDurationSec), ...pair },
+                },
+                words: pair.b ? "flow.rm.dir.pair" : "flow.rm.dir.pair.gen",
+                wordsVars: pair,
                 sub: { key: "flow.rm.dir.sub" },
             });
         } else {
@@ -507,6 +513,20 @@ export function remoteModel(state, o = {}) {
         }
     }
     return m;
+}
+
+/**
+ * 方向确认要重唱的两个方向，用“方向 n / 总数”里的编号 n 指出：a 是开始时面对的方向，b 是更响的那个。
+ * b 取自第二遍的 directionIndex，或结果里的 repeatIndex；都还不知道时为 null，由通用文案兜底。
+ */
+export function confirmPair(state) {
+    const live = state.live || {};
+    const d = (state.results || {}).direction;
+    const a = d && Number.isInteger(d.currentIndex) && d.currentIndex >= 0 ? d.currentIndex + 1 : 1;
+    let b = null;
+    if (live.round >= 2 && live.directionIndex > 0) b = live.directionIndex + 1;
+    else if (d && Number.isInteger(d.repeatIndex) && d.repeatIndex >= 0) b = d.repeatIndex + 1;
+    return { a, b };
 }
 
 /** 拍手槽位：已拍的按判定，没拍的补成“待拍”，总数是 clapsMax。 */
@@ -534,6 +554,22 @@ const sec = (r) => ({
     why: WHY[r.retestReason] || null,
 });
 const num = (text, unit, unitKey) => ({ text, unit, unitKey });
+
+/**
+ * 齿音两个频段的显示范围（Hz），与 thresholds.json 的 sibilance.mid_high_band_hz、high_band_hz 同值（冒烟逐项核对）。
+ * 只用来写卡片上的频段标签，判据在原生侧。
+ */
+export const SIB_BANDS_HZ = [
+    [3000, 6000],
+    [6000, 12000],
+];
+const kHz = (v) => `${+(v / 1000).toFixed(1)}`;
+export const hzRange = (b) => `${kHz(b[0])}–${kHz(b[1])} kHz`;
+/** 口水音检测前的高通频率（Hz），与 thresholds.json 的 click.highpass_hz 同值（冒烟核对）；“最响一次”是它之后的峰值。 */
+export const CLICK_HIGHPASS_HZ = 2000;
+
+/** 齿音与口水音现在不分档：tone 为 none、severity 停在 light 只表示未分档，不能当成“正常”或“少”来写。 */
+const ungraded = (r) => r.tone === "none" && r.severity === "light" && r.reliability !== "retest";
 
 /** 区间条：竖条从上到下，segs 是 [下界, 上界, 色, 词条键]，value 是当前值。 */
 function bandsViz(dom, segs, value, text, unit, titleKey) {
@@ -580,8 +616,138 @@ export function t20Viz(bands, t) {
 const hz = (v) => (v >= 1000 ? `${+(v / 1000).toFixed(1)} kHz` : `${v} Hz`);
 const act = (key, vars) => ({ key, vars });
 
+/** 重唱确认成立时（confirmedAdvantageDb 有值）用两次里较小的优势；否则是第一遍里最响的其他方向的优势。 */
+const directionAdvantage = (d) =>
+    Number.isFinite(d.confirmedAdvantageDb)
+        ? d.confirmedAdvantageDb
+        : Number.isFinite(d.bestOtherAdvantageDb)
+          ? d.bestOtherAdvantageDb
+          : 0;
+
+/** 没有电流声结果（噪声步做了、电流声分析没给）时按“没检出”画一张卡。 */
+const NO_HUM = {
+    kind: "none",
+    slight: false,
+    overFloorDb: 0,
+    energySharePct: 0,
+    fundamentalHz: 0,
+    tone: "green",
+    reliability: "trusted",
+    retestReason: "none",
+};
+
+/**
+ * 结果卡的构造：结果页与报告共用，所以“上次”（snapshot.previous）也能用同一套画出来。
+ * 参数 r 是一个区段（results 或 previous 里的）；state 只用来取被分析的那一路与 live。
+ * 齿音、口水音不分档：tone 为 none 时卡片无色，词是“未分档”，不是“正常”或“少”。
+ */
+export const resultCards = {
+    level(state, g) {
+        const tp = truePeak(state, g);
+        const clipN = (g.digitalClipRunsL || 0) + (g.digitalClipRunsR || 0);
+        const flatN = (g.flatPlateauPeaksL || 0) + (g.flatPlateauPeaksR || 0);
+        return {
+            id: "level",
+            word: gainWord(g),
+            nums: [num((tp > 0 ? "+" : "") + fmtDb(tp), "dBTP")],
+            note: g.digitalClip
+                ? act("flow.cd.clip", { n: clipN })
+                : g.maybeFlatTop
+                  ? act("flow.cd.flat", { n: flatN })
+                  : null,
+            ...sec(g),
+        };
+    },
+    noise: (nz) => ({
+        id: "noise",
+        word: noiseWord(nz),
+        nums: [num(fmtDb(nz.snrDb), "dB(A)")],
+        note: null,
+        ...sec(nz),
+    }),
+    hum(hm) {
+        const h = hm || NO_HUM;
+        const hv = { f: Math.round(h.fundamentalHz), p: Math.round(h.energySharePct) };
+        return {
+            id: "hum",
+            word: humWord(h),
+            nums: [num(h.kind === "none" ? "0.0" : signed(h.overFloorDb), "dB")],
+            note: h.kind === "none" ? null : act("flow.cd.hum.note", hv),
+            ...sec(h),
+        };
+    },
+    /** 作废太多或给不出 T20：无色、写原因。设备的降噪或噪声门作废时即使原生没给原因，也写设备原因。 */
+    room(state, rv, failed = rv.gated || rv.tMidSec == null) {
+        const need = (state.live || {}).clapsNeeded;
+        if (failed)
+            return {
+                id: "room",
+                word: "flow.w.unk",
+                nums: [],
+                none: true,
+                tone: "gray",
+                stale: false,
+                retest: true,
+                why: WHY[rv.retestReason] || (rv.gated ? "flow.cf.why.device" : "flow.cf.why.fewclaps"),
+                need,
+            };
+        return {
+            id: "room",
+            word: reverbWord(rv),
+            nums: [num(rv.tMidSec.toFixed(2), "s")],
+            note: null,
+            need,
+            ...sec(rv),
+        };
+    },
+    dr: (dr) => ({
+        id: "dr",
+        word: drWord(dr),
+        nums: [num(signed(dr.drDb), "dB")],
+        note: act(dr.lowerBoundOnly ? "flow.cd.dr.lower" : "flow.cd.dr.note"),
+        ...sec(dr),
+    }),
+    plosive: (p) => ({
+        id: "plosive",
+        word: plosiveWord(p),
+        nums: [num(signed(p.worstRatioDb), "dB")],
+        note: null,
+        ...sec(p),
+    }),
+    sib: (sb) => ({
+        id: "sib",
+        word: sibWord(sb),
+        nums: [
+            num(signed(sb.midHighDb), "dB", null),
+            sb.highBandDisabled ? { na: "flow.w.s.part" } : num(signed(sb.highDb), "dB"),
+        ],
+        bandLabels: SIB_BANDS_HZ.map(hzRange),
+        note: sb.highBandDisabled ? act("flow.cd.sib.bw", { bw: kHz(sb.effectiveBandwidthHz) }) : null,
+        ...sec(sb),
+    }),
+    /** 0 次时“最响一次”的两项都不是测量值（留 0），不显示。 */
+    mouth: (c) => ({
+        id: "mouth",
+        word: clickWord(c),
+        nums: [num(String(Math.round(c.perMinute)), null, "flow.u.perMin")],
+        note: c.count > 0 ? act("flow.cd.mouth.note", { v: fmtDb(c.loudestRelDb), f: kHz(CLICK_HIGHPASS_HZ) }) : null,
+        ...sec(c),
+    }),
+    dir(d) {
+        const advantage = directionAdvantage(d);
+        return {
+            id: "dir",
+            word: dirWord(d),
+            nums: [num(signed(advantage), "dB")],
+            note: act("flow.cd.dir.note"),
+            ...sec(d),
+        };
+    },
+};
+
 /**
  * 一页结果的数据。没有对应结果时返回 null（调用方回退到准备页）。
+ * 缺 bands（旧的原生端）时结果页照常画读数，只是没有区间条和依赖档位边界的建议，不退回准备页。
  * @returns {{cards: object[], cols: number, side: boolean, expl: object, acts: object[], viz: object|null, ctas: object[], bars?: Array}}
  */
 export function resultModel(state, id) {
@@ -596,72 +762,52 @@ export function resultModel(state, id) {
               : `flow.btn.next.${STEP_KEY[next]}`;
     const goNext = { key: nextKey, to: next, icon: "arrow-r" };
     const retest = (k) => ({ key: `flow.btn.retest.${k}`, retest: id, icon: "retry" });
-    if (!bands) return null;
+    // 依赖档位边界的说明和建议：没有 bands 时整条不写
+    const needB = (a) => (bands ? [a] : []);
+    const noBands = act("flow.rs.nobands");
     if (id === "gain" && r.gain) {
         const g = r.gain;
         const tp = truePeak(state, g);
-        const target = bands.targetPeakDbfs;
+        const target = bands && bands.targetPeakDbfs;
         const n = Math.round(Math.abs(target - tp));
-        const clipN = (g.digitalClipRunsL || 0) + (g.digitalClipRunsR || 0);
-        const flatN = (g.flatPlateauPeaksL || 0) + (g.flatPlateauPeaksR || 0);
+        const clipA = (key) => needB(act(key, { n: bands && bands.clipAdviceDropDb }));
         let expl;
         let acts;
         if (g.digitalClip) {
             const usb = state.micType === "usb";
             expl = act(usb ? "flow.gr.clip.usb.e" : "flow.gr.clip.e");
-            acts = [
-                act(usb ? "flow.gr.clip.usb.a" : "flow.gr.clip.a", { n: bands.clipAdviceDropDb }),
-                act("flow.gr.retest"),
-            ];
+            acts = [...clipA(usb ? "flow.gr.clip.usb.a" : "flow.gr.clip.a"), act("flow.gr.retest")];
         } else if (g.maybeFlatTop) {
             expl = act("flow.gr.flat.e");
-            acts = [act("flow.gr.clip.a", { n: bands.clipAdviceDropDb }), act("flow.gr.retest")];
+            acts = [...clipA("flow.gr.clip.a"), act("flow.gr.retest")];
         } else if (g.band === "good") {
-            expl = act("flow.gr.green.e", { lo: fmtDb(bands.tpQuietDbfs, 0), hi: fmtDb(bands.tpLoudDbfs, 0) });
+            expl = bands
+                ? act("flow.gr.green.e", { lo: fmtDb(bands.tpQuietDbfs, 0), hi: fmtDb(bands.tpLoudDbfs, 0) })
+                : noBands;
             acts = [act("flow.gr.green.a")];
         } else if (g.band === "quiet" || g.band === "too-quiet") {
-            expl = act(g.band === "quiet" ? "flow.gr.low.e" : "flow.gr.toolow.e", { target: fmtDb(target, 0) });
-            acts = [act("flow.gr.low.a", { n }), act("flow.gr.retest")];
+            expl = bands
+                ? act(g.band === "quiet" ? "flow.gr.low.e" : "flow.gr.toolow.e", { target: fmtDb(target, 0) })
+                : noBands;
+            acts = [...needB(act("flow.gr.low.a", { n })), act("flow.gr.retest")];
         } else {
-            expl = act("flow.gr.hot.e", { target: fmtDb(target, 0) });
-            acts = [act("flow.gr.hot.a", { n }), act("flow.gr.retest")];
+            expl = bands ? act("flow.gr.hot.e", { target: fmtDb(target, 0) }) : noBands;
+            acts = [...needB(act("flow.gr.hot.a", { n })), act("flow.gr.retest")];
         }
         const ok = g.band === "good" && !g.digitalClip && !g.maybeFlatTop;
         return {
-            cards: [
-                {
-                    id: "level",
-                    word: gainWord(g),
-                    nums: [num((tp > 0 ? "+" : "") + fmtDb(tp), "dBTP")],
-                    note: g.digitalClip
-                        ? act("flow.cd.clip", { n: clipN })
-                        : g.maybeFlatTop
-                          ? act("flow.cd.flat", { n: flatN })
-                          : null,
-                    ...sec(g),
-                },
-            ],
+            cards: [resultCards.level(state, g)],
             cols: 1,
             side: false,
             expl,
             acts,
-            viz: gainViz(bands, tp),
+            viz: bands ? gainViz(bands, tp) : null,
             ctas: ok ? [{ ...goNext, primary: true }] : [{ ...retest("gain"), primary: true }, goNext],
         };
     }
     if (id === "quiet" && r.noise) {
         const nz = r.noise;
-        const hm = r.hum || {
-            kind: "none",
-            slight: false,
-            overFloorDb: 0,
-            energySharePct: 0,
-            fundamentalHz: 0,
-            tone: "green",
-            stale: nz.stale,
-            reliability: "trusted",
-            retestReason: "none",
-        };
+        const hm = r.hum || NO_HUM;
         const hv = { f: Math.round(hm.fundamentalHz), p: Math.round(hm.energySharePct) };
         const dev = r.deviceProcessing && r.deviceProcessing.detected;
         let expl;
@@ -685,29 +831,17 @@ export function resultModel(state, id) {
             expl = act("flow.qr.none.e", { w: { word: noiseWord(nz) } });
             acts = nz.band === "bad" ? [act("flow.qr.bad.a1")] : [];
         }
+        const noiseCard = resultCards.noise(nz);
         return {
             cards: [
-                {
-                    id: "noise",
-                    word: noiseWord(nz),
-                    nums: [num(fmtDb(nz.snrDb), "dB(A)")],
-                    note: null,
-                    ...sec(nz),
-                    ...(dev ? { retest: true, why: "flow.cf.why.device" } : {}),
-                },
-                {
-                    id: "hum",
-                    word: humWord(hm),
-                    nums: [num(hm.kind === "none" ? "0.0" : signed(hm.overFloorDb), "dB")],
-                    note: hm.kind === "none" ? null : act("flow.cd.hum.note", hv),
-                    ...sec(hm),
-                },
+                dev ? { ...noiseCard, retest: true, why: "flow.cf.why.device" } : noiseCard,
+                resultCards.hum(r.hum || { ...NO_HUM, stale: nz.stale }),
             ],
             cols: 2,
             side: false,
             expl,
             acts,
-            viz: snrViz(bands, nz.snrDb),
+            viz: bands ? snrViz(bands, nz.snrDb) : null,
             ctas: [{ ...goNext, primary: true }, retest("quiet")],
         };
     }
@@ -719,19 +853,7 @@ export function resultModel(state, id) {
             const claps = clapSlots({ claps: live.claps, clapsMax: (live.claps || []).length });
             const valid = (live.claps || []).filter((c) => c === "valid").length;
             return {
-                cards: [
-                    {
-                        id: "room",
-                        word: "flow.w.unk",
-                        nums: [],
-                        none: true,
-                        tone: "gray",
-                        stale: false,
-                        retest: true,
-                        why: WHY[rv.retestReason] || "flow.cf.why.fewclaps",
-                        need: live.clapsNeeded,
-                    },
-                ],
+                cards: [resultCards.room(state, rv, true)],
                 cols: 1,
                 side: false,
                 expl: act("flow.rf.e", { total: (live.claps || []).length, valid, need: live.clapsNeeded }),
@@ -740,25 +862,16 @@ export function resultModel(state, id) {
                 ctas: [{ ...retest("room"), primary: true }, goNext],
             };
         }
-        const labels = (bands.t20BandsHz || []).map(hz);
+        const labels = ((bands && bands.t20BandsHz) || []).map(hz);
         const tmax = Math.max(...rv.t20Sec, 0.001);
         const boomy = rv.band === "boomy" || rv.band === "very-boomy";
         return {
-            cards: [
-                {
-                    id: "room",
-                    word: reverbWord(rv),
-                    nums: [num(rv.tMidSec.toFixed(2), "s")],
-                    note: null,
-                    need: live.clapsNeeded,
-                    ...sec(rv),
-                },
-            ],
+            cards: [resultCards.room(state, rv, false)],
             cols: 1,
             side: false,
             expl: act(`flow.rr.e.${rv.band}`, { t: rv.tMidSec.toFixed(2), b1: labels[0] || "", b2: labels[1] || "" }),
             acts: boomy ? [act("flow.rr.a1"), act("flow.rr.a2")] : [act("flow.rr.a.ok")],
-            viz: t20Viz(bands, rv.tMidSec),
+            viz: bands ? t20Viz(bands, rv.tMidSec) : null,
             bars: rv.t20Sec.map((v, i) => ({
                 label: labels[i] || "",
                 text: v.toFixed(2),
@@ -770,41 +883,12 @@ export function resultModel(state, id) {
     }
     if (id === "position" && r.directRatio) {
         const dr = r.directRatio;
-        const sb = r.sibilance;
         const dist = r.distance ? r.distance.kind : "unknown";
         const cards = [
-            {
-                id: "dr",
-                word: drWord(dr),
-                nums: [num(signed(dr.drDb), "dB")],
-                note: act(dr.lowerBoundOnly ? "flow.cd.dr.lower" : "flow.cd.dr.note"),
-                ...sec(dr),
-            },
-            r.plosive && {
-                id: "plosive",
-                word: plosiveWord(r.plosive),
-                nums: [num(signed(r.plosive.worstRatioDb), "dB")],
-                note: null,
-                ...sec(r.plosive),
-            },
-            sb && {
-                id: "sib",
-                word: sibWord(sb),
-                nums: [
-                    num(signed(sb.midHighDb), "dB", null),
-                    sb.highBandDisabled ? { na: "flow.w.s.part" } : num(signed(sb.highDb), "dB"),
-                ],
-                bandLabels: ["3–6 kHz", "6–12 kHz"],
-                note: sb.highBandDisabled ? act("flow.cd.sib.bw") : null,
-                ...sec(sb),
-            },
-            r.click && {
-                id: "mouth",
-                word: clickWord(r.click),
-                nums: [num(String(Math.round(r.click.perMinute)), null, "flow.u.perMin")],
-                note: act("flow.cd.mouth.note", { v: fmtDb(r.click.loudestRelDb) }),
-                ...sec(r.click),
-            },
+            resultCards.dr(dr),
+            r.plosive && resultCards.plosive(r.plosive),
+            r.sibilance && resultCards.sib(r.sibilance),
+            r.click && resultCards.mouth(r.click),
         ].filter(Boolean);
         const actsBy = {
             "too-far": "flow.pr.a.far",
@@ -823,10 +907,11 @@ export function resultModel(state, id) {
     }
     if (id === "direction" && r.direction) {
         const d = r.direction;
-        const advantage = Number.isFinite(d.bestOtherAdvantageDb) ? d.bestOtherAdvantageDb : 0;
+        const advantage = directionAdvantage(d);
+        const loudest = d.levelDb.indexOf(Math.max(...d.levelDb)) + 1;
         const by = {
             "maybe-reversed": {
-                e: act("flow.dr1.e", { v: fmtDb(advantage) }),
+                e: act("flow.dr1.e", { v: fmtDb(advantage), n: loudest }),
                 a: [act("flow.dr1.a1"), act("flow.dr1.a2")],
             },
             "small-difference": { e: act("flow.dr2.e"), a: [act("flow.dr2.a1")] },
@@ -838,15 +923,7 @@ export function resultModel(state, id) {
         const level = d.levelDb.map((_, k) => d.levelDb[(cur + k) % d.levelDb.length]);
         const top = Math.max(...level);
         return {
-            cards: [
-                {
-                    id: "dir",
-                    word: dirWord(d),
-                    nums: [num(signed(advantage), "dB")],
-                    note: act("flow.cd.dir.note"),
-                    ...sec(d),
-                },
-            ],
+            cards: [resultCards.dir(d)],
             cols: 1,
             side: false,
             expl: by.e,

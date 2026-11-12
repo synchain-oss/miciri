@@ -109,6 +109,14 @@ status: frozen
   或重唱后确认成立（`kind` 为 `maybe-reversed`）时给出，其余为 -1；`confirmedAdvantageDb` 只在确认成立时给出两次里较小的
   优势（dB），其余为 `null`（重唱后没确认也是 `null`）。
 
+## 口水音的口径与未分档的显示
+
+- `click.loudestRelDb` 与 `click.loudestDbfs` 是约 `click.highpass_hz`（现为 2 kHz）高通之后的峰值，前者相对本人语音，后者是绝对电平；
+  `count` 为 0 时这两项不是测量值（留 0），界面不显示数值，也不在电平管上画圆点。
+- 齿音与口水音不分档：`tone` 是 `none`、`severity` 停在 `light` 只表示未分档。界面写“未分档”，卡片无色，不写“正常”或“少”，也不当作距离标尺的证据。
+- `direction.repeatIndex` 与 `directionIndex` 用同一套编号：0 是测试开始时面对的方向。界面里的“方向 n”就是这个编号加 1，
+  重唱确认的文案用它点出要重唱的那两个方向，不写转了多少度。
+
 ## 约束
 
 - 载荷只含数值与枚举名，不含音频、不含路径；界面文案全部走 i18n，不从原生拿句子。

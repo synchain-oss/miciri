@@ -19,6 +19,9 @@ import { connectModel, initialView, REPORT, remoteModel, visibleSteps } from "./
 import { renderStack, renderSteps } from "./flow-ui.js";
 import flowStrings from "./flow-strings.js";
 import { createRemote } from "./remote-ui.js";
+import { createCopier } from "../report/report-copy.js";
+import { renderReport } from "../report/report-ui.js";
+import reportStrings from "../report/report-strings.js";
 
 /** 成功屏停留的时间（ms）；叠卡一格的高度（设计 px，与 flow.css 里主区的分配一致）。 */
 const SUCCESS_MS = 1600;
@@ -33,7 +36,7 @@ function start(shell) {
     const { bridge } = shell;
     const { layers } = shell.regions;
     // installDicts 是整体替换，不是追加：外壳已装的两份要连同本页的一起再装一次
-    installDicts(commonStrings, shellStrings, flowStrings, meterStrings);
+    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings);
     const t = (k, v) => shell.t(k, v);
 
     // ---- 左栏 ----
@@ -50,6 +53,9 @@ function start(shell) {
     let focusCur = false;
     let lastSig = "";
     let pagePending = true;
+    // “重测这几项”：第一步直接开始，其余的在前一步做完后落在它们的准备页，由用户自己点开始
+    let queue = [];
+    let retesting = false;
 
     const bridgeFailed = () => shell.showToast("shell.err.generic");
     const receipt = (r) => {
@@ -101,14 +107,38 @@ function start(shell) {
             pagePending = true;
             renderAll();
         },
+        // 再检查一次：开一轮接通观察（原生按观察窗给出信号判断），而不是只重读快照；正忙时回 busy，不当作错误
         async recheck() {
             try {
-                const s = await bridge.requestInitialState();
-                if (s && s.ok !== false) shell.setState(s);
+                const r = await bridge.startStep("connect");
+                if (r && r.ok === false && r.reason !== "busy") bridgeFailed();
             } catch {
                 bridgeFailed();
             }
         },
+        report: (s) => renderReport(s, ctx),
+        openPrep(id) {
+            if (!state || !pages().includes(id)) return;
+            forcePrep.add(id);
+            go(id);
+        },
+        async retestSteps(steps) {
+            if (!steps.length) return;
+            queue = steps.slice(1);
+            retesting = true;
+            const r = await ctx.start(steps[0]);
+            if (!r || r.ok === false) {
+                queue = [];
+                retesting = false;
+            }
+        },
+        reportChange(kind) {
+            return Promise.resolve()
+                .then(() => bridge.reportChange(kind))
+                .then(receipt)
+                .catch(bridgeFailed);
+        },
+        copy: (text) => copier.copy(text),
         dismiss() {
             return Promise.resolve()
                 .then(() => bridge.dismissChannelPrompt())
@@ -116,6 +146,13 @@ function start(shell) {
                 .catch(bridgeFailed);
         },
     };
+
+    const copier = createCopier({
+        host: layers.modal,
+        inert: [shell.regions.header, shell.regions.left, shell.regions.main, shell.regions.footer],
+        t,
+        onCopied: () => shell.showToast("report.copied", "green"),
+    });
 
     // ---- 声道提示窗（左栏药丸可点时打开，正文与接通页的诊断是同一份） ----
     const bg = [shell.regions.header, shell.regions.left, shell.regions.main, shell.regions.footer];
@@ -221,11 +258,28 @@ function start(shell) {
             // 刚结束：成功了先显示成功屏，然后落在这一步的结果页；取消或作废就直接落回这一页
             view = prevRunning;
             focusCur = true;
-            if (s.steps[prevRunning] && s.steps[prevRunning].status === "done") {
+            const ended = s.steps[prevRunning] && s.steps[prevRunning].status;
+            if (ended !== "done") {
+                queue = [];
+                retesting = false;
+            }
+            if (ended === "done") {
                 finished = prevRunning;
                 clearTimeout(successTimer);
                 successTimer = setTimeout(() => {
                     finished = null;
+                    if (retesting) {
+                        // 重测队列：还有就落在下一步的准备页，做完了回报告看“上次 → 现在”
+                        const next = queue.shift();
+                        if (next && pages().includes(next)) {
+                            forcePrep.add(next);
+                            view = next;
+                        } else {
+                            view = REPORT;
+                            retesting = false;
+                        }
+                        focusCur = true;
+                    }
                     pagePending = true;
                     renderAll();
                 }, SUCCESS_MS);
@@ -237,7 +291,8 @@ function start(shell) {
 
     // ---- 翻页：滚轮与 PageUp/PageDown ----
     const modalOpen = () => !!layers.modal.querySelector(".sc-scrim:not([hidden])");
-    const idle = () => state && !remote.shown && !modalOpen();
+    // 报告是整页：从报告回前面的步骤只走步骤条，滚轮和翻页键不翻回去
+    const idle = () => state && !remote.shown && !modalOpen() && view !== REPORT;
     const step = (dir) => {
         const ids = pages();
         const j = ids.indexOf(view) + dir;

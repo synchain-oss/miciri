@@ -232,7 +232,7 @@ try {
     await click(".pn__cta .sc-btn:not(.sc-btn--cta)");
     await page.waitFor(`!!${q('[data-part="prep"]')}`, { label: "点重测显示准备页" });
     await goStep("report");
-    run.eq(await exists('[data-part="report-slot"]'), true, "报告页有占位（报告由别的卡实现）");
+    run.eq(await exists(`[data-part="report-page"]`), true, "报告页是整页（没有叠卡的上下露出）");
 
     // ---- ⑤ 左栏：结果标记与悬停提示 ----
     await goStep("quiet");

@@ -102,7 +102,7 @@ const BUILDERS = {
                 severity: "light",
                 highBandDisabled: false,
             },
-            "green",
+            "none",
         ),
     click: () =>
         section(
@@ -116,15 +116,9 @@ const BUILDERS = {
                 count: 1,
                 severity: "light",
             },
-            "green",
+            "none",
         ),
-    distance: () =>
-        section(
-            "distance",
-            RESULT_DISTANCE,
-            { closeEvidence: [false, false, false], farEvidence: [true, false], kind: "too-far" },
-            "red",
-        ),
+    distance: () => section("distance", RESULT_DISTANCE, { closeEvidence: 0, farEvidence: 1, kind: "too-far" }, "red"),
     direction: () =>
         section(
             "direction",
@@ -140,6 +134,16 @@ const BUILDERS = {
             },
             "green",
         ),
+};
+
+/**
+ * 过期规则（与 RESULT 契约的过期规则表一致，按区段）：调增益让增益、噪声、电流声、齿音过期；
+ * 挪位置让增益、噪声、位置相关的（D/R、喷麦、齿音、口水音、方向、距离）过期，电流声与房间保持有效；换房间全部过期。
+ */
+export const STALE_SECTIONS = {
+    gain: ["gain", "noise", "hum", "sibilance"],
+    position: ["gain", "noise", "directRatio", "plosive", "sibilance", "click", "direction", "distance"],
+    room: ["gain", "noise", "hum", "reverb", "directRatio", "plosive", "sibilance", "click", "direction", "distance"],
 };
 
 /** 每一步做完后出现的结果区段。 */
