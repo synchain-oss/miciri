@@ -492,7 +492,13 @@
   "click": {
     "highpass_hz": { "value": 2000.0, "state": "pending", "source": "规格起始值", "date": null },
     "fricative_min_ms": { "value": 30.0, "state": "pending", "source": "规格起始值", "date": null },
-    "analysis_window_s": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "analysis_window_s": {
+      "value": 15.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "length of natural speech the session captures for this analysis; the analysis itself takes whatever it is given"
+    },
     "residual_median_multiple": {
       "value": 20.0,
       "state": "pending",
@@ -549,6 +555,14 @@
     "speech_frame_ms": { "value": 50.0, "state": "pending", "source": "规格起始值", "date": null },
     "speech_percentile": { "value": 95, "state": "pending", "source": "规格起始值", "date": null },
     "speech_within_db": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
+    "speech_floor_percentile": { "value": 10, "state": "pending", "source": "规格起始值", "date": null },
+    "speech_over_floor_db": {
+      "value": 10.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "the loud frames must stand this far above the quiet ones, otherwise there is no speech to measure against"
+    },
     "min_rel_speech_db": { "value": -35.0, "state": "pending", "source": "规格起始值", "date": null },
     "context_search_ms": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
     "context_window_ms": { "value": [4.0, 40.0], "state": "pending", "source": "规格起始值", "date": null },

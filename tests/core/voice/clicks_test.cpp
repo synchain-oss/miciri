@@ -163,3 +163,35 @@ TEST_CASE("口水音：各采样率计数一致", "[voice][clicks]")
         CHECK(r.measures.count == 6);
     }
 }
+
+TEST_CASE("口水音：只有底噪、没人说话时要求再测，不报“没有口水音”", "[voice][clicks]")
+{
+    const double fs = 48000.0;
+    auto x = whiteNoise(static_cast<std::size_t>(8.0 * fs), 1e-3, 52);
+    addTick(x, fs, 2.0, kTick);
+    const auto scan = core::scanClicks(x, fs);
+    CHECK_FALSE(scan.speechDb.has_value());
+    CHECK(scan.candidates.empty());
+    const auto r = core::summariseClicks(scan, thr::click::residual_median_multiple);
+    CHECK(r.measures.count == 0);
+    CHECK(r.confidence.level == core::Reliability::Retest);
+    CHECK(r.confidence.reason == core::RetestReason::TooShort);
+}
+
+TEST_CASE("口水音：22.05 kHz 也能计数", "[voice][clicks]")
+{
+    const double fs = 22050.0;
+    auto x = speechTake(fs);
+    for (int i = 0; i < 6; ++i)
+        addTick(x, fs, 1.05 + 1.0 * i, kTick);
+    const auto r = core::analyseClicks(x, fs);
+    CHECK(r.confidence.level == core::Reliability::Trusted);
+    CHECK(r.measures.count == 6);
+    CHECK(std::isfinite(r.measures.loudestDbfs));
+}
+
+TEST_CASE("口水音：候选门限不高于计数门限", "[voice][clicks]")
+{
+    STATIC_REQUIRE(thr::click::candidate_multiple <= thr::click::residual_median_multiple);
+    STATIC_REQUIRE(thr::click::speech_floor_percentile < thr::click::speech_percentile);
+}

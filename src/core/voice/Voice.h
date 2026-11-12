@@ -13,6 +13,8 @@
 //       不按能量占比算：人声能量大多在低频，按占比会误关高频项。
 // 口水音：LPC 残差里超过局部尺度很多倍的尖峰；之后高频持续的（擦音）、之后低频和元音一起上来的（爆破）
 //       和高频背景本来就响的（齿音起头、送气）都不算。只作“可能有口水音”的提示，不作距离证据。
+//
+// 齿音和口水音不分档：它们的 severity 停在最低档只表示“未分档”，不表示“良好”，上层不要拿它直接着色。
 #pragma once
 
 #include <optional>
@@ -41,6 +43,7 @@ struct SibilantEvent
     double highDb = 0.0; // 6-12 kHz
 };
 std::vector<SibilantEvent> sibilantEvents(const std::vector<double>& samples, double sampleRate);
+// 从搜索起点就没有高出底噪时为 0（没有可报的带宽）
 double effectiveBandwidthHz(const std::vector<double>& samples, double sampleRate);
 SibilanceResult analyseSibilance(const std::vector<double>& samples, double sampleRate);
 
@@ -60,7 +63,9 @@ struct ClickScan
 {
     std::vector<ClickCandidate> candidates;
     double seconds = 0.0;
-    std::optional<double> speechDb; // 本人语音（200-4000 Hz 活跃帧）的均方电平；没有活跃语音时为空
+    // 本人语音（200-4000 Hz 活跃帧）的均方电平。只有底噪（响的帧比安静的帧高不出 speech_over_floor_db）
+    // 或数字静音时为空：没有语音可作参照，结果要求再测
+    std::optional<double> speechDb;
 };
 ClickScan scanClicks(const std::vector<double>& samples, double sampleRate);
 ClickResult summariseClicks(const ClickScan& scan, double residualMultiple);

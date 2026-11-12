@@ -164,7 +164,9 @@ double maxOf(const std::vector<double>& y, Span s, bool absolute)
     return m;
 }
 
-// 本人语音：200-4000 Hz 的非重叠帧，取不比第 speech_percentile 百分位帧低 speech_within_db 以上的帧的平均功率
+// 本人语音：200-4000 Hz 的非重叠帧，取不比第 speech_percentile 百分位帧低 speech_within_db 以上的帧的平均功率。
+// 响的帧比安静的帧（第 speech_floor_percentile 百分位）高不出 speech_over_floor_db 时，录到的只是底噪：
+// 没有语音可作参照，返回空（数字静音也走这里）。
 std::optional<double> speechLevelDb(const std::vector<double>& voiceBand, double rate)
 {
     const auto n = static_cast<std::size_t>(std::max<long long>(1, voice::offsetSamples(c::speech_frame_ms, rate)));
@@ -172,7 +174,7 @@ std::optional<double> speechLevelDb(const std::vector<double>& voiceBand, double
     if (levels.empty())
         return std::nullopt;
     const double top = dsp::percentile(levels, c::speech_percentile);
-    if (top <= dsp::powerToDb(0.0)) // 全是数字静音
+    if (top - dsp::percentile(levels, c::speech_floor_percentile) < c::speech_over_floor_db)
         return std::nullopt;
     const double gate = top - c::speech_within_db;
     double sum = 0.0;
@@ -253,7 +255,9 @@ ClickScan scanClicks(const std::vector<double>& samples, double sampleRate)
         }
         const Span before = span(centre, c::plosive_before_ms[0], c::plosive_before_ms[1], rate, size);
         const Span after = span(centre, c::plosive_after_ms[0], c::plosive_after_ms[1], rate, size);
-        cand.plosive = dsp::amplitudeToDb(rmsOf(lowBand, after)) - dsp::amplitudeToDb(rmsOf(lowBand, before)) >=
+        // 尖峰贴着开头或结尾时窗口是空的：没有前后可比，不当作爆破
+        cand.plosive = !before.empty() && !after.empty() &&
+                       dsp::amplitudeToDb(rmsOf(lowBand, after)) - dsp::amplitudeToDb(rmsOf(lowBand, before)) >=
                            c::plosive_rise_db &&
                        dsp::amplitudeToDb(rmsOf(voiceBand, after)) - dsp::amplitudeToDb(rmsOf(voiceBand, before)) >=
                            c::plosive_rise_db;

@@ -123,3 +123,16 @@ TEST_CASE("喷麦：没有起音时要求再测，NaN 与 Inf 不让分析失效
     CHECK(std::isfinite(dirty.measures.worstRatioDb));
     CHECK(dirty.measures.events == clean.measures.events);
 }
+
+TEST_CASE("喷麦：档界先后关系", "[voice][plosive]")
+{
+    STATIC_REQUIRE(thr::plosive::moderate_above_db < thr::plosive::heavy_above_db);
+}
+
+TEST_CASE("喷麦：22.05 kHz 也能切出音节", "[voice][plosive]")
+{
+    const double fs = 22050.0;
+    const auto r = core::analysePlosive(wordList(fs, listWithOnePop(10.0)), fs);
+    CHECK(r.measures.events == 12);
+    CHECK(r.verdict.severity == core::Severity::Heavy);
+}

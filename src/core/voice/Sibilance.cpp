@@ -157,11 +157,13 @@ double bandwidth(const Analysis& a)
             sum += v[static_cast<std::size_t>(o)];
         return sum / static_cast<double>(std::max(used, 1LL));
     };
-    auto k = static_cast<long long>(std::ceil(s::bandwidth_search_from_hz / spec.binHz));
+    const auto start = static_cast<long long>(std::ceil(s::bandwidth_search_from_hz / spec.binHz));
+    auto k = start;
     while (k < bins &&
            dsp::powerToDb(smooth(speech, k)) - dsp::powerToDb(smooth(noise, k)) >= s::bandwidth_over_noise_db)
         ++k;
-    return static_cast<double>(std::min(k, bins - 1)) * spec.binHz;
+    // k 停在第一个不满足的 bin；起点就不满足时没有可报的带宽，给 0
+    return k == start ? 0.0 : static_cast<double>(k - 1) * spec.binHz;
 }
 } // namespace
 

@@ -116,3 +116,22 @@ TEST_CASE("齿音与有效带宽：各采样率结果一致", "[voice][sibilance
         CHECK(core::effectiveBandwidthHz(bandLimitedSpeech(fs, 7000.0), fs) == within(7000.0, 500.0));
     }
 }
+
+TEST_CASE("有效带宽：只有底噪时为 0，高频项关闭", "[voice][sibilance][bandwidth]")
+{
+    const double fs = 48000.0;
+    const auto noise = whiteNoise(static_cast<std::size_t>(3.0 * fs), 1e-3, 7);
+    CHECK(core::effectiveBandwidthHz(noise, fs) == 0.0);
+    CHECK(core::analyseSibilance(noise, fs).verdict.highBandDisabled);
+}
+
+TEST_CASE("齿音与有效带宽：22.05 kHz 时结果有限，带宽不超过奈奎斯特频率", "[voice][sibilance]")
+{
+    const double fs = 22050.0;
+    const auto r = core::analyseSibilance(sibilantTake(fs, 0.3), fs);
+    CHECK(r.measures.events == 6);
+    CHECK(std::isfinite(r.measures.midHighDb));
+    CHECK(std::isfinite(r.measures.highDb));
+    CHECK(r.measures.effectiveBandwidthHz <= fs / 2.0);
+    CHECK(core::effectiveBandwidthHz(bandLimitedSpeech(fs, 7000.0), fs) == within(7000.0, 500.0));
+}

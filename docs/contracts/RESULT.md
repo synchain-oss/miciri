@@ -31,7 +31,7 @@ status: frozen
 | `hum` | `kind`（hum、buzz、whistle）、`slight` | 频率、高出本底 dB、占噪声能量 %；占比低于阈值仍报，标“轻微” | 轻微不进 |
 | `deviceProcessing` | `detected` | 只作横幅；极低不上升态下不显示 | 否 |
 | `reverb`、`directRatio` | `band`（`gated`、`lowerBoundOnly`） | 算法未实现，先定字段 | 按决策表 |
-| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 算法未实现，先定字段；档位来自实录 | 按排序 |
+| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 喷麦按一遍字表的最大值分档；齿音只给绝对电平供 A/B、口水音只作提示，这两项不分档，`severity` 停在 `light` 表示未分档，不表示良好；档位来自实录 | 按排序 |
 | `direction` | `kind` | 只回答“当前方向是不是最响最亮”；没测过不算问题 | 差 ≥10 dB 才进 |
 | `distance` | `kind` | 由别的结果的证据合成，没有自己的 measures 之外的阈值 | 按排序 |
 
