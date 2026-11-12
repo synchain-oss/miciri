@@ -257,7 +257,7 @@ void put(Json& j, const ClickResult& r, bool stale)
     j.close();
 }
 
-// analysis 给出确认的那一对（当前方向与 repeatIndex）和两次里较小的优势；没有确认过时 repeatIndex 为 -1、优势为 null
+// analysis 给出要重唱或已确认的那一对（当前方向与 repeatIndex）；优势只在确认成立时给出，其余为 null
 void put(Json& j, const DirectionResult& r, bool stale, const core::DirectionAnalysis* analysis = nullptr)
 {
     const auto& m = r.measures;
@@ -265,8 +265,10 @@ void put(Json& j, const DirectionResult& r, bool stale, const core::DirectionAna
     j.key("levelDb").nums(m.levelDb).key("brightnessDb").nums(m.brightnessDb);
     j.key("currentIndex").integer(m.currentIndex).key("bestOtherAdvantageDb").num(m.bestOtherAdvantageDb);
     j.key("kind").wire(r.verdict.kind);
-    const bool confirmed = analysis != nullptr && analysis->repeatIndex >= 0 && !analysis->needsRepeat;
-    j.key("repeatIndex").integer(analysis != nullptr ? analysis->repeatIndex : -1);
+    // decideDirection 不进确认阶段也会填最响的别的方向，所以只在还要重唱、或确认成立（可能放反）时给出这一对
+    const bool confirmed = analysis != nullptr && r.verdict.kind == core::DirectionCase::MaybeReversed;
+    const bool pair = analysis != nullptr && (analysis->needsRepeat || confirmed);
+    j.key("repeatIndex").integer(pair ? analysis->repeatIndex : -1);
     j.key("confirmedAdvantageDb").num(confirmed ? analysis->confirmedAdvantageDb : std::nan(""));
     common(j, r, toneOf(r.verdict), stale);
     j.close();

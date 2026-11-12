@@ -124,7 +124,10 @@ juce::var MiciriEditor::buildSnapshot()
     }
 
     // “没有回调”也是无信号：固定在“最该改”的最前
-    const auto fixes = part("fixes");
+    // fixes 是数组，不能走 part()（它只认对象，别的都换成空对象）
+    auto fixes = parsed.getProperty("fixes", {});
+    if (!fixes.isArray())
+        fixes = juce::var(juce::Array<juce::var>());
     if (auto* list = fixes.getArray(); list != nullptr && noCallback)
     {
         const auto noSignal = wireName(core::toString(core::FixItem::NoSignal));

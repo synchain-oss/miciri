@@ -424,7 +424,7 @@ TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by
     r.noSignal = core::NoSignalResult{};
     r.noSignal->verdict.state = core::SignalState::AllZeroFromStart;
     r.gain = core::GainResult{};
-    r.gain->verdict.digitalClip = true;
+    r.gain->verdict.digitalClip = false;
     r.gain->verdict.band = core::GainBand::TooQuiet;
     r.noise = core::NoiseResult{};
     r.noise->verdict.band = core::NoiseBand::Bad;
@@ -449,9 +449,15 @@ TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by
     using F = core::FixItem;
     // 默认的影响与代价排出来的就是规格的先后
     auto fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
-    CHECK(fixes == std::vector<F>{F::NoSignal, F::DigitalClip, F::Direction, F::Room, F::Distance, F::Hum, F::Gain,
-                                  F::Noise, F::Plosive});
+    CHECK(fixes ==
+          std::vector<F>{F::NoSignal, F::Direction, F::Room, F::Distance, F::Hum, F::Gain, F::Noise, F::Plosive});
     CHECK(session::decideAdvice(v, core::MicType::Condenser).room == core::RoomAdvice::ChangeRoomAndMoveCloser);
+
+    // 数字削波固定在前；增益不再单列，同一个原因不说两次
+    r.gain->verdict.digitalClip = true;
+    fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
+    CHECK(fixes == std::vector<F>{F::NoSignal, F::DigitalClip, F::Direction, F::Room, F::Distance, F::Hum, F::Noise,
+                                  F::Plosive});
 
     // 要再测的、过期的、轻微的、没确认的都不进
     r.noise->confidence = core::retest(core::RetestReason::TooShort);
@@ -460,7 +466,65 @@ TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by
     v.direction->confirmedAdvantageDb = thr::direction::priority_db - 1.0;
     r.noSignal->verdict.state = core::SignalState::Ok;
     fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
-    CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room, F::Distance, F::Gain});
+    CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room, F::Distance});
+}
+
+TEST_CASE("the direction prompt and the distance advice only read current, trusted results")
+{
+    session::SessionView v;
+    auto& r = v.results;
+    using P = core::DirectionPrompt;
+    auto prompt = [&v](core::MicType mic) { return session::decideAdvice(v, mic).directionPrompt; };
+    CHECK(prompt(core::MicType::Condenser) == P::CardButton);
+    CHECK(prompt(core::MicType::Headset) == P::None);
+
+    // 增益偏低：可信、当前的才把提示放到操作旁；过期的、要再测的不算
+    r.gain = core::GainResult{};
+    r.gain->verdict.band = core::GainBand::Quiet;
+    CHECK(prompt(core::MicType::Condenser) == P::ActionWithButton);
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    v.stale[static_cast<std::size_t>(session::Section::Gain)] = true;
+    CHECK(prompt(core::MicType::Condenser) == P::CardButton);
+    v.stale[static_cast<std::size_t>(session::Section::Gain)] = false;
+    r.gain->confidence = core::retest(core::RetestReason::TooShort);
+    CHECK(prompt(core::MicType::Condenser) == P::CardButton);
+    r.gain.reset();
+
+    // 距离矛盾：可信时触发；要再测时不触发，距离建议也不给
+    r.distance = core::DistanceResult{};
+    r.distance->verdict.kind = core::DistanceCase::Conflicting;
+    CHECK(prompt(core::MicType::Dynamic) == P::ActionWithButton);
+    r.distance->confidence = core::retest(core::RetestReason::TooShort);
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    CHECK(session::decideAdvice(v, core::MicType::Dynamic).distance == core::DistanceAdvice::None);
+}
+
+TEST_CASE("the direction pair is reported only while a re-sing is due or once it confirmed a reversal")
+{
+    session::SessionView v;
+    v.results.direction = core::DirectionResult{};
+    core::DirectionAnalysis a;
+    a.repeatIndex = 2; // decideDirection 不进确认阶段也会填最响的别的方向
+    auto direction = [&v, &a](core::DirectionCase kind, bool needsRepeat, double advantage) {
+        v.results.direction->verdict.kind = kind;
+        a.result = *v.results.direction;
+        a.needsRepeat = needsRepeat;
+        a.confirmedAdvantageDb = advantage;
+        v.direction = a;
+        return JsonReader(session::snapshotJson(v)).parse()["results"]["direction"];
+    };
+    const auto best = direction(core::DirectionCase::Best, false, 0.0);
+    CHECK(best["repeatIndex"].number == -1.0);
+    CHECK(best["confirmedAdvantageDb"].kind == JsonNode::Kind::Null);
+    const auto due = direction(core::DirectionCase::Uncertain, true, 0.0);
+    CHECK(due["repeatIndex"].number == 2.0);
+    CHECK(due["confirmedAdvantageDb"].kind == JsonNode::Kind::Null);
+    const auto unconfirmed = direction(core::DirectionCase::Uncertain, false, 0.0);
+    CHECK(unconfirmed["repeatIndex"].number == -1.0);
+    CHECK(unconfirmed["confirmedAdvantageDb"].kind == JsonNode::Kind::Null);
+    const auto confirmed = direction(core::DirectionCase::MaybeReversed, false, 12.0);
+    CHECK(confirmed["repeatIndex"].number == 2.0);
+    CHECK(confirmed["confirmedAdvantageDb"].number == 12.0);
 }
 
 TEST_CASE("channel prompts follow the host: no mono tracks means no 'make it mono' advice")

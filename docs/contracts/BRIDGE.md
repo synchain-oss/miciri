@@ -97,15 +97,16 @@ status: frozen
 ## 建议与“最该改”（追加：`fixes`、`advice`、`previous`）
 
 - `fixes`：`ENUM_FIX_ITEM` 的数组，第一项就是“最该改”，空数组表示没有要改的。`no-signal`（接通的状态是问题，包括编辑器按墙钟判出的没有回调）与
-  `digital-clip` 固定在前；其余按 影响 × 置信度 ÷ 修改代价 排序，表在
+  `digital-clip` 固定在前（有数字削波时 `gain` 不再单列，免得同一个原因说两次）；其余按 影响 × 置信度 ÷ 修改代价 排序，表在
   `thresholds.json` 的 `priority` 分组。要再测的、过期的结果不进候选。候选条件见 `RESULT.md` 的“进最该改”一栏：轻微电流声、没确认的方向、
   未分档的齿音与口水音都不进。
 - `advice`（`SNAPSHOT_ADVICE`）：`room` 取 `ENUM_ROOM_ADVICE`（T20 × D/R 的决策表，缺一项或要再测时 `unknown`），`distance` 取
   `ENUM_DISTANCE_ADVICE`，`directionPrompt` 取 `ENUM_DIRECTION_PROMPT`（方向测试的提示放在哪；没测过方向不算问题）。文案由界面按这些名字取词条。
 - `previous`：形状与 `results` 相同，每个区段是被最近一次新结果换下来的那一次（“上次→现在”），没有上次的区段不出现。只在内存里，
   卸载插件就没了，不进插件 state；`stale` 恒为 `false`，`direction` 的 `repeatIndex` 为 -1。
-- `results.direction` 追加 `repeatIndex`、`confirmedAdvantageDb`：确认的那一对是当前方向（0）与 `repeatIndex`；确认做完后
-  `confirmedAdvantageDb` 是两次里较小的优势（dB），没确认过时 `repeatIndex` 为 -1、优势为 `null`。
+- `results.direction` 追加 `repeatIndex`、`confirmedAdvantageDb`：那一对是当前方向与 `repeatIndex`，只在还要重唱这一对、
+  或重唱后确认成立（`kind` 为 `maybe-reversed`）时给出，其余为 -1；`confirmedAdvantageDb` 只在确认成立时给出两次里较小的
+  优势（dB），其余为 `null`（重唱后没确认也是 `null`）。
 
 ## 约束
 

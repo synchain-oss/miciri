@@ -75,7 +75,7 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
         scored.emplace_back(FixItem::Direction, confidence(r.direction));
     if (room.priority)
         scored.emplace_back(FixItem::Room, std::min(confidence(r.reverb), confidence(r.directRatio)));
-    if (current(r.distance, v, Section::Distance))
+    if (current(r.distance, v, Section::Distance) && confidence(r.distance) > 0.0)
     {
         if (const auto d = decideDistanceOf(r))
         {
@@ -87,7 +87,9 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
     }
     if (current(r.hum, v, Section::Hum) && r.hum->verdict.kind != core::HumKind::None && !r.hum->verdict.slight)
         scored.emplace_back(FixItem::Hum, confidence(r.hum));
-    if (current(r.gain, v, Section::Gain) && r.gain->verdict.band != core::GainBand::Good)
+    // 有数字削波时它已固定在前，增益不再单列，同一个原因不说两次
+    if (current(r.gain, v, Section::Gain) && r.gain->verdict.band != core::GainBand::Good &&
+        !r.gain->verdict.digitalClip)
         scored.emplace_back(FixItem::Gain, confidence(r.gain));
     if (current(r.noise, v, Section::Noise) && r.noise->verdict.band == core::NoiseBand::Bad)
         scored.emplace_back(FixItem::Noise, confidence(r.noise));
@@ -109,10 +111,12 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
     in.directionTested = r.direction.has_value();
     in.directionStale = v.stale[static_cast<std::size_t>(Section::Direction)];
     in.room = a.room;
-    in.distance = r.distance ? r.distance->verdict.kind : core::DistanceCase::Unknown;
-    in.gainLowOrNoiseBad = (r.gain && (r.gain->verdict.band == core::GainBand::TooQuiet ||
-                                       r.gain->verdict.band == core::GainBand::Quiet)) ||
-                           (r.noise && r.noise->verdict.band == core::NoiseBand::Bad);
+    // 和候选一样，只看当前、可信的结果
+    const auto usable = [&v](const auto& res, Section s) { return current(res, v, s) && confidence(res) > 0.0; };
+    in.distance = usable(r.distance, Section::Distance) ? r.distance->verdict.kind : core::DistanceCase::Unknown;
+    in.gainLowOrNoiseBad = (usable(r.gain, Section::Gain) && (r.gain->verdict.band == core::GainBand::TooQuiet ||
+                                                              r.gain->verdict.band == core::GainBand::Quiet)) ||
+                           (usable(r.noise, Section::Noise) && r.noise->verdict.band == core::NoiseBand::Bad);
     a.directionPrompt = core::decideDirectionPrompt(in);
     return a;
 }

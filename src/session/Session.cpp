@@ -274,6 +274,7 @@ void Session::prepare(double sampleRate, int channels)
     {
         // 声道提示跟着布局走：撤掉，之后的单声道分析用左路
         results_.channels.reset();
+        previous_.channels.reset();
         stale_[index(Section::Channels)] = false;
         context_.channel = core::AnalysedChannel::Left;
         channelPromptDismissed_ = false;
@@ -525,9 +526,13 @@ void Session::complete(StepId id, StepOutput&& out)
     take(r.sibilance, o.sibilance, previous_.sibilance, Section::Sibilance);
     take(r.click, o.click, previous_.click, Section::Click);
     take(r.direction, o.direction, previous_.direction, Section::Direction);
-    if (id == StepId::Position && r.distance)
-        previous_.distance = r.distance;
+    // 距离每完成一步都重算：重测了位置、或结论变了，被换下来的那次进“上次”
+    auto oldDistance = r.distance;
     r.distance = deriveDistance(r);
+    if (oldDistance &&
+        (id == StepId::Position || !r.distance || r.distance->verdict.kind != oldDistance->verdict.kind ||
+         r.distance->confidence.level != oldDistance->confidence.level))
+        previous_.distance = std::move(oldDistance);
     if (out.direction)
         direction_ = out.direction;
     if (id == StepId::Position)

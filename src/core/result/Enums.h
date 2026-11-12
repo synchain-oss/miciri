@@ -167,23 +167,56 @@ MICIRI_DEFINE_ENUM(FlowNotice, MICIRI_ENUM_FlowNotice)
 // 一下拍手在一个频带里的情况，按判断顺序：先看有没有噪声参考与可拟合的衰减，再看门限，再看峰噪比与 R²；
 // 有效的几下在汇总时还可能因偏离中位数被去掉。no-noise-reference：拍手前的噪声窗被录音开头截得短于 min_noise_ms；
 // short-decay：衰减太短或不到 -25 dB
-#define MICIRI_ENUM_ClapBandStatus(X)                X(Valid, "valid")                                X(NoNoiseReference, "no-noise-reference")        X(ShortDecay, "short-decay")                     X(Gated, "gated")                                X(LowPnr, "low-pnr")                             X(PoorFit, "poor-fit")                           X(Outlier, "outlier")
+#define MICIRI_ENUM_ClapBandStatus(X)         \
+    X(Valid, "valid")                         \
+    X(NoNoiseReference, "no-noise-reference") \
+    X(ShortDecay, "short-decay")              \
+    X(Gated, "gated")                         \
+    X(LowPnr, "low-pnr")                      \
+    X(PoorFit, "poor-fit")                    \
+    X(Outlier, "outlier")
 MICIRI_DEFINE_ENUM(ClapBandStatus, MICIRI_ENUM_ClapBandStatus)
 // 决策表：T20（长 = 偏混或很混；干和正常都算正常）乘 D/R（低、中、高）。
 // unknown：T20 或 D/R 缺，或要再测；good：正常 + 高；fine-not-priority：正常 + 中，可以录，不进“最该改”；
 // move-closer-check-direction：正常 + 低，离太远或方向错；change-room-and-move-closer：长 + 低；
 // keep-close-dont-back-off：长 + 高，近距离压住了房间，别退后；move-closer-then-treat：长 + 中，先靠近再测，还不行再加吸声
-#define MICIRI_ENUM_RoomAdvice(X)                                      X(Unknown, "unknown")                                              X(Good, "good")                                                    X(FineNotPriority, "fine-not-priority")                            X(MoveCloserCheckDirection, "move-closer-check-direction")         X(ChangeRoomAndMoveCloser, "change-room-and-move-closer")          X(KeepCloseDontBackOff, "keep-close-dont-back-off")                X(MoveCloserThenTreat, "move-closer-then-treat")
+#define MICIRI_ENUM_RoomAdvice(X)                              \
+    X(Unknown, "unknown")                                      \
+    X(Good, "good")                                            \
+    X(FineNotPriority, "fine-not-priority")                    \
+    X(MoveCloserCheckDirection, "move-closer-check-direction") \
+    X(ChangeRoomAndMoveCloser, "change-room-and-move-closer")  \
+    X(KeepCloseDontBackOff, "keep-close-dont-back-off")        \
+    X(MoveCloserThenTreat, "move-closer-then-treat")
 MICIRI_DEFINE_ENUM(RoomAdvice, MICIRI_ENUM_RoomAdvice)
 // 距离标尺的建议。drink-water：退后后口水音仍重，口干也会加重；fix-room-or-direction-first：两边都有证据，矛盾
-#define MICIRI_ENUM_DistanceAdvice(X)                                  X(None, "none")                                                    X(BackOffALittle, "back-off-a-little")                             X(DrinkWater, "drink-water")                                       X(MoveCloser, "move-closer")                                       X(FixRoomOrDirectionFirst, "fix-room-or-direction-first")
+#define MICIRI_ENUM_DistanceAdvice(X)                         \
+    X(None, "none")                                           \
+    X(BackOffALittle, "back-off-a-little")                    \
+    X(DrinkWater, "drink-water")                              \
+    X(MoveCloser, "move-closer")                              \
+    X(FixRoomOrDirectionFirst, "fix-room-or-direction-first")
 MICIRI_DEFINE_ENUM(DistanceAdvice, MICIRI_ENUM_DistanceAdvice)
 // 方向测试的提示放在哪。none：耳机麦，或测过且没过期；stale：挪过位置且测过；main-button：T20 正常 + D/R 低；
 // action-with-button：动作里一条，加次要按钮；card-button：其余，方向卡上一个小按钮
-#define MICIRI_ENUM_DirectionPrompt(X)                 X(None, "none")                                    X(Stale, "stale")                                  X(MainButton, "main-button")                       X(ActionWithButton, "action-with-button")          X(CardButton, "card-button")
+#define MICIRI_ENUM_DirectionPrompt(X)        \
+    X(None, "none")                           \
+    X(Stale, "stale")                         \
+    X(MainButton, "main-button")              \
+    X(ActionWithButton, "action-with-button") \
+    X(CardButton, "card-button")
 MICIRI_DEFINE_ENUM(DirectionPrompt, MICIRI_ENUM_DirectionPrompt)
 // “最该改”的候选项。no-signal 与 digital-clip 固定在前，其余按 影响 × 置信度 ÷ 修改代价 排序
-#define MICIRI_ENUM_FixItem(X)              X(NoSignal, "no-signal")                X(DigitalClip, "digital-clip")          X(Direction, "direction")               X(Room, "room")                         X(Distance, "distance")                 X(Hum, "hum")                           X(Gain, "gain")                         X(Noise, "noise")                       X(Plosive, "plosive")
+#define MICIRI_ENUM_FixItem(X)     \
+    X(NoSignal, "no-signal")       \
+    X(DigitalClip, "digital-clip") \
+    X(Direction, "direction")      \
+    X(Room, "room")                \
+    X(Distance, "distance")        \
+    X(Hum, "hum")                  \
+    X(Gain, "gain")                \
+    X(Noise, "noise")              \
+    X(Plosive, "plosive")
 MICIRI_DEFINE_ENUM(FixItem, MICIRI_ENUM_FixItem)
 // clang-format on
 } // namespace miciri::core
