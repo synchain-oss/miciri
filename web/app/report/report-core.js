@@ -4,8 +4,9 @@
 // 页面全部由快照推出：排序在原生侧（fixes、advice），这里只把名字翻成词条键和动作，不重新排序、不写阈值。
 //
 // 取舍顺序（从上到下第一个命中的就是顶部那张卡）：
-//   1. 有步骤过期：灰，写哪些过期、主按钮重测它们（过期的结果本来就不进 fixes）；
-//   2. fixes 的第一项是“没信号”或“数字削波”：照 fixes 来（这两项不看置信度，也不看有没有别的要再测）；
+//   1. fixes 的第一项是“没信号”或“数字削波”：照 fixes 来（这两项只看是否过期，不看置信度，也不看有没有别的要再测；
+//      fixes 只收没过期的结果，所以它们出现时就是现在的状态，先处理它们再谈重测过期的几步）；
+//   2. 有步骤过期：灰，写哪些过期、主按钮重测它们（过期的结果本来就不进 fixes）；
 //   3. 有读数要再测：灰，先重测它们（要再测的结果没有结论，也不进 fixes）；
 //   4. fixes 有第一项：照 fixes 与 advice 来；
 //   5. fixes 为空：近距离压住了房间声（advice.room）是琥珀的“别退后”，四步都做过是绿的“可以录”，否则灰的“还没测完”。
@@ -14,7 +15,7 @@ import { resultCards, STEP_IDS, visibleSteps } from "../flow/flow-core.js";
 
 /** 九张卡的固定顺序，以及每张卡对应的结果区段与步骤。 */
 export const CARD_ORDER = ["level", "noise", "hum", "room", "dr", "plosive", "sib", "mouth", "dir"];
-const STEP_OF = {
+export const STEP_OF = {
     level: "gain",
     noise: "quiet",
     hum: "quiet",
@@ -64,12 +65,28 @@ export function cardOf(id, state, from = results(state)) {
 /** 卡是否有结论：未测、过期、要再测的都没有。 */
 const conclusive = (c) => !c.missing && !c.stale && !c.retest && !c.none;
 
+/** 每张卡对应的结果区段，用来判断它有没有“上次”（snapshot.previous 只含被重测换掉的区段）。 */
+const SECTION_OF = {
+    level: "gain",
+    noise: "noise",
+    hum: "hum",
+    room: "reverb",
+    dr: "directRatio",
+    plosive: "plosive",
+    sib: "sibilance",
+    mouth: "click",
+    dir: "direction",
+};
+
 export function cardsOf(state) {
     const prevAll = state.previous || {};
+    // 别的区段带 previous 说明用户重测过；这张卡没有，就是重测之后才第一次有读数。第一次整套测试时都不标。
+    const retested = Object.keys(prevAll).length > 0;
     const hideDir = !visibleSteps(state).includes("direction");
     return CARD_ORDER.filter((id) => !(hideDir && id === "dir")).map((id) => {
         const card = cardOf(id, state);
         if (!conclusive(card)) return card;
+        if (retested && !prevAll[SECTION_OF[id]]) return { ...card, first: true };
         const before = cardOf(id, state, prevAll);
         const a = before.nums[0] && before.nums[0].text;
         const b = card.nums[0] && card.nums[0].text;

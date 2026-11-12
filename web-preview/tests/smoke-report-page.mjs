@@ -6,7 +6,8 @@
 //   ③ 报告动作：三个“我动过了”走 reportChange，快照回来后顶部换成过期的说法；“重测这几项”先开第一步，其余落在准备页；
 //   ④ 方向提示：方向卡上的小按钮进方向准备页；耳机麦没有方向卡；
 //   ⑤ 复制结果：剪贴板可用时给提示条，不可用时弹出手动复制窗；
-//   ⑥ 滚轮不会从报告翻回前一步；英文下没有占位符残留与汉字。
+//   ⑥ 滚轮不会从报告翻回前一步；英文下没有占位符残留与汉字；
+//   ⑦ 详情面板：点卡打开、Esc 与遮罩关闭、焦点还回去；过期卡写明已过期并能重测它所属的步骤；方向有雷达与四行表。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
 //
 // 用法：node web-preview/tests/smoke-report-page.mjs [仓库根]
@@ -21,6 +22,7 @@ const ROOT = repoRoot();
 const run = createRun("报告页（页面）");
 if (!findBrowser()) run.skip("没有 Chromium 系浏览器；可用环境变量 MICIRI_BROWSER 指定");
 const { SCENES } = await import(pathToFileURL(path.join(ROOT, "web-preview/mock/report-fixtures.js")).href);
+const { resultsFor } = await import(pathToFileURL(path.join(ROOT, "web-preview/mock/results.js")).href);
 
 const FD = "document.getElementById('frame').contentDocument";
 const M = "window.__MICIRI_MOCK__";
@@ -197,6 +199,64 @@ try {
     const zh = await page.eval(`${q(".rp")}.textContent`);
     run.check(!/[{}]|undefined|null/.test(zh), "中文报告没有占位符残留");
     run.check(!/厘米|\bcm\b|零延迟|绝对/.test(zh), "文案里没有厘米数和禁用措辞");
+
+    // ---- ⑦ 详情面板 ----
+    const open = (id) =>
+        page.eval(`(() => { const b = ${q(`[data-part="card-open"][data-card="${id}"]`)}; b.focus(); b.click(); })()`);
+    const shown = () => page.eval(`!${q('[data-part="detail"]')}.parentElement.hidden`);
+    const inert = () => page.eval(`${q("#main")}.hasAttribute("inert")`);
+    const esc = () =>
+        page.eval(`${FD}.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+    await load("", "t20longDrlow");
+    run.eq(await page.eval(`${qa('[data-part="card-open"]')}.length`), 9, "每张卡都有“查看详情”按钮");
+    await open("level");
+    run.eq(await shown(), true, "点增益卡：详情面板打开");
+    run.eq(await text("#dt-title"), "增益", "面板标题是卡名");
+    run.check((await page.eval(`${qa(".dt__tbl tbody tr")}.length`)) >= 3, "表格有读数行");
+    run.eq(await page.eval(`${qa('.dt__tbl tr[data-hl="1"]')}.length`), 1, "表格有一行高亮");
+    run.eq(await inert(), true, "打开后背景 inert");
+    run.eq(await page.eval(`${FD}.activeElement.dataset.part`), "detail-close", "焦点在关闭按钮上");
+    run.eq(await exists(".dt__stale"), false, "有效的卡不写“已过期”");
+    await esc();
+    run.eq(await shown(), false, "Esc 关闭");
+    run.eq(await inert(), false, "关闭后背景恢复");
+    run.eq(await page.eval(`${FD}.activeElement.dataset.card`), "level", "焦点回到打开它的卡");
+    await open("noise");
+    await page.eval(`${q('[data-part="detail"]')}.parentElement.click()`);
+    run.eq(await shown(), false, "点遮罩关闭");
+    await open("dir");
+    run.check((await text('[data-part="detail"]')).includes("还没做方向检查"), "方向没测：写明还没做");
+    await click(".dt__cta .sc-btn");
+    run.eq(await shown(), false, "点“去测这一项”后面板关闭");
+    run.eq(await page.eval(`${q(".stk")}.dataset.step`), "direction", "去的是方向的准备页");
+    run.eq((await calls()).filter((c) => c[0] === "startStep").length, 0, "没有直接开始测量");
+
+    await load("", "staleGain");
+    await open("sib");
+    run.eq(await page.eval(`${q('[data-part="detail"]')}.dataset.stale`), "1", "过期的齿音卡：面板标过期");
+    run.check((await text(".dt__stale")).includes("调整之前"), "面板写“这是你调整之前的读数”");
+    await click(".dt__cta .sc-btn");
+    run.eq(
+        (await calls()).filter((c) => c[0] === "startStep").map((c) => c[1]),
+        ["position"],
+        "点“重测这一项”只开始它所属的位置步",
+    );
+
+    const withDirection = SCENES.ready();
+    Object.assign(withDirection.results, resultsFor("direction"));
+    withDirection.steps.direction.status = "done";
+    await load("", "ready");
+    await page.eval(`${M}.mutate((s) => Object.assign(s, ${JSON.stringify(withDirection)}))`);
+    await open("dir");
+    run.eq(await page.eval(`${qa(".dt__tbl tbody tr")}.length`), 4, "方向详情：四个方向四行");
+    run.eq(await exists(".dt__radar .radar svg"), true, "方向详情：有雷达");
+    await esc();
+
+    await load("?lang=en", "tooClose");
+    await open("plosive");
+    const dt = await text('[data-part="detail"]');
+    run.check(!/[{}]|undefined|null|NaN/.test(dt), "英文详情没有占位符残留");
+    run.check(!/[一-鿿]/.test(dt), "英文详情里没有汉字");
     void settle;
 } finally {
     await browser.close();

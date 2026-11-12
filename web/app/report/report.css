@@ -148,6 +148,23 @@
     flex: 1;
     min-width: 0;
 }
+.rc-slot__open {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-lg);
+    background: transparent;
+    cursor: pointer;
+}
+.rc-slot__open:hover {
+    background: rgba(var(--wh), 0.1);
+}
+.rc-slot__open:focus-visible {
+    outline: 2px solid var(--focus-on-glass);
+    outline-offset: -2px;
+}
 .rc-slot__go {
     position: absolute;
     left: var(--sp-12);

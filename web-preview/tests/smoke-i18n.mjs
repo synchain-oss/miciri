@@ -77,6 +77,7 @@ const DICT_FILES = [
     "web/app/flow/flow-strings.js",
     "web/app/meter/meter-strings.js",
     "web/app/report/report-strings.js",
+    "web/app/detail/detail-strings.js",
 ];
 const parts = [];
 for (const f of DICT_FILES) {
@@ -107,7 +108,9 @@ if (merged) {
     const files = listFiles(ROOT, ["web/shared", "web/app"], [".js"]).filter((f) => !DICT_FILES.includes(f));
     const used = new Set();
     for (const f of files) {
-        for (const m of readText(ROOT, f).matchAll(/"((?:common|shell|about|flow|meter|report)\.[A-Za-z0-9.-]+)"/g))
+        for (const m of readText(ROOT, f).matchAll(
+            /"((?:common|shell|about|flow|meter|report|detail)\.[A-Za-z0-9.-]+)"/g,
+        ))
             used.add(m[1]);
     }
     run.check(used.size > 0, "应当能在源码里找到词条键");
@@ -127,6 +130,8 @@ for (const f of [
     "web/app/report/report-ui.js",
     "web/app/report/report-core.js",
     "web/app/report/report-copy.js",
+    "web/app/detail/detail-ui.js",
+    "web/app/detail/detail-core.js",
 ]) {
     run.eq(findFullwidthLiterals(readText(ROOT, f)), [], `${f}：字符串字面量里不应有全角标点，标点放进词条`);
 }

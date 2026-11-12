@@ -20,6 +20,8 @@ import { renderStack, renderSteps } from "./flow-ui.js";
 import flowStrings from "./flow-strings.js";
 import { createRemote } from "./remote-ui.js";
 import { createCopier } from "../report/report-copy.js";
+import { createDetail } from "../detail/detail-ui.js";
+import detailStrings from "../detail/detail-strings.js";
 import { renderReport } from "../report/report-ui.js";
 import reportStrings from "../report/report-strings.js";
 
@@ -36,7 +38,7 @@ function start(shell) {
     const { bridge } = shell;
     const { layers } = shell.regions;
     // installDicts 是整体替换，不是追加：外壳已装的两份要连同本页的一起再装一次
-    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings);
+    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings, detailStrings);
     const t = (k, v) => shell.t(k, v);
 
     // ---- 左栏 ----
@@ -139,6 +141,7 @@ function start(shell) {
                 .catch(bridgeFailed);
         },
         copy: (text) => copier.copy(text),
+        openDetail: (id) => detail.open(id, state),
         dismiss() {
             return Promise.resolve()
                 .then(() => bridge.dismissChannelPrompt())
@@ -156,6 +159,7 @@ function start(shell) {
 
     // ---- 声道提示窗（左栏药丸可点时打开，正文与接通页的诊断是同一份） ----
     const bg = [shell.regions.header, shell.regions.left, shell.regions.main, shell.regions.footer];
+    const detail = createDetail({ host: layers.modal, inert: bg, ctx });
     const chModal = createModal({
         host: layers.modal,
         part: "channel-prompt",
@@ -246,6 +250,7 @@ function start(shell) {
     shell.onState((s) => {
         state = s;
         meter.setState(s);
+        detail.update(s);
         const ids = visibleSteps(s);
         const running = ids.find((id) => s.steps && s.steps[id] && s.steps[id].status === "running") || null;
         if (running) {

@@ -177,11 +177,11 @@ export const clickWord = (c) => (ungraded(c) ? "flow.w.ungraded" : CLICK_WORD[c.
 export const dirWord = (d) => DIR_WORD[d.kind] || "flow.w.untested";
 
 /** 被分析的那一路：单声道取 L。 */
-const laneOf = (state) =>
+export const laneOf = (state) =>
     state.device && state.device.layout === "stereo" && state.connect && state.connect.analysedChannel === "right"
         ? "R"
         : "L";
-const truePeak = (state, g) => g[`truePeakDbfs${laneOf(state)}`];
+export const truePeak = (state, g) => g[`truePeakDbfs${laneOf(state)}`];
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 摘要卡（叠卡上下露出的那一张）
@@ -563,7 +563,7 @@ export const SIB_BANDS_HZ = [
     [3000, 6000],
     [6000, 12000],
 ];
-const kHz = (v) => `${+(v / 1000).toFixed(1)}`;
+export const kHz = (v) => `${+(v / 1000).toFixed(1)}`;
 export const hzRange = (b) => `${kHz(b[0])}–${kHz(b[1])} kHz`;
 /** 口水音检测前的高通频率（Hz），与 thresholds.json 的 click.highpass_hz 同值（冒烟核对）；“最响一次”是它之后的峰值。 */
 export const CLICK_HIGHPASS_HZ = 2000;
