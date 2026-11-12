@@ -78,7 +78,9 @@ run.eq(flow.neighbour(snap(), "connect", -1), null, "第一页没有上一页");
 
 const clapRows = flow.POSITION_PHASES.filter((p) => p.id === "soft-clap");
 run.eq(clapRows.length, 1, "位置步表里“轻拍 3 次”只有独立的一行");
-const flowSrc = listFiles(ROOT, ["web/app/flow", "web/app/meter"], [".js"])
+// 界面代码（flow、meter）里只有位置步表一处；预览的流程模拟（web-preview/mock）模拟的是原生侧自己的阶段表，
+// 不属于界面代码，但也扫进来，免得它悄悄多出一处而没人发现
+const flowSrc = listFiles(ROOT, ["web/app/flow", "web/app/meter", "web-preview/mock"], [".js"])
     .filter((f) => !f.endsWith("-strings.js"))
     .map((f) => ({ f, src: readText(ROOT, f) }));
 // 数“提到它的代码行”：一行表项里 id 和词条键各出现一次，只算一行；注释不算
@@ -90,7 +92,11 @@ const mentions = flowSrc.flatMap(({ f, src }) =>
         .filter((l) => l.includes("soft-clap"))
         .map(() => f),
 );
-run.eq(mentions, ["web/app/flow/flow-core.js"], "源码里只有位置步表那一行提到 soft-clap");
+run.eq(
+    [...mentions].sort(),
+    ["web-preview/mock/flow-sim.js", "web/app/flow/flow-core.js"],
+    "界面代码里只有位置步表那一行提到 soft-clap；预览模拟另有它自己的一行（模拟原生侧）",
+);
 run.eq(flow.prepModel(snap(), "position").how.length, flow.POSITION_PHASES.length, "准备页按表逐行列出阶段");
 
 // ---- ③ 接通页诊断 ----
