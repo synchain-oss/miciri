@@ -28,8 +28,8 @@ inline constexpr auto kFunctions =
     names("requestInitialState", "setLang", "setUiScale", "commitUiScale", "setGuideSeen", "setMicType", "startStep",
           "cancelStep", "reportChange", "dismissChannelPrompt", "openExternal", "showLicense", "clearClipLatch");
 inline constexpr auto kEvents = names("miciri.state", "miciri.meters", "miciri.error");
-inline constexpr auto kReasons =
-    names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked", "not-ready", "busy");
+inline constexpr auto kReasons = names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked",
+                                       "not-ready", "busy", "disabled");
 
 inline constexpr auto kSnapshotRoot = names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device",
                                             "connect", "steps", "results", "bands", "live");

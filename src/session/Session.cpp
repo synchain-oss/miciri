@@ -94,8 +94,8 @@ SectionSet staleOnChange(core::ChangeKind kind)
 {
     switch (kind)
     {
-    case core::ChangeKind::Gain:
-        return setOf({Section::Gain, Section::Noise, Section::Hum});
+    case core::ChangeKind::Gain: // 齿音给的是固定增益下的绝对电平，增益一变 A/B 比较就失效
+        return setOf({Section::Gain, Section::Noise, Section::Hum, Section::Sibilance});
     case core::ChangeKind::Position:
         return setOf({Section::Gain, Section::Noise, Section::DirectRatio, Section::Plosive, Section::Sibilance,
                       Section::Click, Section::Direction, Section::Distance});
@@ -175,6 +175,7 @@ struct Session::Worker
     double sampleRate = 0.0;
     Clock::time_point armedAt;
     std::atomic<bool> stop{false};
+    std::atomic<bool> exited{false}; // run() 已经返回：之后不再碰采集环与状态，join 不会等
     std::thread thread;
 };
 
@@ -187,7 +188,9 @@ Session::Session(AnalysisHook hook) : hook_(hook)
 Session::~Session()
 {
     const std::lock_guard<std::mutex> control(control_);
-    stopWorker(true);
+    signalStop();
+    if (worker_ != nullptr && worker_->thread.joinable())
+        worker_->thread.join(); // 只有卸载时会等一次整段分析
 }
 
 void Session::setHostTraits(const HostTraits& traits)
@@ -197,17 +200,30 @@ void Session::setHostTraits(const HostTraits& traits)
     bump();
 }
 
-// 停掉工作线程。不能持有 state_：工作线程发布结果要拿它。
-void Session::stopWorker(bool waitForFinish)
+// 让工作线程停下、撤销采集，但不等它：整段分析不可中断，控制函数（含宿主的 prepareToPlay）不能被它拖住。
+// 它收到停止后不再改状态；complete、invalidate、publishLive 也只认 current_。
+void Session::signalStop()
 {
     if (worker_ == nullptr)
         return;
-    if (waitForFinish)
-        worker_->stop.store(true, std::memory_order_release);
+    worker_->stop.store(true, std::memory_order_release);
     tap_.disarm();
+}
+
+// 回收工作线程，回收不了就返回 false：一步正在跑，或被叫停的那一步可能还在整段分析里（不等它）。
+// 自己收尾的那一步（complete、invalidate 之后）马上就退出，等它一下。
+// 只有这里之后才会重新 arm 采集环，所以旧线程不会和新的一步抢环。
+bool Session::reapWorker()
+{
+    if (worker_ == nullptr)
+        return true;
+    if (!worker_->exited.load(std::memory_order_acquire) &&
+        (worker_->stop.load(std::memory_order_acquire) || running()))
+        return false;
     if (worker_->thread.joinable())
         worker_->thread.join();
     worker_.reset();
+    return true;
 }
 
 void Session::prepare(double sampleRate, int channels)
@@ -222,15 +238,11 @@ void Session::prepare(double sampleRate, int channels)
         if (!rateChanged && !layoutChanged && sampleRate_ > 0.0)
             return;
     }
-    // 不在这里 join：prepare 从宿主的 prepareToPlay 调进来，工作线程可能正在做整段分析。
-    // 只让它停下、撤销采集；它收到停止就不再改状态，线程留给下一次 startStep、cancelStep 或析构回收（那里都先 join 再
-    // arm）
     std::optional<StepId> voided;
     if (worker_ != nullptr)
     {
         voided = worker_->id;
-        worker_->stop.store(true, std::memory_order_release);
-        tap_.disarm();
+        signalStop();
     }
     const std::lock_guard<std::mutex> lock(state_);
     if (voided && current_ == voided)
@@ -266,10 +278,8 @@ void Session::prepare(double sampleRate, int channels)
 Session::Start Session::startStep(StepId id, bool hostOffline)
 {
     const std::lock_guard<std::mutex> control(control_);
-    if (worker_ != nullptr && !running())
-        stopWorker(false); // 上一步已经自己结束，这里只回收线程
-    if (worker_ != nullptr)
-        return Start::Busy;
+    if (!reapWorker())
+        return Start::Busy; // 一步正在跑，或刚取消、作废的那一步还在收尾
 
     auto worker = std::make_unique<Worker>();
     int channels = 1;
@@ -299,7 +309,10 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
     {
         tap_.arm(worker->sampleRate, channels, thr::session::capture_buffer_s);
         worker->armedAt = Clock::now();
-        worker->thread = std::thread([this, w = worker.get()] { run(*w); });
+        worker->thread = std::thread([this, w = worker.get()] {
+            run(*w);
+            w->exited.store(true, std::memory_order_release);
+        });
     }
     catch (...)
     {
@@ -319,10 +332,10 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
 void Session::cancelStep()
 {
     const std::lock_guard<std::mutex> control(control_);
-    stopWorker(true);
+    signalStop();
     const std::lock_guard<std::mutex> lock(state_);
     if (!current_)
-        return;
+        return; // 已经收尾（或被作废）的那一步不再恢复
     steps_[index(*current_)] = before_;
     current_.reset();
     live_ = Live{};

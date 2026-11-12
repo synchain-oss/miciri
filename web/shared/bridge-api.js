@@ -40,6 +40,7 @@ export const BRIDGE_REASONS = [
     "scale-locked",
     "not-ready",
     "busy",
+    "disabled",
 ];
 
 // 快照（miciri.state 的载荷，requestInitialState 的回执）

@@ -18,8 +18,10 @@ public:
     MiciriEditor(MiciriProcessor& processor, Config config);
     ~MiciriEditor() override;
 
-    // 定时器调用：状态每隔多少个节拍推一次（约每秒一次）；设备信息变化时立即推。
+    // 定时器调用：状态每隔多少个节拍推一次（约每秒一次）；设备信息变化时立即推；
+    // 测试进行中 Session 的状态在变，最多每 kSessionStateTicks 个节拍推一次（约每秒十次）。
     static constexpr int kStateEveryTicks = kTickHz;
+    static constexpr int kSessionStateTicks = kTickHz / 10;
 
     // openExternal 只接受 https 链接，长度有上限。
     static constexpr int kExternalUrlMaxChars = 2048;
@@ -46,6 +48,7 @@ private:
 
     MiciriProcessor::DeviceInfo lastDevice_;
     int ticksSinceState_ = 0;
+    std::uint64_t lastSessionVersion_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MiciriEditor)
 };
