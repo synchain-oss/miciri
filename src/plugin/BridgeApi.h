@@ -31,9 +31,9 @@ inline constexpr auto kEvents = names("miciri.state", "miciri.meters", "miciri.e
 inline constexpr auto kReasons =
     names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked", "not-ready", "busy");
 
-inline constexpr auto kSnapshotRoot =
-    names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device", "connect", "steps", "results");
-inline constexpr auto kSnapshotDevice = names("sampleRate", "bufferSize", "layout", "hostName");
+inline constexpr auto kSnapshotRoot = names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device",
+                                            "connect", "steps", "results", "bands", "live");
+inline constexpr auto kSnapshotDevice = names("sampleRate", "bufferSize", "layout", "hostName", "offlineRender");
 inline constexpr auto kSnapshotConnect =
     names("signalState", "callbackAgeSec", "allZero", "noiseDbfs", "channelStatusL", "channelStatusR", "channelPrompt",
           "channelPromptDismissed", "analysedChannel");
@@ -68,6 +68,14 @@ inline constexpr auto kResultDistance = names("closeEvidence", "farEvidence", "k
 
 inline constexpr auto kMeterFields =
     names("levelDbfsL", "levelDbfsR", "peakDbfsL", "peakDbfsR", "clipLatchL", "clipLatchR");
+
+// 追加（流程页用）：档位边界与正在进行的那一步的实时信息，字段含义见 docs/contracts/BRIDGE.md
+inline constexpr auto kSnapshotBands =
+    names("tpTooQuietDbfs", "tpQuietDbfs", "tpLoudDbfs", "tpTooLoudDbfs", "targetPeakDbfs", "snrBadBelowDb",
+          "snrGoodAboveDb", "t20DryBelowS", "t20NormalBelowS", "t20BoomyBelowS", "drLowBelowDb", "drHighAboveDb",
+          "clipAdviceDropDb", "t20BandsHz");
+inline constexpr auto kSnapshotLive = names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps",
+                                            "clapsNeeded", "clapsMax", "directionIndex", "notice", "noticeSec");
 
 // 对拍用的登记表：JS 的 export 名 -> 该表的内容
 struct Table
@@ -131,6 +139,11 @@ inline std::vector<Table> contractTables()
         table("ENUM_DISTANCE_CASE", c::kDistanceCaseNames),
         table("ENUM_MIC_TYPE", c::kMicTypeNames),
         table("ENUM_CHANGE_KIND", c::kChangeKindNames),
+        table("SNAPSHOT_BANDS", kSnapshotBands),
+        table("SNAPSHOT_LIVE", kSnapshotLive),
+        table("ENUM_STEP_PHASE", c::kStepPhaseNames),
+        table("ENUM_CLAP_STATE", c::kClapStateNames),
+        table("ENUM_FLOW_NOTICE", c::kFlowNoticeNames),
     };
 }
 } // namespace miciri::bridge

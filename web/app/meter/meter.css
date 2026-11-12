@@ -1,0 +1,353 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 左栏输入卡：玻璃管电平表、结果标记、悬停提示。只用 2D 和 CSS 渐变，不用 backdrop-filter 叠 opacity。 */
+
+.lcard {
+    flex: 1;
+    min-height: 0;
+    padding: var(--sp-14);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-10);
+}
+.lcard__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-8);
+    min-height: 22px;
+}
+.lcard__chips {
+    display: flex;
+    gap: var(--sp-6);
+    flex-wrap: wrap;
+}
+.lcard__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    margin-top: auto;
+}
+.lcard__sel {
+    position: relative;
+}
+.lcard__field .sc-select {
+    display: block;
+    width: 100%;
+}
+
+.meter {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: var(--sp-8);
+    align-items: flex-start;
+}
+.lt-scale {
+    position: relative;
+    width: 34px;
+    height: var(--lt-h);
+    margin-top: 20px;
+}
+.lt-tick {
+    position: absolute;
+    right: 0;
+    bottom: calc(4px + var(--r) * (var(--lt-h) - 8px));
+    transform: translateY(50%);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-95);
+    color: var(--txt-ui);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    white-space: nowrap;
+}
+.lt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-6);
+}
+.lt__lamp {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(var(--wh), 0.28);
+    border: 1px solid rgba(var(--wh), 0.7);
+    padding: 0;
+    flex: none;
+}
+.lt__lamp[data-on="1"] {
+    background: rgb(var(--sem-red));
+    border-color: var(--sem-red-icon);
+    box-shadow: 0 0 0 3px rgba(var(--sem-red), 0.3);
+}
+.lt__tube {
+    position: relative;
+    width: 46px;
+    height: var(--lt-h);
+    border-radius: var(--r-md);
+    background: var(--t2-tube-bg);
+    border: 1px solid var(--t2-tube-border);
+    box-shadow: var(--t2-tube-inset);
+}
+.lt__slot {
+    position: absolute;
+    inset: 3px;
+    border-radius: var(--r-micro);
+    overflow: hidden;
+}
+.lt__liquid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--lv, 0%);
+    background: var(--t2-meter-liquid);
+    box-shadow: var(--meter-hl-v);
+    border-radius: 3px 3px 0 0;
+}
+.lt__peak {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--pk, 0%) - var(--meter-peak-w));
+    height: var(--meter-peak-w);
+    background: var(--meter-peak);
+    z-index: 3;
+    pointer-events: none;
+}
+.lt__peak[data-alert="1"] {
+    background: var(--meter-peak-alert);
+}
+.lt__zone {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--zlo) * 100%);
+    height: calc((var(--zhi) - var(--zlo)) * 100%);
+    background: var(--zone-ok);
+    border-block: 1px dashed var(--zone-ok-edge);
+    z-index: 2;
+}
+.lt__gloss {
+    position: absolute;
+    left: 7px;
+    right: 7px;
+    top: 4px;
+    height: 3px;
+    border-radius: var(--r-pill);
+    background: var(--t2-tube-gloss);
+    pointer-events: none;
+    z-index: 4;
+}
+.lt__lbl {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-105);
+    letter-spacing: var(--mono-ls);
+    color: var(--txt-1);
+}
+.meter[data-ch="mono"] .lt[data-ch="R"] {
+    display: none;
+}
+.meter[data-ch="mono"] .lt__lbl {
+    visibility: hidden;
+}
+/* 单声道只有一个削波灯：所有读数的位置和立体声一致，所以灯的行保留 */
+
+/* 管内的结果区间：底噪和电流声都从管底铺到均值，顶边一条线；都是细斜纹，方向相反，矮的盖在高的上面，底部叠成网格。
+   峰值平时不画，鼠标放上去才出现一条实线。过期都转灰色虚线。 */
+.lt__bands {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+}
+.lt-bd {
+    --ha: 0.62;
+    --hw: 1.5px;
+    --ang: 135deg;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--m) * 100%);
+    box-sizing: border-box;
+    border-top: 1.5px solid rgba(var(--tn), 0.95);
+    background: repeating-linear-gradient(
+        var(--ang),
+        rgba(var(--tn), var(--ha)) 0 var(--hw),
+        transparent var(--hw) 5px
+    );
+}
+.lt-bd--hum {
+    --ang: 45deg;
+}
+.lt-bd[data-tone="red"] {
+    --ha: 0.95;
+    --hw: 2px;
+}
+.lt-bd--hum[data-tone="red"] {
+    --ha: 0.55;
+    --hw: 1.5px;
+    border-top-color: rgba(var(--tn), 0.6);
+}
+.lt-bd[data-hover]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: var(--p);
+    border-top: 2px solid rgba(var(--tn), 0.95);
+    pointer-events: none;
+}
+.lt-bd[data-st="stale"] {
+    background: none;
+    border: 1px dashed var(--ink-gray);
+    border-bottom: 0;
+}
+.lt-bd[data-st="stale"][data-hover]::after {
+    border-top-color: var(--ink-gray);
+}
+
+.lt-marks {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.lt-bd,
+.lt-mk,
+.lt-mk__lb,
+.lt__zone,
+.lt-zonelbl > span {
+    pointer-events: auto;
+    cursor: default;
+}
+.lt-tip {
+    position: absolute;
+    right: 0;
+    bottom: var(--y, 0px);
+    z-index: 6;
+    padding: var(--sp-5) var(--sp-8);
+    border-radius: var(--r-micro);
+    background: var(--dark-menu);
+    border: 1px solid rgba(var(--wh), 0.16);
+    box-shadow: var(--dark-toast-shadow);
+    color: var(--txt-dark-2);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-105);
+    line-height: 15px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
+.lt-tip[hidden] {
+    display: none;
+}
+.lt-tip > div {
+    display: flex;
+    gap: var(--sp-4);
+}
+.lt-tip i {
+    font-style: normal;
+}
+.lt-tip b {
+    font-weight: 400;
+}
+.lt-mk {
+    position: absolute;
+    left: -7px;
+    bottom: calc(4px + var(--r) * (var(--lt-h) - 8px));
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    transform: translateY(50%);
+    background: rgba(var(--tn), 0.55);
+    border: 1px solid rgba(var(--tn), 0.9);
+    box-sizing: border-box;
+}
+.lt-mk[data-st="stale"] {
+    background: transparent;
+    border: 1px dashed var(--ink-gray);
+}
+.lt-mk__lb {
+    position: absolute;
+    left: 6px;
+    bottom: calc(var(--y) - 7px);
+    display: flex;
+    gap: var(--sp-4);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-95);
+    line-height: 14px;
+    letter-spacing: var(--mono-ls-ui);
+    color: var(--tn-ink);
+    white-space: nowrap;
+}
+.lt-mk__lb i {
+    font-style: normal;
+}
+.lt-mk__lb b {
+    font-weight: 400;
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+}
+
+.lt-zonelbl {
+    position: relative;
+    width: 78px;
+    height: var(--lt-h);
+    margin-top: 20px;
+}
+.lt-zonelbl > span {
+    position: absolute;
+    left: 0;
+    bottom: calc(4px + var(--zmid) * (var(--lt-h) - 8px));
+    transform: translateY(50%);
+    font-family: var(--ff-mono);
+    font-size: var(--fs-95);
+    line-height: 1.25;
+    color: var(--ink-green);
+    white-space: nowrap;
+}
+.lt-zonelbl > span::before {
+    content: "";
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    width: 5px;
+    height: 1.6px;
+    background: var(--zone-ok-edge);
+}
+
+.readout {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-8);
+}
+.readout__val {
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-260);
+    line-height: 1;
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.readout__unit {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    color: var(--txt-ui);
+    letter-spacing: var(--mono-ls-ui);
+    margin-left: var(--sp-4);
+}
+.sc-pill[data-act="1"] {
+    position: relative;
+}
+.sc-pill__act {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}

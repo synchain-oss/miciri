@@ -7,6 +7,8 @@
 //
 // 窗口缩放按「先设置、确认才提交」实现：setUiScale 立刻改窗口（onResize）并推快照；档位与已提交的不同时记为待确认，
 // commitUiScale 提交，没有待确认项回 no-pending；setUiScale 回到已提交的档位时待确认项自动消失（回退走的就是这条）。
+// 流程相关：startStep / cancelStep 交给 flow-sim 推进（只推进进度、阶段和拍手判定，不测量任何东西）；reportChange 按过期规则
+// 把对应的步骤和结果标成 stale。测试与预览用 sim.advance(秒) 推进、mutate(fn) 直接改快照、emitMeters(patch) 推电平。
 // calls 记录全部调用，供冒烟断言；它不属于桥契约。
 
 import {
@@ -16,10 +18,29 @@ import {
     ENUM_CHANGE_KIND,
     ENUM_MIC_TYPE,
     ENUM_STEP_ID,
+    METER_FIELDS,
 } from "../../web/shared/bridge-api.js";
 import { DESIGN } from "../../web/shared/design-box.js";
 import { LANGS } from "../../web/shared/i18n.js";
+import { createFlowSim } from "./flow-sim.js";
 import { buildSnapshot } from "./snapshot.js";
+import { STEP_SECTIONS } from "./results.js";
+
+/** 过期规则（见 docs 的过期规则表）：用户说“我动过了”，哪些步骤的结果要标过期。 */
+const STALE_BY_CHANGE = {
+    gain: ["gain", "quiet"],
+    position: ["gain", "quiet", "position", "direction"],
+    room: ENUM_STEP_ID.filter((id) => id !== "connect"),
+};
+
+const floorMeters = () => ({
+    levelDbfsL: -80,
+    levelDbfsR: -80,
+    peakDbfsL: -80,
+    peakDbfsR: -80,
+    clipLatchL: false,
+    clipLatchR: false,
+});
 
 const OK = Object.freeze({ ok: true });
 const fail = (reason) => {
@@ -47,6 +68,8 @@ export function createMockBackend(o = {}) {
         for (const cb of listeners.get(name) || []) cb(payload);
     };
     const pushState = () => emit("miciri.state", structuredClone(snap));
+    const sim = createFlowSim(snap, { push: pushState });
+    let meters = floorMeters();
 
     const impl = {
         requestInitialState: () => structuredClone(snap),
@@ -83,13 +106,36 @@ export function createMockBackend(o = {}) {
             pushState();
             return OK;
         },
-        startStep: (id) => (ENUM_STEP_ID.includes(id) ? OK : fail("bad-step")),
-        cancelStep: () => OK,
-        reportChange: (kind) => (ENUM_CHANGE_KIND.includes(kind) ? OK : fail("bad-arg")),
-        dismissChannelPrompt: () => OK,
+        startStep(id) {
+            if (!ENUM_STEP_ID.includes(id)) return fail("bad-step");
+            return sim.begin(id) ? OK : fail("busy");
+        },
+        cancelStep() {
+            sim.cancel();
+            return OK;
+        },
+        reportChange(kind) {
+            if (!ENUM_CHANGE_KIND.includes(kind)) return fail("bad-arg");
+            for (const id of STALE_BY_CHANGE[kind]) {
+                if (snap.steps[id].status === "done") snap.steps[id].status = "stale";
+                for (const name of STEP_SECTIONS[id] || []) if (snap.results[name]) snap.results[name].stale = true;
+            }
+            pushState();
+            return OK;
+        },
+        dismissChannelPrompt() {
+            snap.connect.channelPromptDismissed = true;
+            snap.connect.channelPrompt = "none";
+            pushState();
+            return OK;
+        },
         openExternal: (link) => (typeof link === "string" ? OK : fail("bad-arg")),
         showLicense: () => OK,
-        clearClipLatch: () => OK,
+        clearClipLatch() {
+            meters = { ...meters, clipLatchL: false, clipLatchR: false };
+            emit("miciri.meters", { ...meters });
+            return OK;
+        },
     };
 
     const backend = {
@@ -98,6 +144,19 @@ export function createMockBackend(o = {}) {
             listeners.get(name).push(cb);
         },
         emit,
+        sim,
+        /** 直接改快照再推送（测试造各种状态用）。 */
+        mutate(fn) {
+            fn(snap);
+            pushState();
+        },
+        /** 推一次电平事件；字段按 METER_FIELDS，缺省保持上一次的值。 */
+        emitMeters(patch = {}) {
+            for (const k of Object.keys(patch))
+                if (!METER_FIELDS.includes(k)) throw new Error(`mock：电平字段 ${k} 不在 METER_FIELDS 里`);
+            meters = { ...meters, ...patch };
+            emit("miciri.meters", { ...meters });
+        },
         calls,
         committedScale: () => committed,
         hasPending: () => pending,
