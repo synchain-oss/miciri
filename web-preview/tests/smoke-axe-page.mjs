@@ -54,7 +54,11 @@ try {
     await frame.evaluate(axeSource);
     const result = await frame.evaluate(() => axe.run(document, { runOnly: ["wcag2a", "wcag2aa"] }));
     const bad = result.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
-    for (const v of bad) run.check(false, `axe ${v.impact} ${v.id}：${v.help}（${v.nodes.length} 处）`);
+    for (const v of bad) {
+        run.check(false, `axe ${v.impact} ${v.id}：${v.help}（${v.nodes.length} 处）`);
+        // 把命中的节点打出来，免得只看到“1 处”却不知道是哪个元素
+        for (const n of v.nodes) run.log(`    ${n.target.join(" ")}  ${n.html.replace(/\s+/g, " ").slice(0, 240)}`);
+    }
     run.check(bad.length === 0, "不应有 serious 或 critical 的 axe 违规");
     run.log(
         `  axe 规则 ${result.passes.length} 条通过，${result.violations.length} 条违规（其中 serious 以上 ${bad.length}），${result.incomplete.length} 条需人工复核`,
