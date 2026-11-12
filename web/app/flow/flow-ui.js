@@ -132,6 +132,23 @@ function banner(b, ctx) {
  * @param {number} fromPx 翻页动画的起点位移（px，0 表示不动画）
  */
 export function renderStack(host, state, view, ctx, fromPx = 0) {
+    // 报告是整页：不叠卡，没有上下露出的摘要卡；回到前面的步骤只走步骤条
+    if (view === REPORT && ctx.report) {
+        const page = ctx.report(state);
+        host.replaceChildren(
+            el(
+                "div",
+                {
+                    class: "stk stk--report",
+                    role: "group",
+                    aria: { label: ctx.t("flow.stk.aria") },
+                    data: { part: "stack", idx: String(visibleSteps(state).length), step: REPORT },
+                },
+                page,
+            ),
+        );
+        return page;
+    }
     const ids = [...visibleSteps(state), REPORT];
     const i = ids.indexOf(view);
     const banners = view === REPORT ? [] : bannersFor(state, view);
@@ -186,7 +203,7 @@ const eyebrow = (state, ctx, id) => {
         text: ctx.t("flow.pn.step", { n: ids.indexOf(id) + 1, total: ids.length + 1 }),
     });
 };
-const ctaBtn = (ctx, key, on, o = {}) =>
+export const ctaBtn = (ctx, key, on, o = {}) =>
     el("button", {
         type: "button",
         class: "sc-btn sc-btn--cta sc-btn--lg",
@@ -196,7 +213,7 @@ const ctaBtn = (ctx, key, on, o = {}) =>
         data: { glow: "1", part: "cta" },
         on: { click: on },
     });
-const ghostBtn = (ctx, key, on, icon, vars) =>
+export const ghostBtn = (ctx, key, on, icon, vars) =>
     el(
         "button",
         { type: "button", class: "sc-btn", data: { glow: "1" }, on: { click: on } },
@@ -361,6 +378,10 @@ function connectPage(state, ctx) {
 // ---------------------------------------------------------------------------------------------------------------------
 // 准备页
 
+/** 词条里写了“{sec} 秒”的两条：计划时长为 0（原生没给）时换成不带秒数的说法，不写“约 0 秒”。 */
+const NO_SEC = { "flow.pp.gain.l": "flow.pp.gain.l0", "flow.pp.quiet.t": "flow.pp.quiet.t0" };
+const prepKey = (key, p) => (p.sec > 0 ? key : NO_SEC[key] || key);
+
 function prepPage(state, id, ctx) {
     const { t } = ctx;
     const p = prepModel(state, id);
@@ -391,10 +412,17 @@ function prepPage(state, id, ctx) {
             "div",
             { class: "pn__head" },
             eyebrow(state, ctx, id),
-            el("span", { class: "sc-chip" }, ic("stale", 12), el("span", { text: t("flow.pn.dur", { n: p.sec }) })),
+            p.sec > 0
+                ? el(
+                      "span",
+                      { class: "sc-chip" },
+                      ic("stale", 12),
+                      el("span", { text: t("flow.pn.dur", { n: p.sec }) }),
+                  )
+                : null,
         ),
-        el("h2", { class: "pn__title", text: t(`flow.pp.${k}.t`, p.vars) }),
-        el("p", { class: "pn__lead", text: t(`flow.pp.${k}.l`, p.vars) }),
+        el("h2", { class: "pn__title", text: t(prepKey(`flow.pp.${k}.t`, p), p.vars) }),
+        el("p", { class: "pn__lead", text: t(prepKey(`flow.pp.${k}.l`, p), p.vars) }),
         el("div", {}, el("span", { class: "sc-eyebrow", text: t("flow.pn.how") }), how),
         el(
             "div",
@@ -421,7 +449,7 @@ function prepPage(state, id, ctx) {
 // ---------------------------------------------------------------------------------------------------------------------
 // 结果页
 
-function resultCard(card, big, multi, ctx) {
+export function resultCard(card, big, multi, ctx) {
     const { t } = ctx;
     const tone = card.stale || card.none ? "gray" : card.tone;
     const nums = (card.nums || []).map((n, i) =>
@@ -439,6 +467,9 @@ function resultCard(card, big, multi, ctx) {
     if (card.stale) {
         confTone = "gray";
         confText = [t("flow.cf.stale")];
+    } else if (card.missing) {
+        confTone = "gray";
+        confText = [t("flow.cf.none")];
     } else if (card.retest || card.why) {
         confTone = "amber";
         confText = [t("flow.cf.retry"), card.why ? t(card.why, { need: card.need }) : null];
@@ -453,6 +484,7 @@ function resultCard(card, big, multi, ctx) {
         el("div", { class: "rc__word" }, el("i", { class: "sc-dot" }), el("span", { text: t(card.word) })),
         el("div", { class: "rc__nums" }, nums),
         card.note ? el("div", { class: "rc__note", text: tt(t, card.note.key, card.note.vars) }) : null,
+        card.prev ? el("div", { class: "rc__prev", text: t("report.prev", card.prev) }) : null,
         el(
             "div",
             { class: "rc__conf", data: { ok: confTone === "amber" ? "0" : "1" } },
@@ -539,7 +571,10 @@ function radar(v, ctx) {
     return [
         el("span", { class: "sc-eyebrow", text: t("flow.ms.dir") }),
         el("div", { class: "radar", data: { part: "radar" } }, chart, [0, 1, 2, 3].map(label)),
-        el("div", { class: "radar__ring", text: t("flow.dir.ring") }),
+        el("div", {
+            class: "radar__ring",
+            text: t("flow.dir.ring", { rings: RADAR_RINGS_DB.map((d) => fmtDb(d, 0)).join(t("flow.list.sep")) }),
+        }),
     ];
 }
 

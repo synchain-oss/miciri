@@ -133,7 +133,8 @@ export function markList(state) {
             });
         }
     }
-    if (hasDone(state, "position") && r.click && isNum(r.click.loudestDbfs)) {
+    // 0 次时“最响一次”不是测量值（原生留 0），不画圆点
+    if (hasDone(state, "position") && r.click && r.click.count > 0 && isNum(r.click.loudestDbfs)) {
         out.push({
             id: "mouth",
             kind: "dot",

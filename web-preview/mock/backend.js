@@ -24,14 +24,7 @@ import { DESIGN } from "../../web/shared/design-box.js";
 import { LANGS } from "../../web/shared/i18n.js";
 import { createFlowSim } from "./flow-sim.js";
 import { buildSnapshot } from "./snapshot.js";
-import { STEP_SECTIONS } from "./results.js";
-
-/** 过期规则（见 docs 的过期规则表）：用户说“我动过了”，哪些步骤的结果要标过期。 */
-const STALE_BY_CHANGE = {
-    gain: ["gain", "quiet"],
-    position: ["gain", "quiet", "position", "direction"],
-    room: ENUM_STEP_ID.filter((id) => id !== "connect"),
-};
+import { STALE_SECTIONS, STEP_SECTIONS } from "./results.js";
 
 const floorMeters = () => ({
     levelDbfsL: -80,
@@ -116,9 +109,11 @@ export function createMockBackend(o = {}) {
         },
         reportChange(kind) {
             if (!ENUM_CHANGE_KIND.includes(kind)) return fail("bad-arg");
-            for (const id of STALE_BY_CHANGE[kind]) {
-                if (snap.steps[id].status === "done") snap.steps[id].status = "stale";
-                for (const name of STEP_SECTIONS[id] || []) if (snap.results[name]) snap.results[name].stale = true;
+            // 过期按区段标；一步里有任何一个区段过期，这一步就是 stale（契约）
+            for (const name of STALE_SECTIONS[kind]) if (snap.results[name]) snap.results[name].stale = true;
+            for (const [id, names] of Object.entries(STEP_SECTIONS)) {
+                const stale = names.some((n) => snap.results[n] && snap.results[n].stale);
+                if (stale && snap.steps[id].status === "done") snap.steps[id].status = "stale";
             }
             pushState();
             return OK;
