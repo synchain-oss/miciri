@@ -26,7 +26,7 @@
 
 ## 阈值
 
-- 删除 `reverb.repeat_max_over_min`，由 `reverb.repeat_outlier_frac` 与 `reverb.repeat_min_kept` 取代：按实录调整，
+- 删除 `reverb.repeat_max_over_min`，由 `reverb.repeat_outlier_frac` 与 `reverb.repeat_min_kept` 取代：按实录调整，`repeat_outlier_frac`、`repeat_min_kept`、`gate_margin_db` 的数值取自规格、仍待标定，`source` 记 `规格起始值，待实录标定`。
   收满八九下时“最大比最小”偏严。
 - 新增分组 `clap`（拍手的检测与起音、分段、噪声窗、削波），房间与位置共用。
 - `reverb`、`direct_ratio`、`direction` 追加实现用的窗长、块长与门限判据的参数，见 `thresholds.json`。

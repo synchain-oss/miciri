@@ -332,9 +332,10 @@ DirectRatioClap measureDirectRatio(const Energy& en, const Segment& s, double ra
     const std::size_t window = std::max<std::size_t>(1, samplesFor(thr::direct_ratio::tail_snr_window_ms * 1e-3, rate));
     out.tailSnrDb = dsp::powerToDb(en.mean(b, std::min(en.size(), b + window))) - dsp::powerToDb(noise);
     out.lowerBound = out.tailSnrDb < thr::direct_ratio::tail_snr_min_db || tail <= 0.0;
-    // 尾部测不到：按尾窗内最多高出噪声“截断余量”估尾部能量的上限，D/R 因此只是下限
+    // 尾部测不到：按测到的整段尾巴（至少一个尾窗）都最多高出噪声“截断余量”估尾部能量的上限，D/R 因此只是下限
     if (out.lowerBound)
-        tail = std::max(tail, noise * powerOfDb(thr::clap::truncate_over_noise_db) * static_cast<double>(window));
+        tail = std::max(tail, noise * powerOfDb(thr::clap::truncate_over_noise_db) *
+                                  static_cast<double>(std::max(end - b, window)));
     out.usable = s.hasNoise && direct > 0.0;
     out.drDb = out.usable ? dsp::powerToDb(direct / tail) : 0.0;
     return out;

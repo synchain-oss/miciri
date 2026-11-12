@@ -341,6 +341,47 @@ TEST_CASE("an unmeasurable tail gives only a lower bound")
     CHECK(a.result.confidence.level == core::Reliability::Trusted);
 }
 
+TEST_CASE("a faint tail longer than the SNR window still gives a true lower bound")
+{
+    // 底噪与尾巴都用带内的稳态正弦，块能量没有随机起伏。尾巴功率是底噪的 2.6 倍：前 50 ms 高出噪声不到 6 dB，
+    // 只算下限；但它持续约 0.3 s、一直高于截断线，尾部能量的上限必须覆盖测到的整段尾巴，D/R 才真的是下限。
+    const double fs = 48000.0;
+    const double pi = 3.14159265358979323846;
+    const double noiseAmp = 1e-4;
+    const double tailAmp = noiseAmp * std::sqrt(2.6);
+    const double tailSec = 0.295;
+    const double direct = 0.5;
+    ClapTrain c;
+    c.claps = 4;
+    std::vector<double> x(static_cast<std::size_t>((clapTime(c, c.claps - 1) + c.gapSec) * fs));
+    for (std::size_t n = 0; n < x.size(); ++n)
+        x[n] = noiseAmp * std::sin(2.0 * pi * 3000.0 * static_cast<double>(n) / fs);
+    for (int i = 0; i < c.claps; ++i)
+    {
+        const auto at = static_cast<std::size_t>(clapTime(c, i) * fs);
+        x[at] += direct;
+        const auto from = at + static_cast<std::size_t>(0.010 * fs);
+        for (std::size_t n = 0; n < static_cast<std::size_t>(tailSec * fs); ++n)
+            x[from + n] += tailAmp * std::sin(2.0 * pi * 2000.0 * static_cast<double>(n) / fs);
+    }
+    // 真值：直达脉冲经同一个带通的能量，对直达窗之后的整段尾巴能量
+    auto band = core::dsp::makeButterworthBandpass(static_cast<int>(thr::clap::filter_order),
+                                                   thr::direct_ratio::band_hz[0], thr::direct_ratio::band_hz[1], fs);
+    double directEnergy = 0.0;
+    for (int n = 0; n < 4800; ++n)
+    {
+        const double y = band.process(n == 0 ? direct : 0.0);
+        directEnergy += y * y;
+    }
+    const double tailEnergy = 0.5 * tailAmp * tailAmp * (tailSec - 0.002) * fs;
+    const double truth = 10.0 * std::log10(directEnergy / tailEnergy);
+
+    const core::DirectRatioAnalysis a = core::analyseDirectRatio(x, fs);
+    REQUIRE(a.result.measures.lowerBoundOnly);
+    CHECK(a.result.measures.drDb < truth - 0.3);
+    CHECK(a.result.measures.drDb > truth - 2.0);
+}
+
 TEST_CASE("results do not depend on how the samples are split into blocks")
 {
     ClapTrain c;

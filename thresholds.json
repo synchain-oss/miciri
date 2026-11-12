@@ -426,15 +426,15 @@
     "repeat_outlier_frac": {
       "value": 0.3,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "规格起始值，待实录标定",
       "date": null,
       "note": "per band, claps further than this from the median are dropped"
     },
-    "repeat_min_kept": { "value": 3, "state": "pending", "source": "规格起始值", "date": null },
+    "repeat_min_kept": { "value": 3, "state": "pending", "source": "规格起始值，待实录标定", "date": null },
     "gate_margin_db": {
       "value": 20.0,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "规格起始值，待实录标定",
       "date": null,
       "note": "a drop only counts as a gate while the band is still this far above its noise"
     },
