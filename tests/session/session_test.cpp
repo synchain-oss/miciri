@@ -161,6 +161,24 @@ TEST_CASE("a step paced like real time completes, runs the analyses, and later e
     CHECK_FALSE(s.view().stale[static_cast<std::size_t>(session::Section::Gain)]); // 没做过的不算
 }
 
+TEST_CASE("a change reported while a step runs leaves that step's output stale and its levels unused")
+{
+    session::Session s;
+    const double fs = 16000.0;
+    s.prepare(fs, 1);
+    REQUIRE(s.startStep(StepId::Connect) == session::Session::Start::Ok);
+    const auto x = voice(fs, thr::no_signal::low_flat_window_s + 0.5, 0.1, 6);
+    std::thread audio([&] { pump(s.tap(), x, 1, fs, 1.3); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    s.reportChange(core::ChangeKind::Room); // 换房间：全部过期，包括这一步的接通
+    audio.join();
+    REQUIRE(waitFor([&] { return !s.running(); }));
+    CHECK(stepOf(s, StepId::Connect).status == StepStatus::Done);
+    REQUIRE(s.view().results.noSignal.has_value());
+    CHECK(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
+    CHECK(s.context().noiseFloorRms == 0.0); // 没有改动时这里大于 0，见上面按实时喂完一步的用例
+}
+
 TEST_CASE("audio arriving much faster than real time voids the step without analysing it")
 {
     gAnalyses = 0;

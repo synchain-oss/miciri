@@ -285,6 +285,7 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
         before_ = steps_[index(id)];
         steps_[index(id)] = StepState{StepStatus::Running, RetestReason::None, 0.0};
         current_ = id;
+        changedDuring_ = SectionSet{};
         offlineRender_ = false;
         live_ = worker->script->live();
         runningPlannedSec_ = worker->script->plannedSec();
@@ -329,8 +330,13 @@ void Session::reportChange(core::ChangeKind kind)
     const std::lock_guard<std::mutex> lock(state_);
     const SectionSet hit = staleOnChange(kind);
     for (std::size_t i = 0; i < kSectionCount; ++i)
+    {
         if (hit[i] && present(results_, static_cast<Section>(i)))
             stale_[i] = true;
+        // 正在跑的那一步拿的是开始时的上下文，收到的音频也有一段在改动之前：它这几项的产出一到就是过期的
+        if (hit[i] && current_)
+            changedDuring_[i] = true;
+    }
     forgetStale(context_, hit);
     bump();
 }
@@ -475,7 +481,7 @@ void Session::complete(StepId id, StepOutput&& out)
         if (from)
         {
             to = std::move(from);
-            stale_[index(s)] = false;
+            stale_[index(s)] = changedDuring_[index(s)];
         }
     };
     core::AllResults& o = out.results;
@@ -493,17 +499,19 @@ void Session::complete(StepId id, StepOutput&& out)
     take(r.direction, o.direction, Section::Direction);
     r.distance = deriveDistance(r);
     if (id == StepId::Position)
-        stale_[index(Section::Distance)] = false;
+        stale_[index(Section::Distance)] = changedDuring_[index(Section::Distance)];
 
-    // 后面几步要用的量
-    if (out.speechLevelDbfsA)
+    // 后面几步要用的量；这一步进行中增益一项过期了，量到的电平就不留
+    const bool levelsHold = !changedDuring_[index(Section::Gain)];
+    if (out.speechLevelDbfsA && levelsHold)
         context_.speechLevelDbfsA = out.speechLevelDbfsA;
     if (out.signalSeen && *out.signalSeen)
         context_.signalSeenBefore = true;
     if (id == StepId::Connect)
     {
-        context_.noiseFloorRms =
-            trusted(r.noSignal) ? std::sqrt(core::dsp::dbToPower(r.noSignal->measures.p10FrameDbfs)) : 0.0;
+        context_.noiseFloorRms = levelsHold && trusted(r.noSignal)
+                                     ? std::sqrt(core::dsp::dbToPower(r.noSignal->measures.p10FrameDbfs))
+                                     : 0.0;
         context_.channel = trusted(r.channels) ? r.channels->verdict.analysedChannel : core::AnalysedChannel::Left;
     }
 

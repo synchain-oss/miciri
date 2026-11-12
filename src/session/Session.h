@@ -153,6 +153,7 @@ private:
     StepState before_; // 当前步开始前的状态，取消时恢复
     core::AllResults results_;
     SectionSet stale_{};
+    SectionSet changedDuring_{}; // 当前这一步进行中，用户上报的改动让哪几项过期；这一步的这几项产出照样过期
     Live live_;
     double runningPlannedSec_ = 0.0; // 进行中那一步此刻的计划时长（方向步追加确认后会变长）
     StepContext context_;
