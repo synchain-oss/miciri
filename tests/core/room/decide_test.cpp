@@ -259,6 +259,7 @@ TEST_CASE("room thresholds keep their order")
     CHECK((thr::reverb::repeat_outlier_frac > 0.0 && thr::reverb::repeat_outlier_frac < 1.0));
     CHECK(thr::reverb::gate_margin_db > thr::reverb::gate_tail_drop_db);
     CHECK(thr::clap::noise_window_ms[0] < thr::clap::noise_window_ms[1]);
+    CHECK(thr::clap::onset_gap_ms < thr::clap::onset_lookback_ms); // 否则起音窗口为空，过滤悄悄失效
     CHECK(-thr::clap::noise_window_ms[0] <= thr::clap::segment_before_s * 1000.0);
     CHECK(thr::reverb::gate_search_from_ms >= thr::direct_ratio::direct_window_end_ms);
 }

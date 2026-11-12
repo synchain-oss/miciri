@@ -72,11 +72,11 @@ std::vector<ClapEvent> ClapCapture::findClaps() const
     const double floor =
         std::max(loudest * std::pow(10.0, -thr::clap::rel_db / 20.0), std::pow(10.0, thr::clap::floor_dbfs / 20.0));
 
-    // 只认有起音的样本：它前面 [onset_lookback_ms, peak_search_ms) 里的最大值要比它低 onset_db。
+    // 只认有起音的样本：它前面 onset_lookback_ms 到 onset_gap_ms 之间的最大值要比它低 onset_db。
     // 衰减尾巴里的随机峰前面总是同样响或更响的尾巴，这样很混的房间里尾巴不会被当成新的一下。
     // 窗口最大值用单调队列滑动求，整段只走一遍。
     const std::size_t look = samplesFor(thr::clap::onset_lookback_ms * 1e-3, rate());
-    const std::size_t rise = samplesFor(thr::clap::peak_search_ms * 1e-3, rate());
+    const std::size_t rise = samplesFor(thr::clap::onset_gap_ms * 1e-3, rate());
     const double onset = std::pow(10.0, thr::clap::onset_db / 20.0);
     std::deque<std::size_t> window;
     for (std::size_t k = 0; k < analysed_.size(); ++k)

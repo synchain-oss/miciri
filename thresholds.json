@@ -347,7 +347,13 @@
       "note": "a clap peaks within this many dB of the loudest one"
     },
     "floor_dbfs": { "value": -50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
-    "min_gap_s": { "value": 1.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "min_gap_s": {
+      "value": 1.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "each picked clap masks half of this on either side; the earlier segment ends before the next clap"
+    },
     "onset_db": {
       "value": 10.0,
       "state": "synthetic",
@@ -356,6 +362,13 @@
       "note": "a clap peak stands this far above everything in the look-back window before it"
     },
     "onset_lookback_ms": { "value": 50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
+    "onset_gap_ms": {
+      "value": 5.0,
+      "state": "synthetic",
+      "source": "合成验证",
+      "date": "2026-11-12",
+      "note": "the look-back window stops this long before the candidate so its own rise is not compared with itself"
+    },
     "max_count": { "value": 12, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
     "segment_before_s": { "value": 0.7, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
     "noise_window_ms": {
