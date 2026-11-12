@@ -835,7 +835,7 @@ export function resultModel(state, id) {
         return {
             cards: [
                 dev ? { ...noiseCard, retest: true, why: "flow.cf.why.device" } : noiseCard,
-                resultCards.hum(r.hum),
+                resultCards.hum(r.hum || { ...NO_HUM, stale: nz.stale }),
             ],
             cols: 2,
             side: false,

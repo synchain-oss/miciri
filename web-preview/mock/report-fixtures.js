@@ -97,6 +97,9 @@ export const SCENES = {
             advice: advice("change-room-and-move-closer", "fix-room-or-direction-first", "action-with-button"),
         };
     },
+    /** 房间要换且方向提示是动作加次要按钮：顶部卡的动作最多。 */
+    room1Dir: () =>
+        measured({ fixes: ["room"], advice: advice("change-room-and-move-closer", "none", "action-with-button") }),
     /** 有读数要再测：噪声和房间。 */
     lowConfidence: () => {
         let s = withSection(measured(), "noise", {

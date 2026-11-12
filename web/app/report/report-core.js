@@ -144,9 +144,11 @@ function gainNumbers(state) {
     const g = results(state).gain;
     const b = state.bands;
     if (!g || !b) return null;
-    const lane =
-        state.device && state.device.layout === "stereo" && state.connect.analysedChannel === "right" ? "R" : "L";
-    return { n: Math.round(Math.abs(b.targetPeakDbfs - g[`truePeakDbfs${lane}`])) };
+    const right = state.device && state.device.layout === "stereo" && (state.connect || {}).analysedChannel === "right";
+    const peak = g[right ? "truePeakDbfsR" : "truePeakDbfsL"];
+    // 快照缺字段或给了非有限数时不写数字，调用处按 null 省略这条动作
+    if (!Number.isFinite(b.targetPeakDbfs) || !Number.isFinite(peak)) return null;
+    return { n: Math.round(Math.abs(b.targetPeakDbfs - peak)) };
 }
 
 /** fixes 的一项到顶部卡的内容。dirOff：方向提示不放在顶部（耳机麦，或方向测过且没过期）。 */
@@ -363,13 +365,17 @@ export function fixModel(state) {
     });
 }
 
-/** 方向提示放进顶部卡：main-button 已在 fixFor 里换了主按钮；action-with-button 在动作最后加一条，再给次要按钮。 */
+/**
+ * 方向提示放进顶部卡：main-button 已在 fixFor 里换了主按钮；action-with-button 在动作最后加一条，再给次要按钮。
+ * 顶部卡最多放 3 条动作（英文四条会挤出卡外），所以方向那条占第 3 条，原来的第 3 条（只是解释主按钮）让位。
+ */
+const ACTS_WITH_DIR = 3;
 function withDirection(m, state, p) {
     if (p !== "action-with-button") return m;
     const key = m.dirAct || "report.fx.conf.a4";
     return {
         ...m,
-        acts: [...m.acts.slice(0, 2), { key, dir: true }],
+        acts: [...m.acts.slice(0, ACTS_WITH_DIR - 1), { key, dir: true }],
         sec: { key: "report.dir.go", kind: "go", to: "direction", prep: true },
     };
 }

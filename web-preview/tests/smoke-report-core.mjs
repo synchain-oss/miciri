@@ -7,7 +7,7 @@
 //      “上次 → 现在”只给有上次的、有结论的卡；
 //   ④ 距离标尺：位置只是示意，证据越多越靠边，过期与要再测是灰的，齿音与口水音不作证据；
 //   ⑤ 复制结果、方向确认文案（点出两个方向、不写角度）、频率常量与 thresholds.json 同值；
-//   ⑥ 缺 bands 时结果页不退回准备页，设备降噪作废时写设备原因；
+//   ⑥ 缺 bands 时结果页不退回准备页，设备降噪作废时写设备原因；快照缺字段不写 NaN；方向动作最多占第 3 条；
 //   ⑦ 反例：检查要能变红。
 //
 // 用法：node web-preview/tests/smoke-report-core.mjs [仓库根]
@@ -361,6 +361,47 @@ run.eq(flow.CLICK_HIGHPASS_HZ, thresholds.click.highpass_hz.value, "口水音高
         0,
         "计划时长为 0：准备页模型给 0（界面不写“约 0 秒”）",
     );
+}
+
+// ---- ⑥b 评审补的：缺字段不写 NaN；方向动作占第 3 条；缺电流声的卡随噪声过期 ----
+{
+    const low = { ...withSection(measured(), "gain", { band: "quiet", tone: "amber" }), fixes: ["gain"] };
+    const n = (st) => core.fixModel(st).acts[0].vars;
+    run.check(Number.isFinite((n(low) || {}).n), "增益偏低、数据齐：动作里有 dB 数");
+    const right = (st) => ({
+        ...st,
+        device: { ...st.device, layout: "stereo" },
+        connect: { ...st.connect, analysedChannel: "right" },
+    });
+    const nan = right(withSection(low, "gain", { truePeakDbfsR: Number.NaN }));
+    run.eq(
+        core.fixModel(nan).acts.map((a) => a.key),
+        ["flow.gr.retest"],
+        "右声道峰值不是有限数：不写数字，只留重测一条",
+    );
+    const noConn = { ...right(low) };
+    delete noConn.connect;
+    run.check(Number.isFinite((n(noConn) || {}).n), "快照缺 connect：不抛错，按左声道算");
+    const noBands = { ...low };
+    delete noBands.bands;
+    run.eq(core.fixModel(noBands).acts.length, 1, "缺 bands：不写数字");
+}
+{
+    const m = core.fixModel(SCENES.room1Dir());
+    run.eq(
+        [m.acts.length, m.acts.map((a) => a.key).slice(0, 2), m.acts[2].dir, m.sec && m.sec.to],
+        [3, ["flow.rr.a1", "report.fx.closer"], true, "direction"],
+        "房间要换且提示是动作加按钮：最多 3 条，方向占第 3 条，原来的第 3 条（解释主按钮）让位",
+    );
+}
+{
+    const stale = withSection(measured(), "noise", { stale: true });
+    delete stale.results.hum;
+    const card = (st) => flow.resultModel(st, "quiet").cards[1];
+    run.eq([card(stale).id, card(stale).stale], ["hum", true], "没给电流声结果：补的那张卡随噪声过期");
+    const fresh = measured();
+    delete fresh.results.hum;
+    run.eq(card(fresh).stale, false, "噪声没过期：补的卡也不过期");
 }
 
 // ---- ⑦ 反例：检查要能变红 ----
