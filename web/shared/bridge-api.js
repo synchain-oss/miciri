@@ -53,8 +53,10 @@ export const SNAPSHOT_ROOT = [
     "connect",
     "steps",
     "results",
+    "bands",
+    "live",
 ];
-export const SNAPSHOT_DEVICE = ["sampleRate", "bufferSize", "layout", "hostName"];
+export const SNAPSHOT_DEVICE = ["sampleRate", "bufferSize", "layout", "hostName", "offlineRender"];
 export const SNAPSHOT_CONNECT = [
     "signalState",
     "callbackAgeSec",
@@ -196,3 +198,38 @@ export const ENUM_DIRECTION_CASE = ["best", "maybe-reversed", "small-difference"
 export const ENUM_DISTANCE_CASE = ["unknown", "fine", "too-close", "too-far", "conflicting"];
 export const ENUM_MIC_TYPE = ["unknown", "dynamic", "condenser", "usb", "headset"];
 export const ENUM_CHANGE_KIND = ["gain", "position", "room"];
+
+// 追加（流程页用）：档位边界，由阈值文件换算，界面不写死数字。键名是 thresholds.json 里同名键的 camelCase 形式
+export const SNAPSHOT_BANDS = [
+    "tpTooQuietDbfs",
+    "tpQuietDbfs",
+    "tpLoudDbfs",
+    "tpTooLoudDbfs",
+    "targetPeakDbfs",
+    "snrBadBelowDb",
+    "snrGoodAboveDb",
+    "t20DryBelowS",
+    "t20NormalBelowS",
+    "t20BoomyBelowS",
+    "drLowBelowDb",
+    "drHighAboveDb",
+    "clipAdviceDropDb",
+    "t20BandsHz",
+];
+// 追加（流程页用）：正在进行的那一步的实时信息，同一时刻只有一步在跑，所以不按步骤分键
+export const SNAPSHOT_LIVE = [
+    "phase",
+    "round",
+    "rounds",
+    "phaseElapsedSec",
+    "phaseDurationSec",
+    "claps",
+    "clapsNeeded",
+    "clapsMax",
+    "directionIndex",
+    "notice",
+    "noticeSec",
+];
+export const ENUM_STEP_PHASE = ["none", "soft-clap", "plosive", "sibilant", "natural", "direction", "confirm"];
+export const ENUM_CLAP_STATE = ["valid", "too-soft", "noisy", "truncated"];
+export const ENUM_FLOW_NOTICE = ["none", "success", "spoiled", "clap-clipped", "too-quiet", "gated", "redo"];

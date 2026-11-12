@@ -71,7 +71,12 @@ export function findFullwidthLiterals(src) {
     return hits;
 }
 
-const DICT_FILES = ["web/shared/strings-common.js", "web/app/shell/shell-strings.js"];
+const DICT_FILES = [
+    "web/shared/strings-common.js",
+    "web/app/shell/shell-strings.js",
+    "web/app/flow/flow-strings.js",
+    "web/app/meter/meter-strings.js",
+];
 const parts = [];
 for (const f of DICT_FILES) {
     const d = await load(f);
@@ -96,19 +101,29 @@ try {
 }
 run.check(threw, "同一个键出现在两份里，mergeDicts 应当抛错");
 
-// 源码里的词条键必须存在：外壳与共享件只用 common.、shell.、about. 三个前缀
+// 源码里的词条键必须存在：外壳与共享件用 common.、shell.、about.，流程页用 flow.，左栏输入卡用 meter.
 if (merged) {
-    const files = listFiles(ROOT, ["web/shared", "web/app/shell"], [".js"]).filter((f) => !DICT_FILES.includes(f));
+    const files = listFiles(ROOT, ["web/shared", "web/app"], [".js"]).filter((f) => !DICT_FILES.includes(f));
     const used = new Set();
     for (const f of files) {
-        for (const m of readText(ROOT, f).matchAll(/"((?:common|shell|about)\.[A-Za-z0-9.]+)"/g)) used.add(m[1]);
+        for (const m of readText(ROOT, f).matchAll(/"((?:common|shell|about|flow|meter)\.[A-Za-z0-9.-]+)"/g))
+            used.add(m[1]);
     }
     run.check(used.size > 0, "应当能在源码里找到词条键");
     for (const k of used) run.check(k in merged.zh, `源码用到的词条键 ${k} 不在词条表里`);
 }
 
 // 页面层源码里不夹全角标点（联系行的全角冒号就是这样漏进去的）
-for (const f of ["web/app/shell/shell-app.js", "web/app/shell/shell-main.js"]) {
+for (const f of [
+    "web/app/shell/shell-app.js",
+    "web/app/shell/shell-main.js",
+    "web/app/flow/flow-ui.js",
+    "web/app/flow/flow-main.js",
+    "web/app/flow/remote-ui.js",
+    "web/app/flow/flow-core.js",
+    "web/app/meter/meter-ui.js",
+    "web/app/meter/meter-core.js",
+]) {
     run.eq(findFullwidthLiterals(readText(ROOT, f)), [], `${f}：字符串字面量里不应有全角标点，标点放进词条`);
 }
 

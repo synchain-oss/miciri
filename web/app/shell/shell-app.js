@@ -304,6 +304,7 @@ export function createShell(o) {
 
     return {
         root,
+        bridge,
         regions: { header, steps: stepsSlot, left, main, footer, layers },
         apiVersion: BRIDGE_API_VERSION,
         t: (k, v) => t(k, v),
