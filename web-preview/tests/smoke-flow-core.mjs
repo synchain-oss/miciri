@@ -267,6 +267,16 @@ run.eq(flow.resultModel(snap(), "gain"), null, "没有结果时结果页没有�
     );
 }
 
+{
+    const bare = snap();
+    delete bare.bands;
+    run.check(
+        !flow.prepModel(bare, "gain").items.includes("flow.ms.target"),
+        "快照没有 bands：增益准备页不列目标区一条",
+    );
+    run.check(flow.prepModel(snap(), "gain").items.includes("flow.ms.target"), "有 bands 时增益准备页列出目标区");
+}
+
 // ---- ④ 数字随快照走 ----
 const alt = {
     ...BANDS,

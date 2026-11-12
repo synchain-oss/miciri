@@ -378,6 +378,8 @@ export function bannersFor(state, view) {
 // ---------------------------------------------------------------------------------------------------------------------
 // 准备页
 
+const NEEDS_BANDS = new Set(["flow.ms.target"]);
+
 /** @returns {{steps: object[], items: string[], icon: string, sec: number, words: object, vars: object}} */
 export function prepModel(state, id) {
     const def = STEPS[id];
@@ -389,7 +391,8 @@ export function prepModel(state, id) {
             : def.how.map((key) => ({ key }));
     return {
         icon: def.icon,
-        items: def.items,
+        // 要用 bands 里的数才写得出来的条目：旧的原生端没有 bands 时整条不显示，不留“undefined”
+        items: def.items.filter((key) => state.bands || !NEEDS_BANDS.has(key)),
         how,
         sec: Math.round(step.durationSec || 0),
         vars: {
