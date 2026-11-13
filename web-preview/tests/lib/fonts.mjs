@@ -26,6 +26,7 @@ export function readFontFaces(page, docExpr) {
             // 加载失败时 load() 会拒绝；失败的事实由下面读到的 status 给出，这里不让它中断整个读取
             await d.fonts.load('16px "' + family + '"', sample).catch(() => {});
         }
+        await d.fonts.ready; // 还有字面在加载时先等它落定，再读状态
         return [...d.fonts].map((f) => ({ family: f.family.replace(/^["']|["']$/g, ""), status: f.status }));
     })()`);
 }

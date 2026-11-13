@@ -133,7 +133,8 @@ REAPER 和 Cubase 这样同时开着没有问题：后开的窗口接入已经�
 
 - 窗口开不出来、显示英文说明面板 “The WebView2 environment did not start” 时，常见原因是这个目录不可写，或被别的程序用不同的设置占着。
   先确认目录可写；仍不行就关掉所有开着 Miciri 窗口的宿主，删掉这个目录再打开，Miciri 会重建它。
-- 宿主以不同权限级别运行（一个以管理员身份、一个不是）时没有测过。
+- 宿主以不同权限级别运行（一个以管理员身份、一个不是）时没有测过。若后开的窗口开不出来，会是上面那块说明面板；
+  请先让两个宿主以同一权限级别运行再试。
 
 ## Several hosts open at once on Windows
 
@@ -145,7 +146,8 @@ measurement results. Limits:
 - If the window does not open and you see the panel saying “The WebView2 environment did not start”, the usual causes are that the
   folder is not writable, or that another program holds it with different settings. Check that the folder is writable; if that
   is not it, close every host that has a Miciri window open, delete the folder, and open the plug-in again. Miciri recreates it.
-- Hosts running at different privilege levels (one as administrator, one not) have not been tested.
+- Hosts running at different privilege levels (one as administrator, one not) have not been tested. If the window opened later
+  does not open, it will be the panel above; please run both hosts at the same privilege level and try again.
 
 ## 用音箱监听可能啸叫
 
