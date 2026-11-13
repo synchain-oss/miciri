@@ -384,11 +384,7 @@ try {
         1,
         "旧语义下档位表只剩 100% 一档",
     );
-    run.eq(
-        lp.errors,
-        [],
-        "旧语义页面不应有页面异常",
-    );
+    run.eq(lp.errors, [], "旧语义页面不应有页面异常");
 
     // ---- 全程 ----
     const external = requests
