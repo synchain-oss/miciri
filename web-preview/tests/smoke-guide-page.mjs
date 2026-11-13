@@ -4,10 +4,11 @@
 //   ① 打开：点页脚“?”出现对话框（有名字、aria-modal）、第一步是输入卡、步数写成“第 n 步 / 共 m 步”，
 //      背景四个区域 inert、说明框落在设计盒内且不压住被圈的目标；
 //   ② 翻页：按钮、方向键、点任意处都能下一步，上一步回得去，Tab 只在说明框的按钮里循环；
-//   ③ 关闭：Esc、跳过、最后一页的“完成”都关，inert 解除、焦点回到“?”，只记一次“指南已看”；
+//   ③ 关闭：Esc、跳过、最后一页的“完成”都关，inert 解除、焦点回到“?”；已看过时不再记“指南已看”；
 //   ④ 语言：切到 EN 后再开，标题与按钮是英文；
 //   ⑤ 让位：别的模态开着时不开指南；
-//   ⑥ 全程没有页面异常、没有外网请求。
+//   ⑥ 首次启动：指南未看时开窗后自动打开一次，关掉只记一次“指南已看”，之后快照怎么变都不再弹；已看过则不弹；
+//   ⑦ 全程没有页面异常、没有外网请求。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
 //
 // 用法：node web-preview/tests/smoke-guide-page.mjs [仓库根]
@@ -30,6 +31,7 @@ const fmt = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k]);
 
 const FD = "document.getElementById('frame').contentDocument";
 const MOCK = "window.__MICIRI_MOCK__";
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const server = await startStaticServer(ROOT);
 const browser = await launchBrowser({ width: 1400, height: 1000 });
@@ -51,6 +53,7 @@ try {
         page.eval(
             `(${FD}.activeElement || ${FD}.body).dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, ${extra} bubbles: true, cancelable: true }))`,
         );
+    const seenCalls = async () => (await calls()).filter((c) => c.startsWith("setGuideSeen"));
     const isOpen = () => page.eval(`!!${q('[data-part="guide"]')}`);
     const stepId = () => page.eval(`${q('[data-part="guide-callout"]')}?.dataset.step ?? null`);
     const title = () => page.eval(`${q(".guide-call__title")}?.textContent ?? null`);
@@ -67,7 +70,8 @@ try {
         label: "首个快照应用后 data-ready 应为 1",
     });
     run.eq(await page.eval(`${FD}.documentElement.dataset.bootError ?? null`), null, "不应有启动错误");
-    run.eq(await isOpen(), false, "没点“?”之前指南不开（不自动弹）");
+    await sleep(500); // 留足自动打开的时间窗口：指南已看过时，一直不应弹出
+    run.eq(await isOpen(), false, "指南已看过时，没点“?”之前不开");
 
     // ---- ① 打开 ----
     await openGuide();
@@ -137,11 +141,7 @@ try {
     run.eq(await isOpen(), false, "最后一页点“完成”关闭");
     run.eq(await anyInert(), 0, "关闭后 inert 全部解除");
     run.eq(await active(), "help", "关闭后焦点回到“?”");
-    run.eq(
-        (await calls()).filter((c) => c.startsWith("setGuideSeen")),
-        ["setGuideSeen:[true]"],
-        "看完后记一次“指南已看”",
-    );
+    run.eq(await seenCalls(), [], "已看过时，看完也不再记“指南已看”");
     await openGuide();
     await key("Escape");
     run.eq(await isOpen(), false, "Esc 关闭");
@@ -149,11 +149,7 @@ try {
     await openGuide();
     if (total > 1) await click('[data-part="guide-skip"]');
     run.eq(await isOpen(), false, "“跳过”关闭");
-    run.eq(
-        (await calls()).filter((c) => c.startsWith("setGuideSeen")).length,
-        1,
-        "已看过之后再开再关，不再重复记“指南已看”",
-    );
+    run.eq(await seenCalls(), [], "已看过时，Esc 与跳过也都不记");
 
     // ---- ④ 语言 ----
     await click('[data-lang="en"]');
@@ -177,7 +173,25 @@ try {
     run.eq(await isOpen(), false, "别的模态开着时，指南不开");
     await key("Escape");
 
-    // ---- ⑥ 全程 ----
+    // ---- ⑥ 首次启动 ----
+    await page.goto(`${server.url}/web-preview/index.html?guide=fresh`);
+    await page.waitFor(`${FD}?.documentElement.dataset.ready === "1"`, { label: "首个快照应用后 data-ready 应为 1" });
+    await page.waitFor(`!!${q('[data-part="guide-callout"]')}`, { label: "指南未看时，开窗后应自动打开" });
+    run.eq(await stepId(), "input", "自动打开从第一步开始");
+    run.eq(await seenCalls(), [], "自动打开时还没记“指南已看”");
+    await key("Escape");
+    await page.waitFor(`${MOCK}.calls.some((c) => c.name === "setGuideSeen")`, { label: "关掉后应记“指南已看”" });
+    run.eq(await seenCalls(), ["setGuideSeen:[true]"], "关掉只记一次“指南已看”");
+    await page.eval(`${MOCK}.sim.advance(1)`);
+    await sleep(500);
+    run.eq(await isOpen(), false, "关掉之后快照继续来，不再自动打开");
+    // 保存没成功、快照里仍是未看：也不再弹（一次页面只自动开一回）
+    await page.eval(`${MOCK}.mutate((st) => { st.guideSeen = false; })`);
+    await sleep(500);
+    run.eq(await isOpen(), false, "快照退回未看，也不再自动打开");
+    run.eq(await seenCalls(), ["setGuideSeen:[true]"], "全程只记过一次“指南已看”");
+
+    // ---- ⑦ 全程 ----
     const external = requests
         .map((r) => (typeof r === "string" ? r : r.url))
         .filter((u) => !/^(http:\/\/127\.0\.0\.1|data:|about:)/.test(u));

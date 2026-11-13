@@ -99,7 +99,7 @@ export function buildSnapshot(o = {}) {
             apiVersion: BRIDGE_API_VERSION,
             lang: o.lang || "zh",
             uiScale: o.uiScale || 1,
-            guideSeen: false,
+            guideSeen: o.guideSeen !== false,
             micType: "unknown",
             device: fields(
                 SNAPSHOT_DEVICE,
