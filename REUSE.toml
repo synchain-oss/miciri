@@ -56,7 +56,10 @@ SPDX-License-Identifier = "BSD-3-Clause"
 [[annotations]]
 path = "packaging/win/languages/ChineseSimplified.isl"
 precedence = "override"
-SPDX-FileCopyrightText = "2019-2020 kirakira"
+SPDX-FileCopyrightText = [
+  "2019-2020 kirakira",
+  "Zhenghan Yang (translation)",
+]
 SPDX-License-Identifier = "MIT"
 
 # 以下是随发行包带走的第三方许可原文，每份文本对应 third_party/<名字>/ 下的一个文件，来源与版本写在同目录的 SOURCE.txt。
@@ -84,10 +87,21 @@ SPDX-FileCopyrightText = "2024 Steinberg Media Technologies GmbH"
 SPDX-License-Identifier = "GPL-3.0-only"
 
 # WebView2 的 loader 以静态库链进 Windows 版；NuGet 包的 LICENSE.txt 与 NOTICE.txt 一并带上。
+# NOTICE.txt 里除了微软自己的条款，还逐字转录了 Antlr3.Runtime 与 StringTemplate4 的 BSD-3-Clause 文本（版权 The ANTLR Project），
+# 所以它的版权行要多列这一项；LICENSE.txt 只有微软一家。
 [[annotations]]
-path = ["third_party/webview2/LICENSE.txt", "third_party/webview2/NOTICE.txt"]
+path = "third_party/webview2/LICENSE.txt"
 precedence = "override"
 SPDX-FileCopyrightText = "Microsoft Corporation"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = "third_party/webview2/NOTICE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Microsoft Corporation",
+  "2011 The ANTLR Project",
+]
 SPDX-License-Identifier = "BSD-3-Clause"
 
 # Inno Setup 的运行库编进 Windows 安装程序，所以它的许可随安装包走（zip 与 macOS 包不带，见 scripts/package.ps1）。

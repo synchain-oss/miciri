@@ -27,7 +27,7 @@ the Miciri commit and the JUCE commit named in the `INSTALL.txt` that comes with
 | Component | Version | Licence (SPDX) | Where it is used | Notice |
 |---|---|---|---|---|
 | [Inno Setup](https://jrsoftware.org/isinfo.php) (runtime) | 6.7.4 | LicenseRef-Inno-Setup | The installer and uninstaller programs are built with Inno Setup and contain its runtime. Copyright 1997-2026 Jordan Russell, portions copyright 2000-2026 Martijn Laan. | `third_party/innosetup/`, `LICENSES/LicenseRef-Inno-Setup.txt` |
-| [Inno Setup Chinese Simplified translation](https://github.com/kira-96/Inno-Setup-Chinese-Simplified-Translation) | file from the official Inno Setup repository, tag `is-6_7_4`, unchanged | MIT | The Simplified Chinese wizard text. Copyright (c) 2019-2020 kirakira. | `third_party/inno-setup-chinese-simplified/` |
+| [Inno Setup Chinese Simplified translation](https://github.com/kira-96/Inno-Setup-Chinese-Simplified-Translation) | file from the official Inno Setup repository, tag `is-6_7_4`, unchanged | MIT | The Simplified Chinese wizard text. Copyright (c) 2019-2020 kirakira; the file header names Zhenghan Yang as the maintainer. | `third_party/inno-setup-chinese-simplified/` |
 
 The zips and the macOS package contain no Inno Setup code. The installer's licence page stays the English GPL text.
 
