@@ -18,6 +18,7 @@ import { pathToFileURL } from "node:url";
 import { createRun, repoRoot } from "./lib/harness.mjs";
 import { findBrowser, launchBrowser } from "./lib/browser.mjs";
 import { startStaticServer } from "./lib/static-server.mjs";
+import { checkFontsLoaded } from "./lib/fonts.mjs";
 
 const ROOT = repoRoot();
 const run = createRun("外壳（页面）");
@@ -68,6 +69,7 @@ try {
     });
     run.eq(await page.eval(`${FD}.documentElement.dataset.bootError ?? null`), null, "不应有启动错误");
     run.eq(await page.eval(`${FD}.documentElement.dataset.firstFrame`), "1", "应有首帧信号");
+    await checkFontsLoaded(run, page, FD, "外壳");
     const rect = (sel) =>
         page.eval(
             `(() => { const r = ${q(sel)}.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); })()`,
@@ -383,7 +385,7 @@ try {
         "旧语义下档位表只剩 100% 一档",
     );
     run.eq(
-        lp.errors.filter((e) => !/\.woff2/.test(e)),
+        lp.errors,
         [],
         "旧语义页面不应有页面异常",
     );
@@ -393,9 +395,7 @@ try {
         .map((r) => (typeof r === "string" ? r : r.url))
         .filter((u) => !/^(http:\/\/127\.0\.0\.1|data:|about:)/.test(u));
     run.eq(external, [], "不应有任何外网请求");
-    // 字体文件由字体那张卡提供，缺失时回退系统字体，这里只放过 woff2 的 404
-    const errors = page.errors.filter((e) => !/\.woff2/.test(e));
-    run.eq(errors, [], "不应有页面异常或 console.error");
+    run.eq(page.errors, [], "不应有页面异常或 console.error");
 } finally {
     await browser.close();
     await server.close();
