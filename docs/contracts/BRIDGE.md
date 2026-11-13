@@ -32,11 +32,13 @@ status: frozen
 | `openExternal` | 链接 | 交给系统浏览器，页面不自己打开外链 |
 | `showLicense` | 无 | 打开许可证 |
 | `clearClipLatch` | 无 | 用户点削波灯：清掉锁存，单声道和立体声都清 |
+| `getEvidence` | `ENUM_STEP_ID` 之一 | 追加。回 `{ok: true, evidence}`，`evidence` 是这一步最近一次做完时的证据波形（见下文“证据波形”）；不认识回 `bad-step`，这一步没做完过回 `no-evidence`。只读，不改状态、不推快照 |
 
 失败原因（`BRIDGE_REASONS`）：`bad-lang` 语言不认识；`bad-scale` 缩放档位越界；`bad-step` 步骤名不认识；`bad-arg` 其他参数类型不符；
 `no-pending` 没有待确认的缩放；`scale-locked` 此时不允许改缩放；`not-ready` 宿主在显示兜底面板；`busy` 当前步骤正忙；
 `disabled` 此刻不能测试：宿主在离线渲染、宿主是插件验证工具、音频还没准备好，或分配采集缓冲、起分析线程失败（追加）。
 `busy` 也包括刚取消或作废的那一步还在做收尾分析的片刻（取消不等分析做完），稍后重试即可。
+`no-evidence` 这一步还没有证据波形：没做完过（作废、取消的不算）（追加）。
 越界或类型不符一律由 C++ 侧夹取或拒绝，界面不校验。
 
 ## 事件（原生推给界面，`BRIDGE_EVENTS`）
@@ -93,6 +95,7 @@ status: frozen
     `clipped` 是否削波，`bandStatus`（`ENUM_CLAP_BAND_STATUS`）与 `t20Sec` 按 `bands.t20BandsHz` 的顺序给各频带的状态与 T20（拟合不出为 0）。
     房间步结束后与 `claps` 一起保留。
 - `steps.<id>.durationSec` 在 `idle` 时也给出这一步的计划时长（准备页写“约 N 秒”）。
+- `steps.<id>.evidenceRev`、`steps.<id>.runs`（追加）：见下文“证据波形”。
 
 ## 建议与“最该改”（追加：`fixes`、`advice`、`previous`）
 
@@ -108,6 +111,28 @@ status: frozen
 - `results.direction` 追加 `repeatIndex`、`confirmedAdvantageDb`：那一对是当前方向与 `repeatIndex`，只在还要重唱这一对、
   或重唱后确认成立（`kind` 为 `maybe-reversed`）时给出，其余为 -1；`confirmedAdvantageDb` 只在确认成立时给出两次里较小的
   优势（dB），其余为 `null`（重唱后没确认也是 `null`）。
+
+## 证据波形（追加：`getEvidence`、`evidenceRev`、`runs`）
+
+报告详情里画的波形与事件标记。界面看到 `steps.<id>.evidenceRev` 变了再调 `getEvidence(stepId)` 取一次，不要每帧取。
+
+- `steps.<id>.runs`：这一步做完过几次，0 表示没做过；作废、取消的不算。`steps.<id>.evidenceRev`：这一步的证据更新过几次，没有证据为 0。
+  两者都只在这一步做完时加 1，各步各自单调、不回退。作废（`invalid`）、取消、过期（用户说动过了、换了房间、采样率或声道数变了）都不动证据，
+  它和这一步留着的旧结果是同一次测试；卸载插件就没了，下次从 0 起。每步只留最近一份（包络最多 `evidence_cells_max` 格 × 2 个 16 位整数，约 32 KB，加事件）。
+- 回执载荷 `EvidencePack`（`EVIDENCE_PACK`）：`stepId`、`rev`（等于取的那一刻的 `evidenceRev`）、`durationSec`、`envelope`、`events`。
+- 时间轴：相对这一步开始的采样计时，只算分析实际用到的样本：阶段重来时倒数的那段与被丢掉的那次不算，`durationSec` 就是这些样本的时长。
+  事件与包络在同一条轴上；位置步的喷麦、齿音、口水音标记由会话换算到这条轴（三项分析各自从自己那段音频的开头计时）。
+- `envelope`（`EVIDENCE_ENVELOPE`）：被分析的那一路（单声道轨就是唯一那一路；立体声轨是开始这一步时的分析声道，声道检查给出，
+  没做过时是左路），每格的最小、最大样本，取整到 -1000..1000 的整数（千分之一满刻度，超过满刻度的夹到 ±1000，NaN 不计入，合并前后都一样；整格都是 NaN 时记 0）。
+  `min`、`max` 等长，第 i 格是 `[i·hopSec, (i+1)·hopSec)` 里的样本，最后一格可能不满。格数不超过 `session.evidence_cells_max`（现为 8192）；
+  `hopSec` 是不短于 `session.evidence_hop_min_s`（现为 2 ms）的最少整数个采样（基础格）的整数倍，取让格数不超限的最小倍数，
+  所以 `hopSec` ≥ max(`evidence_hop_min_s`, `durationSec` / `evidence_cells_max`)，多出的不到一个基础格。
+- `events`（每项是 `EVIDENCE_EVENT`）：这一步各结果的证据标记里只取三种，`kind` 取 `EVIDENCE_EVENT_KINDS`，其余种类不输出。按 `timeSec` 排序，
+  最多 `session.evidence_events_max`（现为 200）个，超出时留最早的。`timeSec` 是起点，`durSec` 是长度。`levelDb` 的口径随种类：
+  - `plosive`：起音段低频峰值相对同音节元音稳态低频电平，dB（相对值）；
+  - `sibilance`：这个擦音 6–12 kHz 减底噪后的均方电平，dBFS；高频项关闭（`highBandDisabled`）时是 3–6 kHz；
+  - `mouth`（口水音）：约 `click.highpass_hz` 高通之后的峰值，dBFS，与 `click.loudestDbfs` 同口径。
+- 隐私：包络是由录到的音频派生的数据，只在内存里：不写盘、不进插件 state、不上传、不进“复制结果”、不写日志、不进 issue。
 
 ## 口水音的口径与未分档的显示
 

@@ -27,6 +27,7 @@
 #include "decide/Decide.h"
 #include "result/Results.h"
 #include "session/AudioTap.h"
+#include "session/Evidence.h"
 #include "session/Steps.h"
 
 namespace miciri::session
@@ -90,6 +91,8 @@ struct SessionView
 {
     std::array<StepState, kStepCount> steps{};
     std::array<double, kStepCount> durationSec{};
+    std::array<std::uint64_t, kStepCount> runs{}; // 每步做完过几次（作废、取消的不算）
+    std::array<std::uint64_t, kStepCount> evidenceRev{}; // 每步的证据更新过几次，没有证据为 0
     core::AllResults results;
     core::AllResults previous; // 每一项被新结果换下来之前的那一次（“上次→现在”），只在内存里
     std::optional<core::DirectionAnalysis> direction; // 最近一次方向步的分析：确认的那一对与较小的优势
@@ -135,6 +138,11 @@ public:
     bool running() const;
     // 后面几步会用到的量（测试与快照用）
     StepContext context() const;
+    // 这一步最近一次做完时的证据波形，没做完过为空。存下的那份不再改动，调用方可以放开锁慢慢读。
+    // 生命周期：只在做完一步时换成新的一份，rev 加 1（每步各自单调，从 1
+    // 起）；作废、取消、过期（用户说动过了、换了房间、
+    // 采样率或声道数变了）都不动它，和这一步留着的旧结果一致；没有写盘的路径，卸载插件就没了。
+    std::shared_ptr<const EvidencePack> evidence(core::StepId id) const;
 
 private:
     struct Worker;
@@ -163,6 +171,9 @@ private:
     core::AllResults results_;
     core::AllResults previous_;
     std::optional<core::DirectionAnalysis> direction_;
+    std::array<std::uint64_t, kStepCount> runs_{};
+    std::array<std::uint64_t, kStepCount> evidenceRev_{};
+    std::array<std::shared_ptr<const EvidencePack>, kStepCount> evidence_{};
     SectionSet stale_{};
     SectionSet changedDuring_{}; // 当前这一步进行中，用户上报的改动让哪几项过期；这一步的这几项产出照样过期
     Live live_;

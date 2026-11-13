@@ -25,6 +25,7 @@ export const BRIDGE_FUNCTIONS = [
     "openExternal",
     "showLicense",
     "clearClipLatch",
+    "getEvidence",
 ];
 
 // 原生推给界面（纯下行，界面只订阅）
@@ -41,6 +42,7 @@ export const BRIDGE_REASONS = [
     "not-ready",
     "busy",
     "disabled",
+    "no-evidence",
 ];
 
 // 快照（miciri.state 的载荷，requestInitialState 的回执）
@@ -73,7 +75,7 @@ export const SNAPSHOT_CONNECT = [
     "analysedChannel",
 ];
 // steps.<StepId>.<字段>；invalidReason 取 ENUM_RETEST_REASON
-export const SNAPSHOT_STEP = ["status", "progressSec", "durationSec", "invalidReason"];
+export const SNAPSHOT_STEP = ["status", "progressSec", "durationSec", "invalidReason", "evidenceRev", "runs"];
 
 // results.<区段>.<字段>：每个区段 = 该结果的连续量 + 档位 + RESULT_COMMON；字段名即 Result 结构的 camelCase 名
 export const RESULT_SECTIONS = [
@@ -289,3 +291,9 @@ export const ENUM_FIX_ITEM = [
     "noise",
     "plosive",
 ];
+
+// 追加（证据波形）：getEvidence 的回执载荷（{ok: true, evidence}）、包络、事件与事件种类
+export const EVIDENCE_PACK = ["stepId", "rev", "durationSec", "envelope", "events"];
+export const EVIDENCE_ENVELOPE = ["hopSec", "min", "max"];
+export const EVIDENCE_EVENT = ["kind", "timeSec", "durSec", "levelDb"];
+export const EVIDENCE_EVENT_KINDS = ["plosive", "sibilance", "mouth"];

@@ -868,6 +868,27 @@
       "source": "工程起始值",
       "date": null,
       "note": "audio the capture ring holds while the worker is busy; a full ring voids the step as an overflow"
+    },
+    "evidence_hop_min_s": {
+      "value": 0.002,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "narrowest cell of a step's evidence envelope, rounded up to whole samples"
+    },
+    "evidence_cells_max": {
+      "value": 8192,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "most cells in one step's evidence envelope; longer steps merge whole narrow cells into wider ones"
+    },
+    "evidence_events_max": {
+      "value": 200,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "most plosive, sibilance and mouth-noise events in one step's evidence; the earliest are kept"
     }
   }
 }

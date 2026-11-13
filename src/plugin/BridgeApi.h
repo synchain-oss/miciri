@@ -26,10 +26,11 @@ constexpr std::array<std::string_view, sizeof...(S)> names(S... s)
 // 表名与 bridge-api.js 里的 export 名逐字相同
 inline constexpr auto kFunctions =
     names("requestInitialState", "setLang", "setUiScale", "commitUiScale", "setGuideSeen", "setMicType", "startStep",
-          "cancelStep", "reportChange", "dismissChannelPrompt", "openExternal", "showLicense", "clearClipLatch");
+          "cancelStep", "reportChange", "dismissChannelPrompt", "openExternal", "showLicense", "clearClipLatch",
+          "getEvidence");
 inline constexpr auto kEvents = names("miciri.state", "miciri.meters", "miciri.error");
 inline constexpr auto kReasons = names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked",
-                                       "not-ready", "busy", "disabled");
+                                       "not-ready", "busy", "disabled", "no-evidence");
 
 inline constexpr auto kSnapshotRoot =
     names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device", "connect", "steps", "results", "bands",
@@ -38,7 +39,8 @@ inline constexpr auto kSnapshotDevice = names("sampleRate", "bufferSize", "layou
 inline constexpr auto kSnapshotConnect =
     names("signalState", "callbackAgeSec", "allZero", "noiseDbfs", "channelStatusL", "channelStatusR", "channelPrompt",
           "channelPromptDismissed", "analysedChannel");
-inline constexpr auto kSnapshotStep = names("status", "progressSec", "durationSec", "invalidReason");
+inline constexpr auto kSnapshotStep =
+    names("status", "progressSec", "durationSec", "invalidReason", "evidenceRev", "runs");
 
 inline constexpr auto kResultSections =
     names("noSignal", "channels", "gain", "noise", "hum", "deviceProcessing", "reverb", "directRatio", "plosive",
@@ -81,6 +83,11 @@ inline constexpr auto kSnapshotLive =
 // 追加（建议与“最该改”）：房间步每一下拍手的明细、建议
 inline constexpr auto kSnapshotClapDetail = names("timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec");
 inline constexpr auto kSnapshotAdvice = names("room", "distance", "directionPrompt");
+// 追加（证据波形）：getEvidence 的回执载荷与事件种类，含义见 docs/contracts/BRIDGE.md
+inline constexpr auto kEvidencePack = names("stepId", "rev", "durationSec", "envelope", "events");
+inline constexpr auto kEvidenceEnvelope = names("hopSec", "min", "max");
+inline constexpr auto kEvidenceEvent = names("kind", "timeSec", "durSec", "levelDb");
+inline constexpr auto kEvidenceEventKinds = names("plosive", "sibilance", "mouth");
 
 // 对拍用的登记表：JS 的 export 名 -> 该表的内容
 struct Table
@@ -156,6 +163,10 @@ inline std::vector<Table> contractTables()
         table("ENUM_DISTANCE_ADVICE", c::kDistanceAdviceNames),
         table("ENUM_DIRECTION_PROMPT", c::kDirectionPromptNames),
         table("ENUM_FIX_ITEM", c::kFixItemNames),
+        table("EVIDENCE_PACK", kEvidencePack),
+        table("EVIDENCE_ENVELOPE", kEvidenceEnvelope),
+        table("EVIDENCE_EVENT", kEvidenceEvent),
+        table("EVIDENCE_EVENT_KINDS", kEvidenceEventKinds),
     };
 }
 } // namespace miciri::bridge

@@ -45,8 +45,9 @@ juce::String wireName(std::string_view v)
 constexpr const char* kBadStep = "bad-step";
 constexpr const char* kBusy = "busy";
 constexpr const char* kDisabled = "disabled";
+constexpr const char* kNoEvidence = "no-evidence";
 static_assert(bridge::listed(bridge::kReasons, kBadStep) && bridge::listed(bridge::kReasons, kBusy) &&
-                  bridge::listed(bridge::kReasons, kDisabled),
+                  bridge::listed(bridge::kReasons, kDisabled) && bridge::listed(bridge::kReasons, kNoEvidence),
               "错误原因必须出现在 BridgeApi.h 的 kReasons 里");
 
 // 参数是某个枚举的线上名字：返回它的下标，不认识返回 -1
@@ -258,6 +259,26 @@ void MiciriEditor::handleBridgeCall(const juce::String& name, const juce::Array<
         processor_.session().dismissChannelPrompt();
         complete(bridge::okResponse());
         emitState();
+        return;
+    }
+    // 证据波形：只读 Session 存好的那一份，不改状态、不推快照；包络是派生数据，不写日志
+    if (name == "getEvidence")
+    {
+        const int index = wireIndex(args, core::kStepIdNames);
+        if (index < 0)
+        {
+            complete(bridge::failResponse(kBadStep));
+            return;
+        }
+        const auto pack = processor_.session().evidence(static_cast<core::StepId>(index));
+        if (pack == nullptr)
+        {
+            complete(bridge::failResponse(kNoEvidence));
+            return;
+        }
+        const auto json = session::evidenceJson(*pack);
+        complete(bridge::okResponseWith(
+            "evidence", juce::JSON::parse(juce::String::fromUTF8(json.data(), static_cast<int>(json.size())))));
         return;
     }
     if (name == "clearClipLatch")

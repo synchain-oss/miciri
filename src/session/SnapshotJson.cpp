@@ -2,6 +2,7 @@
 //
 // Session 的快照写成 JSON。字段名与顺序按桥契约（src/plugin/BridgeApi.h 的 SNAPSHOT_*、RESULT_* 表），
 // 会话测试逐表对拍，任何一边多一项、少一项都判红。数字按 C 区域格式化；非有限数写 null。
+// getEvidence 的回执载荷（证据波形）也在这里写，字段按 EVIDENCE_* 表。
 #include <cmath>
 #include <iomanip>
 #include <locale>
@@ -9,6 +10,7 @@
 #include <string_view>
 
 #include "config/Thresholds.h"
+#include "plugin/BridgeApi.h"
 #include "session/Advice.h"
 #include "session/Grading.h"
 #include "session/Session.h"
@@ -437,6 +439,8 @@ std::string snapshotJson(const SessionView& v, core::MicType mic)
         j.key(kStepIdNames[i]).open();
         j.key("status").wire(shownStatus(v, i)).key("progressSec").num(s.progressSec);
         j.key("durationSec").num(v.durationSec[i]).key("invalidReason").wire(s.invalidReason);
+        j.key("evidenceRev").integer(static_cast<long long>(v.evidenceRev[i]));
+        j.key("runs").integer(static_cast<long long>(v.runs[i]));
         j.close();
     }
     j.close();
@@ -454,6 +458,41 @@ std::string snapshotJson(const SessionView& v, core::MicType mic)
     j.closeArray();
     putAdvice(j.key("advice"), advice);
     putResults(j.key("previous"), v.previous, SectionSet{}, nullptr);
+    j.close();
+    return j.str();
+}
+
+// 事件种类与名表一一对应：枚举加了一项而名表没跟上时编不过，不会越界读
+static_assert(bridge::kEvidenceEventKinds.size() == static_cast<std::size_t>(EvidenceEventKind::Count));
+
+std::string evidenceJson(const EvidencePack& p)
+{
+    Json j;
+    j.open();
+    j.key("stepId")
+        .wire(p.step)
+        .key("rev")
+        .integer(static_cast<long long>(p.rev))
+        .key("durationSec")
+        .num(p.durationSec);
+    j.key("envelope").open().key("hopSec").num(p.hopSec);
+    j.key("min").openArray();
+    for (const auto v : p.min)
+        j.integer(v);
+    j.closeArray();
+    j.key("max").openArray();
+    for (const auto v : p.max)
+        j.integer(v);
+    j.closeArray();
+    j.close();
+    j.key("events").openArray();
+    for (const auto& e : p.events)
+    {
+        j.open().key("kind").name(bridge::kEvidenceEventKinds[static_cast<std::size_t>(e.kind)]);
+        j.key("timeSec").num(e.timeSec).key("durSec").num(e.durSec).key("levelDb").num(e.levelDb);
+        j.close();
+    }
+    j.closeArray();
     j.close();
     return j.str();
 }

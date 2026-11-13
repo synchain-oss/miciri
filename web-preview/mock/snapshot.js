@@ -81,7 +81,14 @@ export function buildSnapshot(o = {}) {
             id,
             fields(
                 SNAPSHOT_STEP,
-                { status: "idle", progressSec: 0, durationSec: PLAN_SEC[id], invalidReason: "none" },
+                {
+                    status: "idle",
+                    progressSec: 0,
+                    durationSec: PLAN_SEC[id],
+                    invalidReason: "none",
+                    evidenceRev: 0,
+                    runs: 0,
+                },
                 `steps.${id}`,
             ),
         ]),

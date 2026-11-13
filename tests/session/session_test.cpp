@@ -2,6 +2,7 @@
 //
 // 起线程的部分：采集环、工作线程、控制函数与保护。一个线程扮演宿主的音频线程往 tap 里推块，
 // 主线程扮演消息线程读快照、取消、重新准备。sanitizer 构建（含 TSan）跑的就是这些交接。
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include <atomic>
@@ -188,6 +189,62 @@ TEST_CASE("a change reported while a step runs leaves that step's output stale a
     REQUIRE(waitFor([&] { return !s.running(); }));
     CHECK(s.view().previous.noSignal.has_value());
     CHECK_FALSE(s.view().stale[static_cast<std::size_t>(session::Section::NoSignal)]);
+}
+
+TEST_CASE("evidence changes only when a step completes: rev and runs climb, voided and cancelled runs leave it")
+{
+    session::Session s;
+    const double fs = 16000.0;
+    const auto connect = static_cast<std::size_t>(StepId::Connect);
+    s.prepare(fs, 1);
+    CHECK(s.evidence(StepId::Connect) == nullptr);
+    CHECK((s.view().runs[connect] == 0 && s.view().evidenceRev[connect] == 0));
+
+    const auto x = voice(fs, thr::no_signal::low_flat_window_s + 0.5, 0.1, 5);
+    REQUIRE(s.startStep(StepId::Connect) == session::Session::Start::Ok);
+    pump(s.tap(), x, 1, fs, 1.3);
+    REQUIRE(waitFor([&] { return !s.running(); }));
+    REQUIRE(stepOf(s, StepId::Connect).status == StepStatus::Done);
+    const auto first = s.evidence(StepId::Connect);
+    REQUIRE(first != nullptr);
+    CHECK(first->step == StepId::Connect);
+    CHECK(first->rev == 1);
+    CHECK((s.view().runs[connect] == 1 && s.view().evidenceRev[connect] == 1));
+    CHECK(first->durationSec == Catch::Approx(thr::no_signal::low_flat_window_s));
+    CHECK((!first->min.empty() && first->min.size() == first->max.size()));
+    CHECK(first->events.empty()); // 接通没有喷麦、齿音、口水音
+
+    // 作废：证据、次数都不动
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Connect) == session::Session::Start::Ok; }));
+    pump(s.tap(), x, 1, fs, 0.0);
+    REQUIRE(waitFor([&] { return !s.running(); }));
+    REQUIRE(stepOf(s, StepId::Connect).status == StepStatus::Invalid);
+    CHECK(s.evidence(StepId::Connect) == first);
+    CHECK((s.view().runs[connect] == 1 && s.view().evidenceRev[connect] == 1));
+
+    // 取消、过期、声道数变了：同样不动
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Connect) == session::Session::Start::Ok; }));
+    s.cancelStep();
+    s.reportChange(core::ChangeKind::Room);
+    s.prepare(fs, 2);
+    CHECK(s.evidence(StepId::Connect) == first);
+    CHECK((s.view().runs[connect] == 1 && s.view().evidenceRev[connect] == 1));
+
+    // 再做完一次：换成新的一份，rev 与 runs 都到 2；旧的那份不被改动
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Connect) == session::Session::Start::Ok; }));
+    pump(s.tap(), x, 2, fs, 1.3);
+    REQUIRE(waitFor([&] { return !s.running(); }));
+    REQUIRE(stepOf(s, StepId::Connect).status == StepStatus::Done);
+    const auto second = s.evidence(StepId::Connect);
+    REQUIRE(second != nullptr);
+    CHECK(second != first);
+    CHECK(second->rev == 2);
+    CHECK(first->rev == 1);
+    auto root = JsonReader(session::snapshotJson(s.view())).parse();
+    CHECK(root["steps"]["connect"]["evidenceRev"].number == 2.0);
+    CHECK(root["steps"]["connect"]["runs"].number == 2.0);
+    CHECK(root["steps"]["gain"]["evidenceRev"].number == 0.0);
+    CHECK(s.evidence(StepId::Gain) == nullptr);
 }
 
 TEST_CASE("audio arriving much faster than real time voids the step without analysing it")

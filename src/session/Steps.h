@@ -17,6 +17,7 @@
 #include "direction/Direction.h"
 #include "result/Results.h"
 #include "room/Room.h"
+#include "session/Evidence.h"
 
 namespace miciri::session
 {
@@ -55,6 +56,7 @@ struct StepOutput
     std::optional<double> speechLevelDbfsA;
     std::optional<bool> signalSeen;
     std::optional<core::DirectionAnalysis> direction; // 方向步：含确认的那一对与较小的优势，“最该改”要用
+    std::shared_ptr<EvidencePack> evidence; // 证据波形（见 Evidence.h），工作线程在 finish() 之后生成
 };
 
 class StepScript
@@ -67,6 +69,8 @@ public:
     bool done() const { return done_; }
     // 收完之后做整段分析，只能调一次
     virtual StepOutput finish() = 0;
+    // 证据波形：分析那一路的包络加 results 里的事件；时间轴是这一步分析实际用到的样本（倒数与重来前的不算）
+    EvidencePack evidence(const core::AllResults& results) const;
 
     const Live& live() const { return live_; }
     double progressSec() const;
@@ -87,6 +91,8 @@ protected:
     void analysed() const;
     std::size_t framesFor(double seconds) const;
     const double* pick(const double* left, const double* right) const; // 单声道分析用的那一路
+    // 这一步的时间轴上已收的帧（不含倒数，重来时退回）；在 take() 里就是这一块第一个样本的位置
+    std::size_t heardFrames() const { return consumed_; }
 
     // 子类的钩子：样本落在哪一段；阶段收满时检查（返回非 None 的提示就重来这一阶段）；能否提前收尾
     virtual void take(const Segment& seg, const double* left, const double* right, std::size_t frames) = 0;
@@ -102,6 +108,7 @@ private:
     void restartPhase(core::FlowNotice notice);
 
     AnalysisHook hook_;
+    EnvelopeRecorder envelope_; // 与 take() 收到的样本同步：pick() 的那一路，阶段重来时一起退回
     std::vector<Segment> plan_;
     std::size_t segment_ = 0;
     std::size_t inSegment_ = 0;
