@@ -38,7 +38,7 @@ pwsh tests/host/run-host-matrix.ps1 -HarnessDir <工具目录> -CfgDir <私有�
 ```
 
 - 全套约 10 分钟，启动 REAPER 二十多次，**会在桌面上弹窗口**（编辑器开关 20 次会反复弹浮窗）。跑的时候别用自己的 REAPER：
-  开跑前有 `reaper.exe` 在就直接拒绝，也不会替你结束它。需要让它让路时用 `-SkipMarker <文件>`：文件存在期间整套跳过。
+  开跑前有 `reaper.exe` 在就直接拒绝，也不会替你结束它。需要让它让路时用 `-SkipMarker <文件>`：文件存在期间整套跳过（退出码 3），这时脚本不检查 `reaper.exe`。相对路径按你当前所在的目录解析。
 - 只跑一部分：`-Only '<场景 id 的正则>'`，例如 `-Only '^render-'`、`-Only '^transport-12$'`、`-Only '^windows-20$'`、`-Only '^neg-'`。
   第一次在新配置目录里启动 REAPER 会扫描插件，可能让第一次启动失败（INCOMPLETE），重跑即可；REAPER 的评估版提醒也会让单次启动偶尔 INCOMPLETE，工具会自动重试一次。
 - 退出码：0 全 PASS，1 有 FAIL，2 有 INCOMPLETE（不算通过，先重跑，不要为了变绿去放宽判据），3 整套被跳过，64 被守卫或用法错误拒绝。全 PASS 但跑完仍有 reaper.exe 在时脚本改报 2；已经是别的非 0 码时保持原码，残留进程只打印。

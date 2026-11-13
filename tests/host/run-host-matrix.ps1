@@ -23,6 +23,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+# 相对路径按调用者当前所在的目录解析（下面要进仓根）；路径不必已存在
+function Resolve-Abs([string]$Path) { if ($Path) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path) } else { '' } }
+$HarnessDir = Resolve-Abs $HarnessDir; $CfgDir = Resolve-Abs $CfgDir; $PluginDir = Resolve-Abs $PluginDir; $ResultDir = Resolve-Abs $ResultDir
+$SkipMarker = @($SkipMarker | ForEach-Object { Resolve-Abs $_ })
 Set-Location $Root
 
 if (-not $HarnessDir) { throw '需要 -HarnessDir 或环境变量 MICIRI_REAPER_HARNESS（reaper-harness 的单独克隆，不放进本仓）' }
@@ -35,7 +39,9 @@ if ($have -ne $pin) { throw "reaper-harness 检出是 $have，应为 tests/host/
 
 # 2. 不与用户自己的 REAPER 抢：有 reaper.exe 就不开始（reaper-harness 自己也会拒绝）
 function Get-ReaperPids { @(Get-Process -Name reaper -ErrorAction SilentlyContinue | ForEach-Object Id) }
-if (@(Get-ReaperPids).Count) { throw '已有 reaper.exe 在运行：不开始，也不替你结束它。先关掉它或建好跳过标记文件再试' }
+# 跳过标记文件已存在时整套会被 reaper-harness 跳过、不启动 REAPER，用户自己的 REAPER 在不在都不碍事
+$markerOn = @($SkipMarker | Where-Object { Test-Path -LiteralPath $_ }).Count -gt 0
+if (-not $markerOn -and @(Get-ReaperPids).Count) { throw '已有 reaper.exe 在运行：不开始，也不替你结束它。先关掉它再试' }
 
 # 3. 探针构建（只用于宿主测试，不得发布）
 if (-not $PluginDir) {
@@ -84,8 +90,8 @@ finally { foreach ($k in $saved.Keys) { Set-Item -Path "env:$k" -Value $saved[$k
 # 6. 跑后核对
 $problems = @()
 # 刚被结束的进程要一会儿才从列表里消失：最多等 15 秒
-for ($i = 0; $i -lt 30 -and @(Get-ReaperPids).Count; $i++) { Start-Sleep -Milliseconds 500 }
-if (@(Get-ReaperPids).Count) { $problems += "跑完仍有 reaper.exe 在：$((Get-ReaperPids) -join ',')（不替你结束它）" }
+for ($i = 0; $i -lt 30 -and -not $markerOn -and @(Get-ReaperPids).Count; $i++) { Start-Sleep -Milliseconds 500 }
+if (-not $markerOn -and @(Get-ReaperPids).Count) { $problems += "跑完仍有 reaper.exe 在：$((Get-ReaperPids) -join ',')（不替你结束它）" }
 foreach ($k in $watch.Keys) {
     $after = Get-DirListing $watch[$k]; $changed = @()
     foreach ($f in $after.Keys) { if (-not $before[$k].ContainsKey($f)) { $changed += "added:$f" } elseif ($before[$k][$f] -ne $after[$f]) { $changed += "changed:$f" } }
