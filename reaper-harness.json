@@ -146,6 +146,7 @@
       "kind": "transport",
       "layout": "voice",
       "track": "Voice",
+      "host": { "runFxWhenStopped": true },
       "feed": { "channels": "different" },
       "states": [
         {

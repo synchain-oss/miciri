@@ -8,7 +8,7 @@
 # 做的事：核对 reaper-harness 的钉版提交 → 构建探针版插件 → 开跑前确认没有 reaper.exe → 在新建的临时目录里
 # 设 USERPROFILE 与 WEBVIEW2_USER_DATA_FOLDER 再跑 reaper-harness → 把插件真实写入的目录跑前跑后各列一次 → 打印每一行的判定与数值。
 # 退出码沿用 reaper-harness：0 全 PASS，1 有 FAIL，2 有 INCOMPLETE，3 整套被 SKIPPED，64 被守卫或用法错误拒绝；
-# 跑完仍有 reaper.exe 在时，在这些之上再报 2；插件数据目录的前后差异只报告，不当失败。
+# 其余都通过（0）时，跑完仍有 reaper.exe 在也报 2；已经是 1、2、3、64 时保持原码，残留进程只打印；插件数据目录的前后差异只报告，不当失败。
 [CmdletBinding()]
 param(
     [string]$HarnessDir = $env:MICIRI_REAPER_HARNESS,
@@ -38,7 +38,11 @@ function Get-ReaperPids { @(Get-Process -Name reaper -ErrorAction SilentlyContin
 if (@(Get-ReaperPids).Count) { throw '已有 reaper.exe 在运行：不开始，也不替你结束它。先关掉它或建好跳过标记文件再试' }
 
 # 3. 探针构建（只用于宿主测试，不得发布）
-if (-not $PluginDir) { $PluginDir = (& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'build-probe.ps1') -JucePath $JucePath | Select-Object -Last 1) }
+if (-not $PluginDir) {
+    $built = @(& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'build-probe.ps1') -JucePath $JucePath)
+    if ($LASTEXITCODE) { $built | Select-Object -Last 20 | ForEach-Object { Write-Host $_ }; throw '探针版构建失败，见上面的输出' }
+    $PluginDir = $built | Select-Object -Last 1
+}
 if (-not (Test-Path -LiteralPath (Join-Path $PluginDir 'Miciri.vst3/Contents/Resources/moduleinfo.json'))) { throw "$PluginDir 里没有可测的 Miciri.vst3" }
 if (-not $ResultDir) { $ResultDir = Join-Path $Root 'build-host-probe/host-results' }
 New-Item -ItemType Directory -Force -Path $ResultDir | Out-Null
@@ -94,9 +98,13 @@ $result = Get-ChildItem -LiteralPath $ResultDir -Filter '*-miciri-host-host-matr
 if ($result) {
     $r = Get-Content -LiteralPath $result.FullName -Raw | ConvertFrom-Json
     Write-Host ("REAPER {0}，判定 {1}，启动 {2} 次，工具提交 {3}" -f $r.reaper, $r.verdict, $r.launches, $pin.Substring(0, 7))
-    foreach ($row in $r.runs[0].scenarios) {
-        Write-Host ("[{0}] {1} ({2:N1}s)" -f $row.status, $row.id, $row.seconds)
-        foreach ($part in ($row.detail -split ' \| ')) { Write-Host "    $part" }
+    $runs = @($r.runs)
+    for ($n = 0; $n -lt $runs.Count; $n++) {
+        if ($runs.Count -gt 1) { Write-Host "-- 第 $($n + 1) 轮 --" }
+        foreach ($row in $runs[$n].scenarios) {
+            Write-Host ("[{0}] {1} ({2:N1}s)" -f $row.status, $row.id, $row.seconds)
+            foreach ($part in ($row.detail -split ' \| ')) { Write-Host "    $part" }
+        }
     }
 } else { $problems += '没找到这次的结果文件' }
 foreach ($p in $problems) { Write-Host "问题：$p" }
