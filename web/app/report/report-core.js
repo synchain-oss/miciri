@@ -65,6 +65,29 @@ export function cardOf(id, state, from = results(state)) {
 /** 卡是否有结论：未测、过期、要再测的都没有。 */
 const conclusive = (c) => !c.missing && !c.stale && !c.retest && !c.none;
 
+/** 每张卡在 previous 里对应的区段（previous 只含被重测换掉的区段）；电流声跟着噪声一起测，两个都算。 */
+const PREVIOUS_OF = {
+    level: ["gain"],
+    noise: ["noise"],
+    hum: ["hum", "noise"],
+    room: ["reverb"],
+    dr: ["directRatio"],
+    plosive: ["plosive"],
+    sib: ["sibilance"],
+    mouth: ["click"],
+    dir: ["direction"],
+};
+/** 这一步做完过几次才算“重测过”。 */
+const RETESTED_RUNS = 2;
+
+/** 首次测量：这一步已经做完不止一次，而这张卡所在的区段没有上次的读数（上次没有这一项，或那次不可用）。 */
+export function isFirstMeasure(id, state) {
+    const step = state.steps && state.steps[STEP_OF[id]];
+    const runs = step && Number.isInteger(step.runs) ? step.runs : 0;
+    const prev = state.previous || {};
+    return runs >= RETESTED_RUNS && PREVIOUS_OF[id].every((s) => !prev[s]);
+}
+
 export function cardsOf(state) {
     const prevAll = state.previous || {};
     const hideDir = !visibleSteps(state).includes("direction");
@@ -74,7 +97,8 @@ export function cardsOf(state) {
         const before = cardOf(id, state, prevAll);
         const a = before.nums[0] && before.nums[0].text;
         const b = card.nums[0] && card.nums[0].text;
-        return conclusive(before) && a && b ? { ...card, prev: { a, b } } : card;
+        if (conclusive(before) && a && b) return { ...card, prev: { a, b } };
+        return isFirstMeasure(id, state) ? { ...card, first: true } : card;
     });
 }
 

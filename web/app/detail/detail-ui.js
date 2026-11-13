@@ -4,7 +4,10 @@
 // 过期或要再测时底部有重测按钮。背景 inert、点遮罩与 Esc 关闭、焦点还回打开它的卡，由 shared/modal.js 负责。
 // 只用 DOM API，文字走词条；内容全由 detailOf 给出，这里不读桥。
 //
-// ctx：{ t, retestSteps(steps), openPrep(step) }
+// 有证据的卡（增益、喷麦、齿音、口水音）在表格下面画证据画布：按这一步的 evidenceRev 变化才取一次数，取到之前、
+// 取不到或这张卡不画，都整块不渲染，不留空框。画布节点在面板重画时原样搬进新结构，缩放状态不丢。
+//
+// ctx：{ t, retestSteps(steps), openPrep(step), getEvidence(stepId) → Promise<EvidencePack|null> }
 
 import { el } from "../../shared/dom.js";
 import { createModal } from "../../shared/modal.js";
@@ -12,6 +15,8 @@ import { ctaBtn, radar } from "../flow/flow-ui.js";
 import { ic } from "../flow/icons.js";
 import { cardsOf } from "../report/report-core.js";
 import { detailOf } from "./detail-core.js";
+import { createEvidence } from "./evidence-canvas.js";
+import { normalize } from "./evidence-core.js";
 
 const PANEL_W = 640;
 
@@ -70,9 +75,48 @@ export function createDetail(o) {
         );
     }
 
+    /** 证据画布：没有就返回 null；要画的返回画布节点；rev 变了才重新取。 */
+    function evidenceFor(spec) {
+        if (!spec) return dropEvidence();
+        let ev = cur.ev;
+        if (!ev || ev.step !== spec.step) {
+            dropEvidence();
+            ev = cur.ev = { step: spec.step, comp: createEvidence(spec), rev: 0, ready: false };
+        }
+        if (ev.rev !== spec.rev) {
+            // 这一步有了新的证据：新数据到之前不再画旧的，免得旧一版的波形和新结果并排
+            ev.rev = spec.rev;
+            ev.ready = false;
+            fetchEvidence(ev, cur, spec.rev);
+        }
+        return ev.ready ? ev.comp : null;
+    }
+
+    function dropEvidence() {
+        if (cur.ev) cur.ev.comp.destroy();
+        cur.ev = null;
+        return null;
+    }
+
+    function fetchEvidence(ev, owner, rev) {
+        Promise.resolve()
+            .then(() => ctx.getEvidence(ev.step))
+            .catch(() => null)
+            .then((pack) => {
+                // 窗口关了、换了卡，或这期间又有新一版：这次的结果作废
+                if (cur !== owner || cur.ev !== ev || ev.rev !== rev) return;
+                const data = pack ? normalize(pack) : null;
+                ev.ready = data !== null;
+                ev.comp.setData(data);
+                redraw(cur.state);
+            });
+    }
+
     function build(state) {
+        cur.state = state;
         const d = detailOf(cur.id, state);
         const c = d.card;
+        const ev = evidenceFor(d.evidence);
         const tone = c.stale || c.none ? "gray" : c.tone;
         const nums = (c.nums || []).map((n) =>
             el(
@@ -119,6 +163,7 @@ export function createDetail(o) {
             el("p", { class: "dt__expl", text: t(d.expl.key, d.expl.vars) }),
             d.radar ? el("div", { class: "dt__radar" }, radar({ rel: d.radar.rel }, ctx)) : null,
             table(d),
+            ev ? ev.el : null,
             d.notes.length
                 ? el(
                       "div",
@@ -137,6 +182,19 @@ export function createDetail(o) {
                 : null,
         ];
         modal.panel.replaceChildren(...parts.filter(Boolean));
+        if (ev) ev.refresh(t);
+    }
+
+    /** 按最新数据重画，焦点还给同一个 data-part，找不到落到“关闭”。 */
+    function redraw(state) {
+        const at = modal.panel.contains(document.activeElement) ? document.activeElement.dataset.part : null;
+        build(state);
+        if (at !== null) {
+            const back =
+                modal.panel.querySelector(`[data-part="${at}"]`) ||
+                modal.panel.querySelector("[data-part='detail-close']");
+            back.focus({ preventScroll: true });
+        }
     }
 
     function act(cta) {
@@ -146,6 +204,7 @@ export function createDetail(o) {
     }
 
     function close() {
+        if (cur) dropEvidence();
         cur = null;
         modal.hide();
     }
@@ -154,22 +213,17 @@ export function createDetail(o) {
         isOpen: () => cur !== null,
         open(id, state) {
             if (!state) return;
-            cur = { id };
+            if (cur) dropEvidence();
+            cur = { id, state, ev: null };
             build(state);
             modal.show();
+            if (cur.ev && cur.ev.ready) cur.ev.comp.refresh(t);
         },
         /** 快照更新或切换语言后按最新数据重画；打开着的那张卡不在了就关掉。 */
         update(state) {
             if (!cur || !state) return;
             if (!cardsOf(state).some((c) => c.id === cur.id)) return close();
-            const at = modal.panel.contains(document.activeElement) ? document.activeElement.dataset.part : null;
-            build(state);
-            if (at !== null) {
-                const back =
-                    modal.panel.querySelector(`[data-part="${at}"]`) ||
-                    modal.panel.querySelector("[data-part='detail-close']");
-                back.focus({ preventScroll: true });
-            }
+            redraw(state);
         },
         close,
     };

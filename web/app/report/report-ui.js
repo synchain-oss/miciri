@@ -154,10 +154,18 @@ function changeCell(ctx, state) {
 /** 一张卡加它的“查看详情”按钮：按钮是卡的兄弟节点，铺满整张卡，叠在卡上；方向卡的小按钮再叠在它上面。 */
 function cardSlot(card, extra, ctx) {
     const { t } = ctx;
+    const face = resultCard(card, false, true, ctx);
+    // 首次测量：写在可信度的上面，和“上次 → 现在”同一个位置、同一个样式
+    if (card.first) {
+        const note = el("div", { class: "rc__prev", data: { part: "first" }, text: t("report.first") });
+        const conf = face.querySelector(".rc__conf");
+        if (conf) conf.before(note);
+        else face.append(note);
+    }
     return el(
         "div",
         { class: "rc-slot", data: { dirhint: extra ? "card" : null } },
-        resultCard(card, false, true, ctx),
+        face,
         el("button", {
             type: "button",
             class: "rc-slot__open",

@@ -8,6 +8,8 @@
 //   ⑤ 复制结果：剪贴板可用时给提示条，不可用时弹出手动复制窗；
 //   ⑥ 滚轮不会从报告翻回前一步；英文下没有占位符残留与汉字；
 //   ⑦ 详情面板：点卡打开、Esc 与遮罩关闭、焦点还回去；过期卡写明已过期并能重测它所属的步骤；方向有雷达与四行表。
+//   ⑧ 按钮措辞（重测这一步、去测方向）、首次测量、电流声写“高出本底”；
+//   ⑨ 证据画布：按 evidenceRev 取数、图例、Ctrl+滚轮缩放与复位、键盘、快照更新后缩放与焦点不丢、没有证据时整块不渲染。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
 //
 // 用法：node web-preview/tests/smoke-report-page.mjs [仓库根]
@@ -266,6 +268,183 @@ try {
     const dt = await text('[data-part="detail"]');
     run.check(!/[{}]|undefined|null|NaN/.test(dt), "英文详情没有占位符残留");
     run.check(!/[一-鿿]/.test(dt), "英文详情里没有汉字");
+    // ---- ⑧ 按钮措辞、首次测量、电流声主数值 ----
+    await load("", "staleGain");
+    await open("sib");
+    run.eq(await text(".dt__cta .sc-btn"), "重测这一步", "过期卡的按钮写“重测这一步”");
+    const staleDir = SCENES.ready();
+    Object.assign(staleDir.results, resultsFor("direction"));
+    staleDir.results.direction.stale = true;
+    staleDir.steps.direction.status = "stale";
+    await load("", "ready");
+    await page.eval(`${M}.mutate((s) => Object.assign(s, ${JSON.stringify(staleDir)}))`);
+    await open("dir");
+    run.eq(await text(".dt__cta .sc-btn"), "去测方向", "方向过期卡的按钮写“去测方向”");
+    await click(".dt__cta .sc-btn");
+    run.eq(await page.eval(`${q(".stk")}.dataset.step`), "direction", "“去测方向”去的是方向准备页");
+    run.eq((await calls()).filter((c) => c[0] === "startStep").length, 0, "“去测方向”不直接开始测量");
+
+    await load("", "retestedQuiet");
+    const firstOf = () => page.eval(`[...${qa('[data-part="first"]')}].map((e) => e.closest(".rc").dataset.card)`);
+    run.eq(await firstOf(), ["noise", "hum"], "重测过底噪：底噪与电流声卡写首次测量，增益卡走“上次 → 现在”");
+    run.eq(await text('[data-part="first"]'), "首次测量", "首次测量的文案");
+    await load("?lang=en", "retestedQuiet");
+    run.eq(await text('[data-part="first"]'), "First measurement", "首次测量的英文");
+    await load("", "evidence");
+    run.eq(await firstOf(), [], "每步只做过一次：不写首次测量");
+    await load("", "t20longDrlow"); // 这个场景检出了电流声
+    run.check(
+        (await text('.rc[data-card="hum"] .rc__note')).includes("高出本底"),
+        "电流声卡：数字是高出本底的 dB，占比降为次要",
+    );
+    await open("hum");
+    const humText = await text('[data-part="detail"]');
+    run.check(
+        humText.includes("高出本底") && humText.includes("（参考）"),
+        "电流声详情：写高出本底，占噪声能量只作参考",
+    );
+    run.eq(await exists(".dt__ev"), false, "电流声详情没有证据画布（频谱不在载荷里）");
+
+    // ---- ⑨ 证据画布 ----
+    const EV = '[data-part="evidence-canvas"]';
+    const wheel = (init) =>
+        page.eval(`(() => {
+            const c = ${q(EV)}; const r = c.getBoundingClientRect();
+            c.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + 40, ...${JSON.stringify(init)} }));
+        })()`);
+    const key = (k) =>
+        page.eval(
+            `${q(EV)}.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true }))`,
+        );
+    const axis = () => page.eval(`[...${qa(".dt__ax span")}].map((s) => s.textContent).join("|")`);
+    const zoom = () => text('[data-part="evidence-zoom"]');
+    const resetOff = () => page.eval(`${q('[data-part="evidence-reset"]')}.getAttribute("aria-disabled")`);
+    const paint = () =>
+        page.eval(`(() => {
+            const c = ${q(EV)}; const k = c.width / c.clientWidth; const g = c.getContext("2d");
+            const any = (y0, y1, min) => { const d = g.getImageData(0, Math.round(y0 * k), c.width, Math.max(1, Math.round((y1 - y0) * k))).data; for (let i = 3; i < d.length; i += 4) if (d[i] > min) return true; return false; };
+            return { marks: any(0, 24, 150), body: any(40, 150, 60) };
+        })()`);
+    const evCalls = async () => (await calls()).filter((c) => c[0] === "getEvidence");
+    const readyEv = () => page.waitFor(`!!${q(EV)}`, { label: "取到证据后画出画布" });
+    await load("", "evidence");
+    await open("plosive");
+    await readyEv();
+    run.eq(await evCalls(), [["getEvidence", "position"]], "打开喷麦卡：取一次位置步的证据");
+    const cv = await page.eval(
+        `(() => { const c = ${q(EV)}; return [c.getAttribute("role"), c.getAttribute("tabindex"), c.getAttribute("aria-label")]; })()`,
+    );
+    run.check(
+        cv[0] === "img" && cv[1] === "0" && cv[2].length > 8 && !/[{}]/.test(cv[2]),
+        "canvas 是 role=img、可聚焦、带标签",
+    );
+    run.eq(
+        await page.eval(
+            `[...${qa(".dt__leg [data-k]")}].map((e) => [e.dataset.k, e.dataset.cur || "0", !!e.querySelector("svg"), e.textContent])`,
+        ),
+        [
+            ["plosive", "1", true, "喷麦"],
+            ["sibilance", "0", true, "齿音"],
+            ["mouth", "0", true, "口水音"],
+        ],
+        "图例：三种事件各一个形状加名字，当前类是喷麦",
+    );
+    run.eq([await zoom(), await resetOff()], ["缩放 1.00×", "true"], "缩放读数 1.00×，复位按钮此时不可用");
+    const p0 = await paint();
+    run.check(p0.marks && p0.body, "画布上画出了包络和事件标记");
+    const a0 = await axis();
+    run.eq(a0, "0 s|15 s|30 s|45 s|60 s", "整段 60 秒：五个时间刻度");
+    await wheel({ ctrlKey: true, deltaY: -100 });
+    run.eq([await zoom(), await resetOff()], ["缩放 1.25×", "false"], "Ctrl+滚轮向上一格放大一档，复位按钮可用");
+    run.check((await axis()) !== a0, "放大后时间刻度跟着变");
+    await wheel({ deltaY: 100 });
+    const aPan = await axis();
+    run.check(aPan.split("|")[0] !== "6 s", "普通滚轮平移：刻度跟着动");
+    await wheel({ ctrlKey: true, deltaY: 100 });
+    run.eq([await zoom(), await axis()], ["缩放 1.00×", a0], "Ctrl+滚轮向下缩回 1.00×，刻度回到整段");
+    for (let i = 0; i < 9; i++) await wheel({ ctrlKey: true, deltaY: -10 });
+    run.eq(await zoom(), "缩放 1.00×", "触摸板的小增量（九次共 90）不走档");
+    await wheel({ ctrlKey: true, deltaY: -10 });
+    run.eq(await zoom(), "缩放 1.25×", "攒够 100 走一档");
+    for (let i = 0; i < 20; i++) await wheel({ ctrlKey: true, deltaY: -100 });
+    run.eq(await zoom(), "缩放 16.00×", "最多放大到 16×");
+    run.check(/\.\d/.test(await axis()), "放大后时间刻度出现小数位");
+    run.check((await paint()).body, "放大后包络仍在画");
+    await click('[data-part="evidence-reset"]');
+    run.eq([await zoom(), await axis(), await resetOff()], ["缩放 1.00×", a0, "true"], "复位按钮回到整段");
+    await key("+");
+    run.eq(await zoom(), "缩放 1.25×", "键盘 + 放大");
+    await key("ArrowRight");
+    run.check((await axis()) !== a0, "键盘 → 平移");
+    await key("0");
+    run.eq([await zoom(), await axis()], ["缩放 1.00×", a0], "键盘 0 复位");
+    // 普通滚轮：能平移才拦截；没放大或已平移到头时不拦截，滚轮留给面板滚动
+    const wheelTaken = async (deltaY) =>
+        !(await page.eval(
+            `${q(EV)}.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: ${deltaY} }))`,
+        ));
+    run.eq(await wheelTaken(100), false, "没放大：普通滚轮不拦截，留给面板滚动");
+    await key("+");
+    run.eq(await wheelTaken(100), true, "放大后还能向右平移：拦截并平移");
+    for (let i = 0; i < 20; i++) await wheelTaken(100);
+    run.eq(await wheelTaken(100), false, "平移到右端：不再拦截，面板可以继续滚");
+    run.eq(await wheelTaken(-100), true, "到头以后向左仍能平移：拦截");
+    await key("0");
+    // 快照更新：缩放不丢，焦点还在画布上，不重复取证据；这一步的 evidenceRev 变了才再取一次，并回到整段
+    await key("+");
+    await page.eval(`${q(EV)}.focus()`);
+    await page.eval(`${M}.mutate((s) => { s.steps.gain.progressSec = 3; })`);
+    await page.eval(`new Promise((r) => setTimeout(r, 100))`);
+    run.eq(await zoom(), "缩放 1.25×", "快照更新后缩放读数还在");
+    run.eq(await page.eval(`${FD}.activeElement.dataset.part`), "evidence-canvas", "快照更新后焦点还在画布上");
+    run.eq((await evCalls()).length, 1, "evidenceRev 没变：不重复取证据");
+    await page.eval(`${M}.mutate((s) => { s.steps.position.evidenceRev = 2; })`);
+    await page.waitFor(`${M}.calls.filter((c) => c.name === "getEvidence").length === 2`, {
+        label: "evidenceRev 变了再取一次",
+    });
+    await page.waitFor(`${q('[data-part="evidence-zoom"]')}?.textContent === "缩放 1.00×"`, {
+        label: "新证据到了，视图回到整段",
+    });
+    run.eq(
+        await page.eval(`(() => { ${M}.mutate((s) => { s.steps.position.evidenceRev = 3; }); return !!${q(EV)}; })()`),
+        false,
+        "evidenceRev 又变了：新数据到之前不再画旧一版的波形",
+    );
+    await readyEv();
+    run.check(
+        await page.eval(
+            `(() => { const a = ${q('[data-part="evidence"]')}.getBoundingClientRect(), b = ${q('[data-part="detail"]')}.getBoundingClientRect(); return a.left >= b.left && a.right <= b.right; })()`,
+        ),
+        "画布整块在面板之内",
+    );
+    await esc();
+    await open("level");
+    await readyEv();
+    run.eq(await page.eval(`${qa(".dt__leg [data-k]")}.length`), 0, "增益详情：只有包络，没有事件图例");
+    run.eq((await paint()).marks, false, "增益详情：画布顶部没有事件标记");
+    run.check((await paint()).body, "增益详情：有包络");
+    await esc();
+    await open("noise");
+    run.eq(await exists(".dt__ev"), false, "底噪详情没有证据画布");
+    await esc();
+    await load("", "ready");
+    await open("plosive");
+    await page.eval(`new Promise((r) => setTimeout(r, 100))`);
+    run.eq([await exists(".dt__ev"), (await evCalls()).length], [false, 0], "这一步没有证据：整块不渲染，也不去取");
+    await esc();
+    await load("?lang=en", "evidence");
+    await open("sib");
+    await readyEv();
+    run.eq(
+        await page.eval(`[...${qa(".dt__leg [data-k]")}].map((e) => e.textContent + (e.dataset.cur ? "*" : ""))`),
+        ["Plosives", "Sibilance*", "Mouth clicks"],
+        "英文图例，当前类是齿音",
+    );
+    const evEn = await text('[data-part="evidence"]');
+    run.check(
+        !/[一-鿿]|[{}]|undefined|NaN/.test(evEn) && evEn.includes("Zoom 1.00×"),
+        "英文画布区没有汉字与占位符残留",
+    );
     void settle;
 } finally {
     await browser.close();
