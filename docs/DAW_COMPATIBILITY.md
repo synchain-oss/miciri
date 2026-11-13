@@ -4,6 +4,8 @@
 
 每一格写宿主版本、验证日期、证据。**验证日期超过 6 个月的格子视为未验证**，要重测。没有写证据的一律是“未测”，不是“应该可以”。
 
+这张表由 `scripts/checks.d/compat-table.mjs` 核对：已测的行必须写版本、真实存在的 YYYY-MM-DD 日期和证据，中英两张表要一致。过期的行在日常检查里只提示（`WARN`），不判红；发布前用严格模式让它们变红：`MICIRI_COMPAT_STRICT=1 node scripts/run-checks.mjs --only compat-table`。环境变量 `MICIRI_TODAY=YYYY-MM-DD` 可以指定“今天”。
+
 | 宿主 | 平台与格式 | 状态 | 版本 | 验证日期 | 证据 |
 |---|---|---|---|---|---|
 | REAPER | Windows，VST3 | 自动化测试通过，手测未做 | 7.82 (x64) | 2026-11-12 | 见下面“REAPER（Windows，VST3）” |
@@ -76,6 +78,8 @@ REAPER 里即使把输出渲染成单声道，插件收到的主总线仍然是�
 # Host compatibility
 
 Each cell gives the host version, the date it was checked and the evidence. **A cell older than 6 months counts as untested** and needs a re-test. A cell without evidence is "untested", not "should work".
+
+This table is checked by `scripts/checks.d/compat-table.mjs`: a tested row must have a version, a real YYYY-MM-DD date and evidence, and the Chinese and English tables must agree. Expired rows only produce a `WARN` in the everyday checks and do not fail them; before a release, strict mode turns them red: `MICIRI_COMPAT_STRICT=1 node scripts/run-checks.mjs --only compat-table`. The environment variable `MICIRI_TODAY=YYYY-MM-DD` sets "today".
 
 | Host | Platform and format | Status | Version | Date | Evidence |
 |---|---|---|---|---|---|

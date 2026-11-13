@@ -52,6 +52,18 @@ pwsh tests/host/run-host-matrix.ps1 -HarnessDir <工具目录> -CfgDir <私有�
 改环境变量挡不住它。所以脚本把这两个目录跑前跑后各列一次（名字、大小、修改时间）并打印差异，如实报告，不删任何东西。
 同一台机器上别的进程（比如另一个宿主里的 Miciri）也会改 WebView2 的数据目录，差异不一定来自这次运行。
 
+## 改了兼容表之后
+
+`docs/DAW_COMPATIBILITY.md` 里已测的行要有版本、日期、证据，超过 6 个月的行视为未验证。`scripts/checks.d/compat-table.mjs` 核对这些：
+日常检查（`node scripts/run-checks.mjs --group docs`）里过期只提示 `WARN`，不判红；发布前用严格模式核对：
+
+```powershell
+$env:MICIRI_COMPAT_STRICT = '1'
+node scripts/run-checks.mjs --only compat-table
+```
+
+`MICIRI_TODAY=YYYY-MM-DD` 可以指定“今天”，用来提前看到哪些行到期。
+
 ## 没有覆盖的
 
 - 静音轨自动旁路（`force_auto_bypass`）：工具设不了，兼容表标“未测”。
