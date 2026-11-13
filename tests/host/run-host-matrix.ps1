@@ -25,7 +25,7 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 # 相对路径按调用者当前所在的目录解析（下面要进仓根）；路径不必已存在
 function Resolve-Abs([string]$Path) { if ($Path) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path) } else { '' } }
-$HarnessDir = Resolve-Abs $HarnessDir; $CfgDir = Resolve-Abs $CfgDir; $PluginDir = Resolve-Abs $PluginDir; $ResultDir = Resolve-Abs $ResultDir
+$HarnessDir = Resolve-Abs $HarnessDir; $CfgDir = Resolve-Abs $CfgDir; $JucePath = Resolve-Abs $JucePath; $PluginDir = Resolve-Abs $PluginDir; $ResultDir = Resolve-Abs $ResultDir
 $SkipMarker = @($SkipMarker | ForEach-Object { Resolve-Abs $_ })
 Set-Location $Root
 
