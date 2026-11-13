@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
 
 #include "config/Thresholds.h"
@@ -13,6 +14,9 @@ namespace
 {
 // 包络的单位是千分之一满刻度（桥契约规定的取值范围 -1000..1000），这是单位换算，不是可调的阈值
 constexpr double kPerMille = 1000.0;
+// 整格都是 NaN 的基础格：最小记成最大可能值、最大记成最小可能值，合并时不参与；合并后仍是这样的格输出 0
+constexpr std::int16_t kEmptyLo = std::numeric_limits<std::int16_t>::max();
+constexpr std::int16_t kEmptyHi = std::numeric_limits<std::int16_t>::min();
 
 std::int16_t perMille(double v)
 {
@@ -72,8 +76,8 @@ void EnvelopeRecorder::push(const double* x, std::size_t frames)
 void EnvelopeRecorder::flush()
 {
     // 收满的格只追加；重来时 rewind() 按 cells 截短
-    lo_.push_back(now_.any ? perMille(now_.lo) : 0);
-    hi_.push_back(now_.any ? perMille(now_.hi) : 0);
+    lo_.push_back(now_.any ? perMille(now_.lo) : kEmptyLo);
+    hi_.push_back(now_.any ? perMille(now_.hi) : kEmptyHi);
     ++now_.cells;
     now_.inCell = 0;
     now_.any = false;
@@ -96,8 +100,8 @@ void EnvelopeRecorder::finish(EvidencePack& pack) const
     const std::size_t k = std::max<std::size_t>(1, (cells + most - 1) / most);
     pack.hopSec = static_cast<double>(k * base_) / sampleRate_;
     // 未收满的最后一格：量化后与收满的格一起合并（取整是单调的，先取整再取最小最大与反过来相同）
-    auto lo = [&](std::size_t i) { return i < now_.cells ? lo_[i] : (now_.any ? perMille(now_.lo) : std::int16_t{0}); };
-    auto hi = [&](std::size_t i) { return i < now_.cells ? hi_[i] : (now_.any ? perMille(now_.hi) : std::int16_t{0}); };
+    auto lo = [&](std::size_t i) { return i < now_.cells ? lo_[i] : (now_.any ? perMille(now_.lo) : kEmptyLo); };
+    auto hi = [&](std::size_t i) { return i < now_.cells ? hi_[i] : (now_.any ? perMille(now_.hi) : kEmptyHi); };
     for (std::size_t first = 0; first < cells; first += k)
     {
         const std::size_t last = std::min(cells, first + k);
@@ -107,6 +111,8 @@ void EnvelopeRecorder::finish(EvidencePack& pack) const
             a = std::min(a, lo(i));
             b = std::max(b, hi(i));
         }
+        if (a > b) // 合并进来的样本全是 NaN
+            a = b = 0;
         pack.min.push_back(a);
         pack.max.push_back(b);
     }

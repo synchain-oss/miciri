@@ -174,6 +174,25 @@ TEST_CASE("out-of-range samples clamp to full scale, NaN is skipped and rounding
     CHECK((p.min[4] == -250 && p.max[4] == -250));
 }
 
+TEST_CASE("a cell of only NaN does not pull a merged cell toward zero")
+{
+    const double fs = 1000.0; // 2 ms = 2 个采样；多一个基础格就要两格并一格
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const auto cells = static_cast<std::size_t>(thr::session::evidence_cells_max) + 1;
+    std::vector<double> x(2 * cells, 0.0);
+    x[0] = x[1] = nan; // 第 0 个基础格全是 NaN，和第 1 个并成一格
+    x[2] = 0.5;
+    x[3] = 0.8;
+    x[4] = x[5] = x[6] = x[7] = nan; // 第 2、3 个基础格全是 NaN，并成的那一格整格没有样本
+    EnvelopeRecorder r(fs);
+    feedBlocks(r, x, 5);
+    const auto p = record(r);
+    REQUIRE(p.hopSec == Catch::Approx(4.0 / fs));
+    REQUIRE(p.min.size() >= 2);
+    CHECK((p.min[0] == 500 && p.max[0] == 800));
+    CHECK((p.min[1] == 0 && p.max[1] == 0));
+}
+
 TEST_CASE("rewinding to the phase start drops everything after it, partial cell included")
 {
     const double fs = 48000.0;
