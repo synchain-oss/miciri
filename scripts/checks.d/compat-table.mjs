@@ -2,8 +2,10 @@
 //
 // 宿主兼容表（docs/DAW_COMPATIBILITY.md）的核对。表里每个“已测”的格子必须写版本、验证日期和证据，
 // 日期超过 6 个月的格子视为未验证。判据：
-//   - 硬检查（不过就红）：状态不是“未测 / Untested”的行，版本、日期、证据都不能空；日期要是真实存在的 ISO 日期
-//     （YYYY-MM-DD）；每行 6 列；中英两张表的行数、各行是否已测、验证日期要一致；文件里至少有一张表；
+//   - 硬检查（不过就红）：状态不是“未测”（英文表是 Untested）的行，版本、日期、证据都不能空；日期要是真实存在的 ISO 日期
+//     （YYYY-MM-DD），且不能晚于今天一天以上（容许时区差，防止写未来日期绕过过期判据）；每行 6 列；
+//     中英两张表的行数、各行是否已测、验证日期要一致，已测行的宿主名也要相同（未测行的宿主名是翻译过的，不比）；
+//     文件里至少有一张表；
 //   - 过期（验证日期 + 6 个月 < 今天）默认只在输出里写 WARN，不判红：否则半年后毫不相干的 PR 会突然全红；
 //     环境变量 MICIRI_COMPAT_STRICT=1 时过期也判红，发布前用它核对；
 //   - “今天”默认取当前 UTC 日期，环境变量 MICIRI_TODAY=YYYY-MM-DD 可以指定（复现某一天的结果，或自测）。
@@ -16,6 +18,7 @@ import { caseResult, readText } from "../lib/check-kit.mjs";
 const FILE = "docs/DAW_COMPATIBILITY.md";
 const COLUMNS = 6; // 宿主、平台与格式、状态、版本、验证日期、证据
 const EXPIRY_MONTHS = 6;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const UNTESTED = /^(?:未测|未验证|untested|unverified)$/i;
 
 /** YYYY-MM-DD 且真实存在的日期（UTC 零点）；不是就返回 null。 */
@@ -82,13 +85,17 @@ export function evaluate(text, { today, strict = false }) {
             const name = `第 ${r.line} 行 ${host}（${platform}）`;
             if (!host || !status) errors.push(`${name}：宿主和状态不能空`);
             const isTested = Boolean(status) && !UNTESTED.test(status);
-            tested.push(`${isTested}|${date}`);
+            tested.push(isTested ? `true|${host}|${date}` : `false||${date}`);
             if (!isTested) continue;
             if (!version) errors.push(`${name}：已测的行要写宿主版本`);
             if (!evidence) errors.push(`${name}：已测的行要写证据`);
             const dt = parseIsoDate(date);
             if (!dt) {
                 errors.push(`${name}：验证日期“${date}”不是真实存在的 YYYY-MM-DD 日期`);
+                continue;
+            }
+            if (dt - today > DAY_MS) {
+                errors.push(`${name}：验证日期 ${date} 在今天之后，不能写未来的日期`);
                 continue;
             }
             const until = addMonths(dt, EXPIRY_MONTHS);
@@ -101,7 +108,9 @@ export function evaluate(text, { today, strict = false }) {
     }
     for (const t of summary.slice(1)) {
         if (t.tested.join("\n") !== summary[0].tested.join("\n"))
-            errors.push(`第 ${t.line} 行的表与第 ${summary[0].line} 行的表不一致：行数、各行是否已测、验证日期要相同`);
+            errors.push(
+                `第 ${t.line} 行的表与第 ${summary[0].line} 行的表不一致：行数、各行是否已测、验证日期（已测行还有宿主名）要相同`,
+            );
     }
     return { errors, warns };
 }
@@ -119,7 +128,7 @@ export default {
             return { ok: false, lines: [`${FILE} 不存在或读不了：兼容表是公开文档的一部分`] };
         }
         const given = ctx.env.MICIRI_TODAY;
-        const today = given ? parseIsoDate(given) : parseIsoDate(new Date().toISOString().slice(0, 10));
+        const today = given ? parseIsoDate(given) : new Date(new Date().toISOString().slice(0, 10));
         if (!today) return { ok: false, lines: [`MICIRI_TODAY“${given}”不是 YYYY-MM-DD 日期`] };
         const { errors, warns } = evaluate(text, { today, strict: ctx.env.MICIRI_COMPAT_STRICT === "1" });
         return { ok: errors.length === 0, lines: [...errors, ...warns.map((w) => `WARN ${w}`)] };
@@ -159,6 +168,14 @@ export default {
                 0,
             ],
             ["有第二天才算过期（严格）", true, zh(tested("2025-08-31")), { today: "2026-03-01", strict: true }],
+            ["日期比今天晚一天：容许", false, zh(tested("2026-11-13")), {}, 0],
+            ["日期比今天晚两天：写了未来的日期", true, zh(tested("2026-11-14")), {}],
+            [
+                "中英两张表宿主名不同",
+                true,
+                zh(tested()) + "\n" + enHead + tested().replace("REAPER", "Cubase").replace("已测", "Tested"),
+                {},
+            ],
             ["严格模式下过期", true, zh(tested("2026-05-11")), { strict: true }],
             ["已测行缺版本", true, zh(tested("2026-11-12", "")), {}],
             ["已测行缺证据", true, zh(tested("2026-11-12", "7.82", "")), {}],
