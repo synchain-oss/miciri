@@ -378,6 +378,18 @@ try {
     run.check((await axis()) !== a0, "键盘 → 平移");
     await key("0");
     run.eq([await zoom(), await axis()], ["缩放 1.00×", a0], "键盘 0 复位");
+    // 普通滚轮：能平移才拦截；没放大或已平移到头时不拦截，滚轮留给面板滚动
+    const wheelTaken = async (deltaY) =>
+        !(await page.eval(
+            `${q(EV)}.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: ${deltaY} }))`,
+        ));
+    run.eq(await wheelTaken(100), false, "没放大：普通滚轮不拦截，留给面板滚动");
+    await key("+");
+    run.eq(await wheelTaken(100), true, "放大后还能向右平移：拦截并平移");
+    for (let i = 0; i < 20; i++) await wheelTaken(100);
+    run.eq(await wheelTaken(100), false, "平移到右端：不再拦截，面板可以继续滚");
+    run.eq(await wheelTaken(-100), true, "到头以后向左仍能平移：拦截");
+    await key("0");
     // 快照更新：缩放不丢，焦点还在画布上，不重复取证据；这一步的 evidenceRev 变了才再取一次，并回到整段
     await key("+");
     await page.eval(`${q(EV)}.focus()`);

@@ -236,9 +236,12 @@ export function createEvidence(o) {
                 const n = wheel.feed(e.deltaY, e.deltaMode, performance.now());
                 if (n) set(zoomAt(view, n, p));
             } else if (view.z > 1) {
-                // 没放大时没有可平移的，把滚轮让给面板滚动
-                e.preventDefault();
-                set(panBy(view, ((e.deltaX || e.deltaY) / WHEEL_UNIT) * PAN_WHEEL));
+                // 平移到头了也没有可动的：不拦截，滚轮去滚面板，鼠标停在画布上不会被卡住
+                const next = panBy(view, ((e.deltaX || e.deltaY) / WHEEL_UNIT) * PAN_WHEEL);
+                if (next.c !== view.c) {
+                    e.preventDefault();
+                    set(next);
+                }
             }
         },
         { passive: false },

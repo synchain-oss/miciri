@@ -156,11 +156,12 @@ function cardSlot(card, extra, ctx) {
     const { t } = ctx;
     const face = resultCard(card, false, true, ctx);
     // 首次测量：写在可信度的上面，和“上次 → 现在”同一个位置、同一个样式
-    if (card.first)
-        face.insertBefore(
-            el("div", { class: "rc__prev", data: { part: "first" }, text: t("report.first") }),
-            face.querySelector(".rc__conf"),
-        );
+    if (card.first) {
+        const note = el("div", { class: "rc__prev", data: { part: "first" }, text: t("report.first") });
+        const conf = face.querySelector(".rc__conf");
+        if (conf) conf.before(note);
+        else face.append(note);
+    }
     return el(
         "div",
         { class: "rc-slot", data: { dirhint: extra ? "card" : null } },
