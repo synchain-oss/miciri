@@ -9,7 +9,8 @@
 //   ⑥ 滚轮不会从报告翻回前一步；英文下没有占位符残留与汉字；
 //   ⑦ 详情面板：点卡打开、Esc 与遮罩关闭、焦点还回去；过期卡写明已过期并能重测它所属的步骤；方向有雷达与四行表。
 //   ⑧ 按钮措辞（重测这一步、去测方向）、首次测量、电流声写“高出本底”；
-//   ⑨ 证据画布：按 evidenceRev 取数、图例、Ctrl+滚轮缩放与复位、键盘、快照更新后缩放与焦点不丢、没有证据时整块不渲染。
+//   ⑨ 证据画布：按 evidenceRev 取数、图例、Ctrl+滚轮缩放与复位、键盘、快照更新后缩放与焦点不丢、没有证据时整块不渲染；
+//   ⑩ getEvidence 回 no-evidence、回 null、抛错：详情窗照常，没有画布与空框，页面不报错，恢复后能画出来。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
 //
 // 用法：node web-preview/tests/smoke-report-page.mjs [仓库根]
@@ -445,6 +446,37 @@ try {
         !/[一-鿿]|[{}]|undefined|NaN/.test(evEn) && evEn.includes("Zoom 1.00×"),
         "英文画布区没有汉字与占位符残留",
     );
+    // ---- ⑩ 取不到证据：详情窗照常，不画布、不留空框、不报错 ----
+    const faults = [
+        ["no-evidence", "回 no-evidence"],
+        ["null", "回 null"],
+        ["reject", "抛错"],
+    ];
+    for (const [mode, label] of faults) {
+        await load("", "evidence");
+        await page.eval(`${M}.setEvidenceFault(${JSON.stringify(mode)})`);
+        const errorsBefore = page.errors.length;
+        await open("plosive");
+        await page.waitFor(`${M}.calls.some((c) => c.name === "getEvidence")`, {
+            label: `getEvidence ${label}：先取一次`,
+        });
+        await page.eval(`new Promise((r) => setTimeout(r, 150))`);
+        run.eq(await shown(), true, `getEvidence ${label}：详情窗照常打开`);
+        run.check((await page.eval(`${qa(".dt__tbl tbody tr")}.length`)) >= 1, `getEvidence ${label}：表格照常有读数`);
+        run.eq(
+            [await exists(".dt__ev"), await exists(EV), await page.eval(`${qa(".dt__leg [data-k]")}.length`)],
+            [false, false, 0],
+            `getEvidence ${label}：整块不渲染，没有画布、图例与空框`,
+        );
+        run.eq(page.errors.slice(errorsBefore), [], `getEvidence ${label}：页面没有报错`);
+        run.eq((await evCalls()).length, 1, `getEvidence ${label}：只取了一次，没有重试风暴`);
+        // 故障恢复后，这一步有新的证据（evidenceRev 变了）就能画出来
+        await page.eval(`${M}.setEvidenceFault(null)`);
+        await page.eval(`${M}.mutate((s) => { s.steps.position.evidenceRev = 5; })`);
+        await readyEv();
+        run.eq(await exists(".dt__ev"), true, `getEvidence ${label}：恢复后下一版证据能画出来`);
+        await esc();
+    }
     void settle;
 } finally {
     await browser.close();
