@@ -55,6 +55,7 @@ export function createMockBackend(o = {}) {
     const onResize = typeof o.onResize === "function" ? o.onResize : () => {};
     const listeners = new Map();
     const calls = [];
+    let evidenceFault = null;
     let committed = snap.uiScale;
     let pending = false;
 
@@ -134,6 +135,10 @@ export function createMockBackend(o = {}) {
             return OK;
         },
         getEvidence(id) {
+            // 测试用的故障：回执不是 {ok: true}（no-evidence、null）或直接抛错，界面都得当没有证据
+            if (evidenceFault === "reject") throw new Error("mock：getEvidence 抛错");
+            if (evidenceFault === "null") return null;
+            if (evidenceFault === "no-evidence") return fail("no-evidence");
             if (!ENUM_STEP_ID.includes(id)) return fail("bad-step");
             const step = snap.steps[id];
             if (!step.evidenceRev) return fail("no-evidence");
@@ -159,6 +164,10 @@ export function createMockBackend(o = {}) {
                 if (!METER_FIELDS.includes(k)) throw new Error(`mock：电平字段 ${k} 不在 METER_FIELDS 里`);
             meters = { ...meters, ...patch };
             emit("miciri.meters", { ...meters });
+        },
+        /** 让 getEvidence 出故障（只测试用）："no-evidence" 回失败，"null" 回 null，"reject" 抛错，null 恢复。 */
+        setEvidenceFault(mode) {
+            evidenceFault = mode;
         },
         calls,
         committedScale: () => committed,
