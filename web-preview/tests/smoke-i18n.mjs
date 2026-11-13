@@ -78,6 +78,7 @@ const DICT_FILES = [
     "web/app/meter/meter-strings.js",
     "web/app/report/report-strings.js",
     "web/app/detail/detail-strings.js",
+    "web/app/guide/guide-strings.js",
 ];
 const parts = [];
 for (const f of DICT_FILES) {
@@ -109,7 +110,7 @@ if (merged) {
     const used = new Set();
     for (const f of files) {
         for (const m of readText(ROOT, f).matchAll(
-            /"((?:common|shell|about|flow|meter|report|detail)\.[A-Za-z0-9.-]+)"/g,
+            /"((?:common|shell|about|flow|meter|report|detail|guide)\.[A-Za-z0-9.-]+)"/g,
         ))
             used.add(m[1]);
     }
@@ -134,6 +135,8 @@ for (const f of [
     "web/app/detail/detail-core.js",
     "web/app/detail/evidence-canvas.js",
     "web/app/detail/evidence-core.js",
+    "web/app/guide/guide-ui.js",
+    "web/app/guide/guide-core.js",
 ]) {
     run.eq(findFullwidthLiterals(readText(ROOT, f)), [], `${f}：字符串字面量里不应有全角标点，标点放进词条`);
 }

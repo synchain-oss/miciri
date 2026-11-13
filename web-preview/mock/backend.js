@@ -47,11 +47,12 @@ const fail = (reason) => {
  * @param {object} [o]
  * @param {string} [o.lang]
  * @param {number} [o.uiScale] 开窗时的档位
+ * @param {boolean} [o.guideSeen] 指南已看；缺省为真，这样别的冒烟不被首启指南挡住，false 用来演首次启动
  * @param {(f:number)=>void} [o.onResize] 宿主改窗口尺寸的回调：参数是档位
  * @param {boolean} [o.scaleLocked] 为 true 时 setUiScale 回 scale-locked
  */
 export function createMockBackend(o = {}) {
-    const snap = buildSnapshot({ lang: o.lang, uiScale: o.uiScale });
+    const snap = buildSnapshot({ lang: o.lang, uiScale: o.uiScale, guideSeen: o.guideSeen });
     const onResize = typeof o.onResize === "function" ? o.onResize : () => {};
     const listeners = new Map();
     const calls = [];

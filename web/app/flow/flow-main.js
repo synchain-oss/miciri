@@ -24,6 +24,8 @@ import { createDetail } from "../detail/detail-ui.js";
 import detailStrings from "../detail/detail-strings.js";
 import { renderReport } from "../report/report-ui.js";
 import reportStrings from "../report/report-strings.js";
+import { createGuide } from "../guide/guide-ui.js";
+import guideStrings from "../guide/guide-strings.js";
 
 /** 成功屏停留的时间（ms）；叠卡一格的高度（设计 px，与 flow.css 里主区的分配一致）。 */
 const SUCCESS_MS = 1600;
@@ -38,7 +40,7 @@ function start(shell) {
     const { bridge } = shell;
     const { layers } = shell.regions;
     // installDicts 是整体替换，不是追加：外壳已装的两份要连同本页的一起再装一次
-    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings, detailStrings);
+    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings, detailStrings, guideStrings);
     const t = (k, v) => shell.t(k, v);
 
     // ---- 左栏 ----
@@ -302,8 +304,41 @@ function start(shell) {
 
     // ---- 翻页：滚轮与 PageUp/PageDown ----
     const modalOpen = () => !!layers.modal.querySelector(".sc-scrim:not([hidden])");
+    // ---- 应用内指南：页脚的“?”发 miciri:help；看完、跳过、Esc 都记“指南已看” ----
+    // 记“指南已看”只发一次：快照回来之前再开再关，不重复发；发失败了才允许下次关闭再试
+    let seenSent = false;
+    const guide = createGuide({
+        shell,
+        isBusy: () => modalOpen() || remote.shown,
+        onClose: () => {
+            if (state && !state.guideSeen && !seenSent) {
+                seenSent = true;
+                Promise.resolve()
+                    .then(() => bridge.setGuideSeen(true))
+                    .then(receipt)
+                    .catch((err) => {
+                        seenSent = false;
+                        bridgeFailed(err);
+                    });
+            }
+        },
+    });
+    // 首次启动：页面就绪后指南还没看过，且没有测试在跑，就自动开一次。只开一次：
+    // 关掉之后哪怕保存失败、快照里仍是未看，也不再弹。别的窗口占着时，等下一个快照再试。
+    let guideAuto = false;
+    shell.root.addEventListener("miciri:help", () => {
+        if (guide.open()) guideAuto = true; // 用户自己开过，就不再自动开
+    });
+    const guideWanted = (s) =>
+        !!s && !s.guideSeen && !Object.values(s.steps || {}).some((x) => x && x.status === "running");
+    shell.onState((s) => {
+        if (guideAuto || !guideWanted(s)) return;
+        window.requestAnimationFrame(() => {
+            if (!guideAuto && guideWanted(state) && guide.open()) guideAuto = true;
+        });
+    });
     // 报告是整页：从报告回前面的步骤只走步骤条，滚轮和翻页键不翻回去
-    const idle = () => state && !remote.shown && !modalOpen() && view !== REPORT;
+    const idle = () => state && !remote.shown && !modalOpen() && !guide.isOpen() && view !== REPORT;
     const step = (dir) => {
         const ids = pages();
         const j = ids.indexOf(view) + dir;

@@ -6,7 +6,7 @@
 // web/ 是页面代码的唯一真源，这里不复制任何界面代码。必须经 http 打开（node web-preview/serve.mjs）：
 // file:// 下 iframe 变成跨源，读不到父窗口。
 //
-// 查询参数：lang=zh|en 开窗语言；scale=档位（须在档位表里）；locked=1 模拟缩放被锁（setUiScale 回 scale-locked）；
+// 查询参数：lang=zh|en 开窗语言；scale=档位（须在档位表里）；locked=1 模拟缩放被锁（setUiScale 回 scale-locked）；guide=fresh 演首次启动（指南未看，开窗后自动打开一次）；
 // autorun=1 让模拟的测试自己走（每秒一步）。
 
 import { DESIGN } from "../web/shared/design-box.js";
@@ -27,6 +27,7 @@ resize(uiScale);
 window.__MICIRI_MOCK__ = createMockBackend({
     lang,
     uiScale,
+    guideSeen: query.get("guide") !== "fresh",
     onResize: resize,
     scaleLocked: query.get("locked") === "1",
 });
