@@ -5,7 +5,7 @@ Tag:      is-6_7_4 (the Inno Setup version pinned in ../innosetup.sha256)
 Path:     Files/Languages/Unofficial/ChineseSimplified.isl
 Git blob: d6a11c4490de07dad443ade668289fc954dfa1ed
 SHA-256:  see ../ChineseSimplified.isl.sha256 (checked by the docs-truth pins check and by scripts/package.ps1)
-License:  the Inno Setup License of that repository (LICENSES/LicenseRef-Inno-Setup.txt);
+License:  MIT (Copyright 2019-2020 kirakira, see third_party/inno-setup-chinese-simplified/LICENSE.txt);
           the translation is maintained at https://github.com/kira-96/Inno-Setup-Chinese-Simplified-Translation (MIT)
 Changes:  none. The file is byte-for-byte the upstream file, so that the hash above identifies it.
 

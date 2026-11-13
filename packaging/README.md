@@ -42,6 +42,6 @@ matches the system UI language, `ShowLanguageDialog=no` never shows the picker (
 The Chinese strings are Inno Setup's unofficial translation, taken unchanged from the official repository
 (`Files/Languages/Unofficial/ChineseSimplified.isl` at tag `is-6_7_4`). `win/languages/SOURCE.txt` records the source, the
 blob and how to upgrade; `win/ChineseSimplified.isl.sha256` pins the file hash (checked by `scripts/package.ps1` before compiling and
-by the `pins` check). The file carries no license header of its own; it is registered in `REUSE.toml` under the Inno Setup License.
+by the `pins` check). The file carries no license header of its own; it is registered in `REUSE.toml` under the MIT license of the translation repository.
 
 Release builds (tag-triggered) are stricter: `THIRD-PARTY-NOTICES.md` and every license text for linked components must exist.
