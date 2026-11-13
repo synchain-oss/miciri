@@ -31,7 +31,19 @@ int PlatformWebView::processId()
     return currentProcessId();
 }
 
-// 用户数据目录固定在本机应用数据下，所有实例共用一个，宿主里多开时进程组可以复用同一个环境。
+// 用户数据目录固定在本机应用数据下：所有实例、所有宿主进程共用这一个，不按进程拆开。
+//
+// WebView2 的浏览器进程组按用户数据目录共享：同一个目录就接入同一组 msedgewebview2.exe，请求来自同一进程还是
+// 另一个进程都一样。REAPER 与 Cubase 同时开着 Miciri 时，后开的进程接入已经在跑的浏览器进程。失败条件只有一个：
+// 环境选项与那组进程已有的不一致（控制器创建返回 ERROR_INVALID_STATE），和“来自另一个进程”无关。
+// 本插件的环境选项是常量（JUCE 用默认选项创建环境，目录又是固定的），所有进程拿到的完全一致，所以可以安全共享。
+// 在本机用独立的小程序对拍过：两个进程同一目录、默认选项，同时创建与先后创建都成功，共用一个浏览器进程；
+// 第二个进程换一个浏览器参数，环境创建成功、控制器创建失败（0x8007139F）。
+//
+// 不按进程拆开的理由：每个目录各起一整套浏览器进程，进程组不再复用，每多开一个宿主就多一整套进程、内存与句柄；
+// 还会留下残留目录，清理时要判断所属进程是否已退出，删错一个正在用的目录会让别的宿主里的窗口出问题。
+// 目录放在 LocalAppData 而不是 Temp（磁盘清理可能在会话中途删掉它），也不是 Roaming（缓存会随漫游配置同步）。
+// 目录里只有网页缓存，见 docs/PRIVACY.md。万一仍然创建失败，构造期的可写性探针与“导航从未开始”的说明面板会如实说出来。
 juce::File PlatformWebView::makeUserDataFolder()
 {
 #if JUCE_WINDOWS
@@ -145,8 +157,9 @@ juce::String PlatformWebView::envNotStartedMessage(Engine engine)
 {
     if (engine == Engine::webView2)
         return "The WebView2 environment did not start (no navigation ever began).\n"
-               "This is usually the user-data folder being unwritable or already in use by another\n"
-               "process, or the host blocking the msedgewebview2.exe child process.";
+               "This is usually the user-data folder being unwritable or held by another program that\n"
+               "opened it with different web view settings, or the host blocking the msedgewebview2.exe\n"
+               "child process.";
 
     return "The system web view (WebKit) did not start (no navigation ever began).\n"
            "This is usually the host blocking the WebKit web content process, or the\n"
