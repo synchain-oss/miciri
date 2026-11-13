@@ -290,7 +290,10 @@ HumResult HumAnalyser::finish() const
             m.peakDbfs = dsp::powerToDb(strongestPower);
             // 严重度看最强一根谐波从周围底噪里冒出多少：冒得不多只标轻微。占噪声能量的比例只作信息，
             // 它受宽带噪声大小左右（底噪大的录音里真电流声占比反而小），不能当严重度。
-            result.verdict.slight = m.overFloorDb < thr::hum::slight_below_over_floor_db;
+            // 另一条是可闻度：电流声成分的总电平低于 slight_below_dbfs 也只标轻微。这是绝对电平，前提是增益步
+            // 已把人声带到目标附近；冒出本底很多、但电平低到在正常增益的人声录音里听不见的，不该排到增益与底噪前面。
+            result.verdict.slight =
+                m.overFloorDb < thr::hum::slight_below_over_floor_db || m.levelDbfs < thr::hum::slight_below_dbfs;
         }
     }
     return result;

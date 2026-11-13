@@ -163,7 +163,9 @@ struct HumMeasures
 struct HumVerdict
 {
     HumKind kind = HumKind::None;
-    bool slight = false; // hum、buzz：overFloorDb 低于 hum.slight_below_over_floor_db，仍报，标“轻微”，不进“最该改”
+    // hum、buzz：overFloorDb 低于 hum.slight_below_over_floor_db，或 levelDbfs 低于 hum.slight_below_dbfs，
+    // 仍报，标“轻微”，不进“最该改”
+    bool slight = false;
 };
 using HumResult = Result<HumMeasures, HumVerdict>;
 

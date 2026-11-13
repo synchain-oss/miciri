@@ -119,6 +119,27 @@ TEST_CASE("a stable narrow tone above 2 kHz is a whistle, not hum")
     }
 }
 
+TEST_CASE("hum that stands far out of a very quiet floor but is itself very quiet is slight")
+{
+    // 极安静的底噪（-120 dBFS）里，谐波都高出本底很多；只按电流声自己的电平分轻微与否
+    constexpr double quietSigma = 1e-6;
+    for (double fs : {48000.0, 96000.0})
+    {
+        INFO("fs " << fs);
+        for (double humDbfs : {thr::hum::slight_below_dbfs - 20.0, thr::hum::slight_below_dbfs + 10.0})
+        {
+            INFO("hum " << humDbfs << " dBFS");
+            std::vector<double> x = humSignal(fs, kSeconds, 50.0, kHumProfileDb, core::dsp::dbToPower(humDbfs));
+            mix(x, whiteNoise(x.size(), quietSigma, 24));
+            const core::HumResult r = core::analyseHum(x, fs);
+            CHECK(r.verdict.kind == core::HumKind::Hum);
+            CHECK(r.measures.overFloorDb >= thr::hum::slight_below_over_floor_db);
+            CHECK(r.measures.levelDbfs == within(humDbfs, 1.0));
+            CHECK(r.verdict.slight == (humDbfs < thr::hum::slight_below_dbfs));
+        }
+    }
+}
+
 TEST_CASE("a stable tone above the whistle band is left alone")
 {
     // 16 kHz 的稳定强单音：真实录音里这一带常有接口与时钟的杂散，多数听不见

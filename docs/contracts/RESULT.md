@@ -28,7 +28,7 @@ status: frozen
 | `channels` | `kind`、`statusL/R`、`analysedChannel` | 只在立体声轨上做；五种提示都琥珀，不拦测试；分析哪一路由 `analysedChannel` 给出，不把两路相加 | 否 |
 | `gain` | `band`、`digitalClip`、`maybeFlatTop` | **数字削波次数与模拟平顶处数分开计数**；数字削波红并点亮削波灯；平顶只到琥珀“可能削波”，不点灯、不单独变红；样本峰值低于 `gain.flat_min_peak_dbfs` 的声道不查平顶（处数为 0） | 数字削波固定在前，其余按排序 |
 | `noise` | `band`（A 加权 SNR 唯一分档依据） | 绝对 dBFS 只作信息，不分档 | 按排序 |
-| `hum` | `kind`（hum、buzz、whistle）、`slight` | 频率、高出本底 dB、占噪声能量 %。严重度看 `overFloorDb`（最强谐波高出周围本底多少）：低于 `hum.slight_below_over_floor_db` 仍报，标“轻微”；占比只作信息，不定严重度。啸叫只查 2 kHz 到 `hum.whistle_max_hz`、自身功率不低于 `hum.whistle_min_dbfs` 的窄峰 | 轻微不进 |
+| `hum` | `kind`（hum、buzz、whistle）、`slight` | 频率、高出本底 dB、占噪声能量 %。严重度看 `overFloorDb`（最强谐波高出周围本底多少）与 `levelDbfs`（电流声电平）：前者低于 `hum.slight_below_over_floor_db`、或后者低于 `hum.slight_below_dbfs`，仍报，标“轻微”；占比只作信息，不定严重度。啸叫只查 2 kHz 到 `hum.whistle_max_hz`、自身功率不低于 `hum.whistle_min_dbfs` 的窄峰 | 轻微不进 |
 | `deviceProcessing` | `detected` | 只作横幅；极低不上升态下不显示 | 否 |
 | `reverb`、`directRatio` | `band`（`gated`、`lowerBoundOnly`） | 拍手算。T20 门限只作废那一下的那个频带，`gated` 表示作废太多、主指标给不出；给不出值的频带 `t20Sec` 为 0。D/R 只用没削波的几下，尾部测不到时只报下限 | 按决策表（`src/core/decide`） |
 | `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | 喷麦按一遍字表的最大值分档；齿音只给绝对电平供 A/B、口水音只作提示，这两项不分档，`severity` 停在 `light` 表示未分档，不表示良好；档位来自实录 | 按排序 |

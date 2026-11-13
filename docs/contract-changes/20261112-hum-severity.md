@@ -9,13 +9,14 @@
 
 | 位置 | 原来 | 现在 |
 |---|---|---|
-| `HumVerdict.slight`（hum、buzz） | 占噪声能量的比例低于 `hum.slight_energy_share_frac` | 最强谐波高出周围本底（`overFloorDb`）低于 `hum.slight_below_over_floor_db` |
+| `HumVerdict.slight`（hum、buzz） | 占噪声能量的比例低于 `hum.slight_energy_share_frac` | 最强谐波高出周围本底（`overFloorDb`）低于 `hum.slight_below_over_floor_db`，或电流声电平（`levelDbfs`）低于 `hum.slight_below_dbfs` |
 | `HumMeasures.energySharePct` | 决定“轻微” | 只作信息，不参与任何判定 |
 | 啸叫候选 | 2 kHz 以上、高出本底 15 dB 的稳定窄峰 | 另加两条：频率不高于 `hum.whistle_max_hz`；窄峰自身的功率不低于 `hum.whistle_min_dbfs` |
 | 模拟平顶 | 每一路都查 | 样本峰值低于 `gain.flat_min_peak_dbfs` 的那一路不查，处数为 0 |
 
 阈值：删 `hum.slight_energy_share_frac`；加 `hum.slight_below_over_floor_db`（16 dB）、`hum.whistle_max_hz`（12 kHz）、
-`hum.whistle_min_dbfs`（-70 dBFS）、`gain.flat_min_peak_dbfs`（-12 dBFS），都是 `pending`，来源记“按实录调整的起始值”。
+`hum.whistle_min_dbfs`（-70 dBFS）、`gain.flat_min_peak_dbfs`（-12 dBFS），来源记“按实录调整的起始值”；
+加 `hum.slight_below_dbfs`（-70 dBFS），来源记“工程起始值”。都是 `pending`。
 删键前全仓查过：旧键只在阈值文件、电流声模块、阈值先后关系测试和契约文档里出现，界面与快照都不读它。
 `tests/contracts/thresholds_test.cpp` 里对旧键的检查换成新键的先后关系；`src/core/result/Results.h` 里 `energySharePct`
 与 `slight` 的注释按新口径改写（只改注释，字段、类型、枚举不变）。
@@ -29,8 +30,12 @@
   占比只有 0.22%，比一条安静、没有电流声的录音里几根很弱的谐波（约 5%）还小，按占比两者都是“轻微”，或者顺序反过来。
   能把两者分开的是谐波从周围本底里冒出多少：前者最强一根高出 19.2 dB、前十次谐波十根都在；后者最强 13.2 dB、
   前十次里只有一根稳定（不够三根，本来就不判电流声）。阈值取两者之间的 16 dB。
-- **没有选“绝对电平”或“相对说话电平”。** 那条真电流声的绝对电平只有约 -90 dBFS（A 加权也约 -90），按增益目标
-  说话约在 -25 dBFS 上下，两者差六十多 dB；按绝对电平或相对说话电平定严重度，它会被判成轻微，和“应当报出”相反。
+- **再加一条可闻度。** 冒出本底多少只说明它“是电流声”，不说明“听得见”：那条真电流声的电平只有约 -90 dBFS
+  （A 加权也约 -90），按增益目标说话约在 -25 dBFS 上下，差六十多 dB，在正常增益的人声录音里听不见。
+  只看冒出本底的话它会是“不轻微”，在“最该改”里排到增益与底噪前面，这不是想要的结果。所以电流声电平低于
+  `hum.slight_below_dbfs` 也只标轻微，仍照报。它是绝对电平，代替“相对说话电平”：前提是增益步已把人声带到目标附近，
+  -70 dBFS 与“无信号”的绝对门限相同、比目标人声低约 45 dB。真正相对说话电平的口径更好，但要从说话那一步把电平
+  传给电流声分析，留作后续。按这两条，安静房间的弱谐波与那条真电流声都是轻微，明显的嗡声仍判出。
 - **啸叫只查到 12 kHz，并且要求单音自己够响。** 原判据在一批 28 条、都没有啸叫的实录里报了 9 条啸叫：17–24 kHz 有一串稳定窄峰
   （-90 到 -120 dBFS），8 kHz、16 kHz、24 kHz 这类整数倍的杂散高出本底二三十 dB，但功率只有 -80 dBFS 上下。
   上限挡住前者；电平下限挡住后者。-70 dBFS 与“无信号”的绝对门限相同，按增益目标（峰值约 -9 dBFS）它比说话低约 45 dB，
