@@ -133,6 +133,8 @@ for (const f of [
     "web/app/report/report-copy.js",
     "web/app/detail/detail-ui.js",
     "web/app/detail/detail-core.js",
+    "web/app/detail/evidence-canvas.js",
+    "web/app/detail/evidence-core.js",
     "web/app/guide/guide-ui.js",
     "web/app/guide/guide-core.js",
 ]) {

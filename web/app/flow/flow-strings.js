@@ -223,7 +223,7 @@ export default {
         "flow.cf.why.device": "设备处理可能影响读数",
         "flow.cf.why.tail": "尾音被底噪盖住，这次无法判断",
         "flow.cf.why.voice": "测试时有人声",
-        "flow.cd.hum.note": "{f} Hz · 占噪声能量 {p}%",
+        "flow.cd.hum.note": "{f} Hz 高出本底 · 占噪声能量 {p}%",
         "flow.cd.mouth.note": "约 {f} kHz 高通后最响一次 {v} dB",
         "flow.cd.clip": "削波 {n} 次",
         "flow.cd.flat": "波峰被削平 {n} 处",
@@ -252,8 +252,9 @@ export default {
         "flow.gr.clip.usb.a": "先把系统的输入音量调低一些，再测",
         "flow.gr.retest": "调完后重测增益",
         "flow.qr.hum.e":
-            "底噪一般。有明显的 {f} Hz 声音，和市电谐波一致，占噪声能量的 {p}%。像是电流声，可能来自电源线或适配器。",
-        "flow.qr.humweak.e": "底噪不错。有一点 {f} Hz 的声音，和市电谐波一致，只占噪声能量的 {p}%，不用急着处理。",
+            "底噪一般。有明显的 {f} Hz 声音，高出本底 {v} dB，和市电谐波一致（占噪声能量约 {p}%）。像是电流声，可能来自电源线或适配器。",
+        "flow.qr.humweak.e":
+            "底噪不错。有一点 {f} Hz 的声音，和市电谐波一致，只高出本底 {v} dB（占噪声能量约 {p}%），不用急着处理。",
         "flow.qr.humweak.a1": "想更干净，可以把话筒线和电源线分开走",
         "flow.qr.hum.a1": "把话筒线和电源线分开走",
         "flow.qr.hum.a2": "换一个插座，或离适配器远一点",
@@ -565,7 +566,7 @@ export default {
         "flow.cf.why.device": "Device processing may affect the reading",
         "flow.cf.why.tail": "The tail is buried in the noise floor, so this time it cannot be judged",
         "flow.cf.why.voice": "Voices were present during the test",
-        "flow.cd.hum.note": "{f} Hz · {p}% of noise energy",
+        "flow.cd.hum.note": "{f} Hz above the noise floor · {p}% of noise energy",
         "flow.cd.mouth.note": "Loudest after a {f} kHz high-pass: {v} dB",
         "flow.cd.clip": "Clipped {n} times",
         "flow.cd.flat": "{n} flattened peaks",
@@ -596,9 +597,9 @@ export default {
         "flow.gr.clip.usb.a": "Lower the system input volume first, then measure again",
         "flow.gr.retest": "Re-test the gain after adjusting",
         "flow.qr.hum.e":
-            "The noise floor is fair. There is a clear {f} Hz sound that matches mains harmonics, {p}% of the noise energy. It looks like hum, possibly from a power cable or adapter.",
+            "The noise floor is fair. There is a clear {f} Hz sound, {v} dB above the noise floor, that matches mains harmonics ({p}% of the noise energy). It looks like hum, possibly from a power cable or adapter.",
         "flow.qr.humweak.e":
-            "The noise floor is good. There is a little {f} Hz sound that matches mains harmonics, only {p}% of the noise energy. No rush to fix it.",
+            "The noise floor is good. There is a little {f} Hz sound that matches mains harmonics, only {v} dB above the noise floor ({p}% of the noise energy). No rush to fix it.",
         "flow.qr.humweak.a1": "For a cleaner signal, route the mic cable away from power cables",
         "flow.qr.hum.a1": "Route the mic cable away from power cables",
         "flow.qr.hum.a2": "Try another outlet, or move away from the adapter",

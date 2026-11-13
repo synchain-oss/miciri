@@ -144,6 +144,12 @@ function start(shell) {
         },
         copy: (text) => copier.copy(text),
         openDetail: (id) => detail.open(id, state),
+        // 证据波形：只在详情里按需取一次；没有或失败都当没有，详情不画画布
+        getEvidence: (id) =>
+            Promise.resolve()
+                .then(() => bridge.getEvidence(id))
+                .then((r) => (r && r.ok ? r.evidence : null))
+                .catch(() => null),
         dismiss() {
             return Promise.resolve()
                 .then(() => bridge.dismissChannelPrompt())

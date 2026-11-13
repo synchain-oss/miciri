@@ -220,6 +220,30 @@ run.eq(
     ["noise", "hum"],
     "安静：底噪与电流声两张卡",
 );
+// 电流声的说明以“高出本底 X dB”为主，占噪声能量的百分比放在括号里作参考
+{
+    const strings = (await at("web/app/flow/flow-strings.js")).default;
+    for (const [slight, key] of [
+        [false, "flow.qr.hum.e"],
+        [true, "flow.qr.humweak.e"],
+    ]) {
+        const m = R("quiet", ["quiet"], (s) => {
+            s.results.hum = { ...s.results.hum, kind: "hum", slight, overFloorDb: 9.4, energySharePct: 18 };
+        });
+        run.eq(
+            [m.expl.key, m.expl.vars.v, m.expl.vars.p],
+            [key, meter.fmtDb(9.4), 18],
+            `${key}：带上高出本底的 dB 与占比`,
+        );
+        for (const lang of ["zh", "en"]) {
+            const text = strings[lang][key];
+            run.check(
+                text.includes("{v}") && text.includes("{p}") && text.indexOf("{v}") < text.indexOf("{p}"),
+                `${key}（${lang}）：先写高出本底的数，占比在后面作参考`,
+            );
+        }
+    }
+}
 const roomOk = R("room", ["room"]);
 run.eq(roomOk.viz.kind, "bands", "房间：区间条");
 run.eq(roomOk.bars.length, BANDS.t20BandsHz.length, "房间：每个频段一根小条，频段来自 bands");

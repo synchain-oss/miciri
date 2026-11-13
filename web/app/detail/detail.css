@@ -172,3 +172,104 @@
 .dt__radar .radar__lb b {
     color: var(--txt-dark-1);
 }
+/* 证据画布：只用 2D canvas，颜色在画布里取自令牌；图例用形状加颜色，不只靠颜色。
+   过期时整块转灰（滤镜加在没有 backdrop-filter 的子节点上）。 */
+.dt__ev {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+}
+.dt__evh {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-4) var(--sp-10);
+}
+.dt__leg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4) var(--sp-12);
+    margin-right: auto;
+    font-size: var(--fs-110);
+    color: var(--txt-dark-2);
+}
+.dt__leg > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-5);
+}
+.dt__leg > span[data-cur="1"] {
+    font-weight: 600;
+    color: var(--txt-dark-1);
+}
+.dt__leg svg {
+    fill: currentColor;
+    stroke: none;
+}
+.dt__leg [data-k="plosive"] svg {
+    color: rgb(var(--sem-amber));
+}
+.dt__leg [data-k="sibilance"] svg {
+    color: var(--wave-env-pink);
+}
+.dt__leg [data-k="mouth"] svg {
+    color: rgb(var(--wave-vad));
+}
+.dt__zoom {
+    min-width: 78px;
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--txt-dark-3);
+}
+.dt__reset {
+    padding: var(--sp-3) var(--sp-10);
+    font-size: var(--fs-110);
+}
+.dt__reset[aria-disabled="true"] {
+    color: var(--txt-dark-3);
+    cursor: default;
+}
+.dt__cv {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--r-md);
+    border: 1px solid var(--dark-rule);
+    background: rgba(var(--void), 0.5);
+}
+.dt__canvas {
+    display: block;
+    width: 100%;
+    height: 160px;
+}
+.dt[data-stale="1"] .dt__cv {
+    filter: grayscale(1);
+}
+/* 时间刻度：标签与画布里的竖线一一对应，两端靠边 */
+.dt__ax {
+    position: relative;
+    height: 14px;
+    font-family: var(--ff-mono);
+    font-size: var(--fs-95);
+    font-variant-numeric: tabular-nums;
+    color: var(--txt-dark-3);
+}
+.dt__ax span {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+.dt__ax span:first-child {
+    transform: none;
+}
+.dt__ax span:last-child {
+    transform: translateX(-100%);
+}
+.dt__hint {
+    margin: 0;
+    font-size: var(--fs-110);
+    line-height: 1.4;
+    color: var(--txt-dark-3);
+}

@@ -1,0 +1,25 @@
+{
+  "sources": {
+    "rinne": {
+      "repo": "synchain-oss/rinne",
+      "ref": "feature/v1",
+      "sha": "7750b98388ac201925bb2728586d56e0f62c9ba9"
+    }
+  },
+  "files": [
+    {
+      "path": "scripts/fetch_fonts.py",
+      "source": "rinne",
+      "from": "scripts/fetch_fonts.py",
+      "fromBlob": "ab6d86e5e2bf688946a6f81426614f59ec61727f",
+      "mode": "forked"
+    },
+    {
+      "path": "web/fonts/README.md",
+      "source": "rinne",
+      "from": "web/fonts/README.md",
+      "fromBlob": "f9a9eabe588a26c171208c3bf2e716b301b2d8c0",
+      "mode": "forked"
+    }
+  ]
+}

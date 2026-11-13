@@ -10,6 +10,7 @@
 //   rows    [{label: {key, vars} | {lit}, abs, rel, hl}]，abs 与 rel 是格子 {text, unit?, unitKey?} 或 null，hl 是高亮行
 //   notes   说明句 [{key, vars}]
 //   radar   方向详情的四点雷达 {rel}
+//   evidence 要画证据画布时 {step, kinds, focus, rev}，不画（这张卡不画，或这一步没有证据）是 null
 //   cta     过期、要再测或没测过时的按钮 {key, step, prep}
 
 import { fmtDb } from "../meter/meter-core.js";
@@ -24,6 +25,7 @@ import {
     truePeak,
 } from "../flow/flow-core.js";
 import { STEP_OF, cardOf } from "../report/report-core.js";
+import { evidenceSpec } from "./evidence-core.js";
 
 const A = (key, vars) => ({ key, vars });
 const cell = (text, unit, unitKey) => ({ text, unit, unitKey });
@@ -86,7 +88,7 @@ const BODY = {
                 v: fmtDb(h.overFloorDb),
                 p: Math.round(h.energySharePct),
             }),
-            cols: [ABS, "detail.col.nb"],
+            cols: [ABS, "detail.col.floor"],
             rows: [
                 row("detail.r.f1", cell(String(Math.round(h.fundamentalHz)), "Hz"), dB(h.overFloorDb), true),
                 row("detail.r.fh", cell(String(Math.round(h.highestHarmonicHz)), "Hz")),
@@ -169,7 +171,7 @@ const BODY = {
         const hit = c.count > 0;
         return {
             expl: hit
-                ? A("detail.mouth.e", { n: Math.round(c.perMinute), f, v: fmtDb(Math.abs(c.loudestRelDb)) })
+                ? A("detail.mouth.e", { n: Math.round(c.perMinute), f, v: signed(c.loudestRelDb) })
                 : A("detail.mouth.0"),
             cols: [ABS, "detail.col.peak"],
             rows: [
@@ -186,14 +188,15 @@ const BODY = {
         if (!four(d.levelDb) || !four(d.brightnessDb)) return { expl: A("detail.dir.none") };
         const cur = Number.isInteger(d.currentIndex) && d.currentIndex >= 0 ? d.currentIndex : 0;
         const turn = d.levelDb.map((_, k) => (cur + k) % d.levelDb.length);
-        const loud = Math.max(...d.levelDb);
+        // 并列最响时只亮第一个；turn 把当前方向转到了第一位，所以这里比较的是原下标
+        const top = d.levelDb.indexOf(Math.max(...d.levelDb));
         const names = ["flow.dir.cur", "flow.dir.90", "flow.dir.180", "flow.dir.270"];
         const m = resultModel(state, "direction");
         return {
             expl: m ? m.expl : A("detail.dir.none"),
             cols: ["detail.col.loud", "detail.col.bright"],
             rows: turn.map((i, k) =>
-                row(names[k], level(d.levelDb[i]), cell(fmtDb(d.brightnessDb[i]), "dB"), d.levelDb[i] === loud),
+                row(names[k], level(d.levelDb[i]), cell(fmtDb(d.brightnessDb[i]), "dB"), i === top),
             ),
             radar: m && m.viz && m.viz.kind === "radar" ? { rel: m.viz.rel } : null,
         };
@@ -205,11 +208,19 @@ export function detailOf(id, state) {
     const card = cardOf(id, state);
     const step = STEP_OF[id];
     const need = card.stale || card.retest || card.missing;
-    const cta = need
-        ? { key: card.missing ? "detail.go" : "detail.retest", step, prep: card.missing || step === "direction" }
-        : null;
+    // 方向只开准备页（要用户先转话筒），按钮写“去测方向”，不写“重测”
+    const key = card.missing ? "detail.go" : step === "direction" ? "detail.dir.go" : "detail.retest";
+    const cta = need ? { key, step, prep: card.missing || step === "direction" } : null;
     if (card.missing)
-        return { id, card, expl: A(id === "dir" ? "detail.dir.none" : "detail.none"), notes: [], rows: [], cta };
+        return {
+            id,
+            card,
+            expl: A(id === "dir" ? "detail.dir.none" : "detail.none"),
+            notes: [],
+            rows: [],
+            evidence: null,
+            cta,
+        };
     const body = BODY[id](state, state.results || {}, card);
     const why = card.retest && card.why ? [A(card.why, { need: card.need })] : [];
     return {
@@ -220,6 +231,7 @@ export function detailOf(id, state) {
         radar: null,
         ...body,
         ...(why.length ? { notes: [...why, ...(body.notes || [])] } : {}),
+        evidence: evidenceSpec(id, state),
         cta,
     };
 }

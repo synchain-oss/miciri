@@ -19,6 +19,8 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
   renders offline. A host-test build option writes counters to a JSON file; releases do not contain it.
 - Plug-in window (English and Simplified Chinese): the step bar and stacked cards, the level meter with result marks, the
   large-type mode for testing from a distance, the report with retest and "last time → now", and the detail view.
+- Offline fonts for the window: subsets of Space Grotesk, IBM Plex (shipped as Miciri Sans and Miciri Mono) and Noto Sans SC under
+  the SIL Open Font License, compiled into the plug-in. They are rebuilt by `scripts/fetch_fonts.py` and checked by the local checks.
 - Installers and zips: Windows installer (with a Simplified Chinese wizard) and zip, macOS package and zip. All unsigned.
 - Documentation: README (English and Chinese), user guide, privacy page, known issues, third-party notices with the full
   license texts that the binaries need.
