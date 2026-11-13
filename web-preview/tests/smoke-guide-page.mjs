@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// 应用内指南页面冒烟（无头浏览器）：预览页用假桥装载真源外壳，端到端核对
+//   ① 打开：点页脚“?”出现对话框（有名字、aria-modal）、第一步是输入卡、步数写成“第 n 步 / 共 m 步”，
+//      背景四个区域 inert、说明框落在设计盒内且不压住被圈的目标；
+//   ② 翻页：按钮、方向键、点任意处都能下一步，上一步回得去，Tab 只在说明框的按钮里循环；
+//   ③ 关闭：Esc、跳过、最后一页的“完成”都关，inert 解除、焦点回到“?”，只记一次“指南已看”；
+//   ④ 语言：切到 EN 后再开，标题与按钮是英文；
+//   ⑤ 让位：别的模态开着时不开指南；
+//   ⑥ 全程没有页面异常、没有外网请求。
+// 没有浏览器时整套跳过（退出码 2），不是通过。
+//
+// 用法：node web-preview/tests/smoke-guide-page.mjs [仓库根]
+
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { createRun, repoRoot } from "./lib/harness.mjs";
+import { findBrowser, launchBrowser } from "./lib/browser.mjs";
+import { startStaticServer } from "./lib/static-server.mjs";
+
+const ROOT = repoRoot();
+const run = createRun("应用内指南（页面）");
+if (!findBrowser()) run.skip("没有 Chromium 系浏览器；可用环境变量 MICIRI_BROWSER 指定");
+
+const at = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
+const { DESIGN } = await at("web/shared/design-box.js");
+const { STEPS } = await at("web/app/guide/guide-core.js");
+const guide = (await at("web/app/guide/guide-strings.js")).default;
+const fmt = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k]);
+
+const FD = "document.getElementById('frame').contentDocument";
+const MOCK = "window.__MICIRI_MOCK__";
+
+const server = await startStaticServer(ROOT);
+const browser = await launchBrowser({ width: 1400, height: 1000 });
+try {
+    const page = await browser.newPage();
+    await page.send("Emulation.setDeviceMetricsOverride", {
+        width: 1400,
+        height: 1000,
+        deviceScaleFactor: 1,
+        mobile: false,
+        screenWidth: 1400,
+        screenHeight: 1000,
+    });
+    const requests = await page.recordRequests();
+    const q = (sel) => `${FD}.querySelector(${JSON.stringify(sel)})`;
+    const click = (sel) => page.eval(`${q(sel)}.click()`);
+    const calls = () => page.eval(`${MOCK}.calls.map((c) => c.name + ":" + JSON.stringify(c.args))`);
+    const key = (k, extra = "") =>
+        page.eval(
+            `(${FD}.activeElement || ${FD}.body).dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, ${extra} bubbles: true, cancelable: true }))`,
+        );
+    const isOpen = () => page.eval(`!!${q('[data-part="guide"]')}`);
+    const stepId = () => page.eval(`${q('[data-part="guide-callout"]')}?.dataset.step ?? null`);
+    const title = () => page.eval(`${q(".guide-call__title")}?.textContent ?? null`);
+    const where = () => page.eval(`${q(".guide-call__step")}?.textContent ?? null`);
+    const active = () => page.eval(`${FD}.activeElement?.dataset.part || ${FD}.activeElement?.className || ""`);
+    const anyInert = () => page.eval(`${FD}.querySelectorAll("[inert]").length`);
+    const openGuide = async () => {
+        await click('[data-part="help"]');
+        await page.waitFor(`!!${q('[data-part="guide-callout"]')}`, { label: "点“?”后应出现指南说明框" });
+    };
+
+    await page.goto(`${server.url}/web-preview/index.html`);
+    await page.waitFor(`!!${FD}?.documentElement.dataset.bootError || ${FD}?.documentElement.dataset.ready === "1"`, {
+        label: "首个快照应用后 data-ready 应为 1",
+    });
+    run.eq(await page.eval(`${FD}.documentElement.dataset.bootError ?? null`), null, "不应有启动错误");
+    run.eq(await isOpen(), false, "没点“?”之前指南不开（不自动弹）");
+
+    // ---- ① 打开 ----
+    await openGuide();
+    const total = await page.eval(`${FD}.querySelectorAll(".guide-call__dot").length`);
+    run.check(total >= 1 && total <= STEPS.length, `步数在 1 到 ${STEPS.length} 之间（实际 ${total}）`);
+    run.eq(await stepId(), "input", "第一步是输入卡");
+    run.eq(await title(), guide.zh["guide.input.t"], "标题来自词条");
+    run.eq(await where(), fmt(guide.zh["guide.step"], { n: 1, total }), "步数文字用占位符拼出");
+    run.eq(
+        await page.eval(
+            `(() => { const o = ${q('[data-part="guide"]')}; const t = ${FD}.getElementById(o.getAttribute("aria-labelledby")); return o.getAttribute("role") + "|" + o.getAttribute("aria-modal") + "|" + (!!t && t.textContent.length > 0); })()`,
+        ),
+        "dialog|true|true",
+        "对话框有角色、aria-modal 与标题名",
+    );
+    run.eq(await anyInert(), 4, "背景四个区域都是 inert");
+    const geometry = (stepSel) =>
+        page.eval(`(() => {
+            const shell = ${FD}.getElementById("shell").getBoundingClientRect();
+            const c = ${q('[data-part="guide-callout"]')}.getBoundingClientRect();
+            const t = ${q(stepSel)}?.getBoundingClientRect();
+            const z = Number(${FD}.getElementById("shell").style.zoom) || 1;
+            const inside = c.left >= shell.left - 1 && c.top >= shell.top - 1 && c.right <= shell.right + 1 && c.bottom <= shell.bottom + 1;
+            const overlap = t ? !(c.right <= t.left || c.left >= t.right || c.bottom <= t.top || c.top >= t.bottom) : false;
+            return { inside, overlap, z, w: shell.width / z, h: shell.height / z };
+        })()`);
+    for (let i = 0; i < total; i++) {
+        const id = await stepId();
+        const def = STEPS.find((s) => s.id === id);
+        const sel = def.select[0];
+        const g = await geometry(sel);
+        run.check(g.inside, `第 ${i + 1} 步（${id}）：说明框在设计盒内`);
+        if (def.select.length === 1) run.check(!g.overlap, `第 ${i + 1} 步（${id}）：说明框不压住被圈的目标`);
+        if (i < total - 1) await click('[data-part="guide-next"]');
+    }
+    run.eq(await where(), fmt(guide.zh["guide.step"], { n: total, total }), "最后一步的步数写对");
+    run.eq(
+        await page.eval(`${q('[data-part="guide-next"]')}.textContent`),
+        guide.zh["guide.done"],
+        "最后一步的主按钮是“完成”",
+    );
+
+    // ---- ② 翻页 ----
+    await click('[data-part="guide-prev"]');
+    run.check((await where()) === fmt(guide.zh["guide.step"], { n: total - 1, total }), "上一步回得去");
+    await key("ArrowLeft");
+    run.check((await where()) === fmt(guide.zh["guide.step"], { n: Math.max(1, total - 2), total }), "左方向键上一步");
+    await key("ArrowRight");
+    run.check((await where()) === fmt(guide.zh["guide.step"], { n: total - 1, total }), "右方向键下一步");
+    await page.eval(`${q('[data-part="guide"]')}.click()`);
+    run.eq(await where(), fmt(guide.zh["guide.step"], { n: total, total }), "点暗幕任意处也是下一步");
+    // Tab 只在说明框的按钮里循环：连按 6 次焦点始终在说明框里
+    let trapped = true;
+    for (let i = 0; i < 6; i++) {
+        await key("Tab");
+        if (!(await page.eval(`!!${FD}.activeElement?.closest('[data-part="guide-callout"]')`))) trapped = false;
+    }
+    run.check(trapped, "Tab 连按 6 次焦点没有跑出说明框");
+    await key("Tab", "shiftKey: true,");
+    run.check(
+        await page.eval(`!!${FD}.activeElement?.closest('[data-part="guide-callout"]')`),
+        "Shift+Tab 也在说明框里",
+    );
+
+    // ---- ③ 关闭：完成、Esc、跳过 ----
+    await click('[data-part="guide-next"]'); // 最后一页的“完成”
+    run.eq(await isOpen(), false, "最后一页点“完成”关闭");
+    run.eq(await anyInert(), 0, "关闭后 inert 全部解除");
+    run.eq(await active(), "help", "关闭后焦点回到“?”");
+    run.eq(
+        (await calls()).filter((c) => c.startsWith("setGuideSeen")),
+        ["setGuideSeen:[true]"],
+        "看完后记一次“指南已看”",
+    );
+    await openGuide();
+    await key("Escape");
+    run.eq(await isOpen(), false, "Esc 关闭");
+    run.eq(await anyInert(), 0, "Esc 关闭后 inert 解除");
+    await openGuide();
+    if (total > 1) await click('[data-part="guide-skip"]');
+    run.eq(await isOpen(), false, "“跳过”关闭");
+    run.eq(
+        (await calls()).filter((c) => c.startsWith("setGuideSeen")).length,
+        1,
+        "已看过之后再开再关，不再重复记“指南已看”",
+    );
+
+    // ---- ④ 语言 ----
+    await click('[data-lang="en"]');
+    await openGuide();
+    run.eq(await title(), guide.en["guide.input.t"], "EN：标题是英文");
+    run.eq(await where(), fmt(guide.en["guide.step"], { n: 1, total }), "EN：步数是英文");
+    run.eq(
+        await page.eval(`${q('[data-part="guide-next"]')}.textContent`),
+        guide.en["guide.next"],
+        "EN：下一步按钮是英文",
+    );
+    await key("Escape");
+    await click('[data-lang="zh"]');
+
+    // ---- ⑤ 让位 ----
+    await click('[data-part="version"]');
+    await page.waitFor(`!!${q('[data-part="about"]')} && !${q('[data-part="about"]')}.closest("[hidden]")`, {
+        label: "关于窗应打开",
+    });
+    await page.eval(`${FD}.getElementById("shell").dispatchEvent(new CustomEvent("miciri:help", { bubbles: true }))`);
+    run.eq(await isOpen(), false, "别的模态开着时，指南不开");
+    await key("Escape");
+
+    // ---- ⑥ 全程 ----
+    const external = requests
+        .map((r) => (typeof r === "string" ? r : r.url))
+        .filter((u) => !/^(http:\/\/127\.0\.0\.1|data:|about:)/.test(u));
+    run.eq(external, [], "不应有任何外网请求");
+    const errors = page.errors.filter((e) => !/\.woff2/.test(e));
+    run.eq(errors, [], "不应有页面异常或 console.error");
+    run.check(DESIGN.shell.w > 0, "设计盒尺寸可读");
+} finally {
+    await browser.close();
+    await server.close();
+}
+run.finish();

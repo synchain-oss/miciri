@@ -1,0 +1,109 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 应用内指南：全窗暗幕（画布）和一张说明框。说明框的位置由脚本按设计坐标写进 left / top。
+   不用 3D 变换，不用 backdrop-filter：暗幕之下的页面本来就被画布压暗了。 */
+
+.guide {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    cursor: pointer;
+}
+
+.guide__mask {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.guide-call {
+    position: absolute;
+    box-sizing: border-box;
+    width: 360px;
+    padding: var(--sp-16) var(--sp-18) var(--sp-14);
+    border-radius: var(--r-callout);
+    background-color: var(--dark-solid);
+    background-image: var(--dark-modal);
+    border: 1px solid rgba(var(--wh), 0.16);
+    box-shadow: var(--dark-modal-shadow);
+    color: var(--txt-dark-2);
+    cursor: default;
+}
+
+.guide-call__title {
+    margin: 0 0 var(--sp-6);
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-160);
+    color: var(--txt-dark-1);
+}
+
+.guide-call__body {
+    margin: 0;
+    font-size: var(--fs-125);
+    line-height: 1.55;
+    color: var(--txt-dark-2);
+    text-wrap: pretty;
+}
+
+.guide-call__hint {
+    margin: var(--sp-8) 0 0;
+    font-family: var(--ff-mono);
+    font-size: var(--fs-105);
+    letter-spacing: var(--mono-ls-pill);
+    color: var(--txt-dark-btn);
+}
+
+.guide-call__foot {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-8);
+    margin-top: var(--sp-12);
+}
+
+.guide-call__where {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-10);
+}
+
+.guide-call__step {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-105);
+    letter-spacing: var(--mono-ls);
+    color: var(--txt-dark-btn);
+    font-variant-numeric: tabular-nums;
+}
+
+.guide-call__dots {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.guide-call__dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(var(--wh), 0.22);
+}
+
+.guide-call__dot[data-current] {
+    background: var(--acc-cta);
+}
+
+.guide-call__acts {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-8);
+}
+
+.guide-call__arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--dark-solid);
+    transform: rotate(45deg);
+    pointer-events: none;
+}

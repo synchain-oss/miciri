@@ -24,6 +24,8 @@ import { createDetail } from "../detail/detail-ui.js";
 import detailStrings from "../detail/detail-strings.js";
 import { renderReport } from "../report/report-ui.js";
 import reportStrings from "../report/report-strings.js";
+import { createGuide } from "../guide/guide-ui.js";
+import guideStrings from "../guide/guide-strings.js";
 
 /** 成功屏停留的时间（ms）；叠卡一格的高度（设计 px，与 flow.css 里主区的分配一致）。 */
 const SUCCESS_MS = 1600;
@@ -38,7 +40,7 @@ function start(shell) {
     const { bridge } = shell;
     const { layers } = shell.regions;
     // installDicts 是整体替换，不是追加：外壳已装的两份要连同本页的一起再装一次
-    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings, detailStrings);
+    installDicts(commonStrings, shellStrings, flowStrings, meterStrings, reportStrings, detailStrings, guideStrings);
     const t = (k, v) => shell.t(k, v);
 
     // ---- 左栏 ----
@@ -296,8 +298,22 @@ function start(shell) {
 
     // ---- 翻页：滚轮与 PageUp/PageDown ----
     const modalOpen = () => !!layers.modal.querySelector(".sc-scrim:not([hidden])");
+    // ---- 应用内指南：页脚的“?”发 miciri:help；看完、跳过、Esc 都记“指南已看” ----
+    const guide = createGuide({
+        shell,
+        isBusy: () => modalOpen() || remote.shown,
+        onClose: () => {
+            if (state && !state.guideSeen) {
+                Promise.resolve()
+                    .then(() => bridge.setGuideSeen(true))
+                    .then(receipt)
+                    .catch(bridgeFailed);
+            }
+        },
+    });
+    shell.root.addEventListener("miciri:help", () => guide.open());
     // 报告是整页：从报告回前面的步骤只走步骤条，滚轮和翻页键不翻回去
-    const idle = () => state && !remote.shown && !modalOpen() && view !== REPORT;
+    const idle = () => state && !remote.shown && !modalOpen() && !guide.isOpen() && view !== REPORT;
     const step = (dir) => {
         const ids = pages();
         const j = ids.indexOf(view) + dir;

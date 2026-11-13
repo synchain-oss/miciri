@@ -8,7 +8,7 @@
 // 找不到任何一个包时整套跳过（退出码 2）并写明缺什么，绝不记成通过；CI 设了 MICIRI_REQUIRE_AXE=1，
 // 此时缺包不再是跳过而是失败，免得有人删掉安装步骤后 axe 悄悄变成空转。
 //
-// 审三个状态：默认页、报告页、报告页上打开着的详情窗。
+// 审四个状态：默认页、默认页上打开着的应用内指南、报告页、报告页上打开着的详情窗。
 //
 // 用法：node web-preview/tests/smoke-axe-page.mjs [仓库根]
 
@@ -69,6 +69,14 @@ try {
         );
     };
     await audit("默认页");
+    // 指南：对话框，背景 inert，说明框里的按钮要有名字；审完用 Esc 关掉，再接着审报告页
+    await frame.evaluate(() => document.querySelector('[data-part="help"]').click());
+    await frame.waitForSelector('[data-part="guide-callout"]', { state: "visible" });
+    await audit("应用内指南");
+    await frame.evaluate(() =>
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })),
+    );
+    await frame.waitForSelector('[data-part="guide"]', { state: "detached" });
     const snap = await page.evaluate(
         async (u) => (await import(u)).SCENES.staleGain(),
         `${server.url}/web-preview/mock/report-fixtures.js`,
