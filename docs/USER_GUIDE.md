@@ -78,7 +78,7 @@ The window opens with a large level bar. Speak, and when the bar moves, the sign
 - **The step bar** across the top: Connect, Gain, Quiet, Room, Position, Direction (advanced) and Report. Each step is marked not done,
   current, done, stale or failed. Click a step, a card above or below, or "Next" to move; scrolling also turns the page.
 - **The corner buttons**: language (English or Simplified Chinese), window scale, the "?" button that opens the in-app guide, and
-  "About". The window scale asks you to confirm and goes back by itself after a few seconds if you do not.
+  "About". The window scale asks you to confirm and goes back by itself after about 10 seconds if you do not.
 
 While a test runs, the window shows a single large instruction and a block of color for start, success and "try again", so you
 can read it from your singing position.

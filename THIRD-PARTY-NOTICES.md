@@ -4,10 +4,13 @@
 
 Miciri is free software under GPL-3.0-or-later ([LICENSE](LICENSE)). The binaries combine Miciri with the components below,
 each under its own licence. The full texts are in [LICENSES/](LICENSES/); the notice and source note of every component sit in
-`third_party/<name>/`, and both folders ship with the installers and the zips.
+`third_party/<name>/`. Both folders ship with every installer and zip, except that the Inno Setup licence text in `LICENSES/` goes
+with the Windows installer only. A notice folder can therefore sit in a package whose binary does not contain that component; the
+tables below say which binaries contain what.
 
 Miciri 自己的代码是 GPL-3.0-or-later。发行包里的二进制还链接了下列组件，各自按自己的许可。许可全文在 `LICENSES/`，
-每个组件的许可声明和来源说明在 `third_party/<名字>/`，两处都随安装包和 zip 一起发。
+每个组件的许可声明和来源说明在 `third_party/<名字>/`。两处随每个安装包和 zip 一起发，只有 Inno Setup 的许可文本（在 `LICENSES/` 里）只随
+Windows 安装包走。所以某个包里可能带着它的二进制并不含的组件的声明目录；下面的表写明了各组件在哪些二进制里。
 
 ## In the plug-in binaries / 链接进插件的组件
 

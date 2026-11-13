@@ -104,7 +104,8 @@ SPDX-FileCopyrightText = [
 ]
 SPDX-License-Identifier = "BSD-3-Clause"
 
-# Inno Setup 的运行库编进 Windows 安装程序，所以它的许可随安装包走（zip 与 macOS 包不带，见 scripts/package.ps1）。
+# Inno Setup 的运行库编进 Windows 安装程序，所以它的许可随安装包走。打包脚本只让 LICENSES/LicenseRef-Inno-Setup.txt 单独只进 Windows 安装包；这里的 NOTICE.txt 和其他
+# third_party 目录一样，会进每个包（见 scripts/package.ps1）。
 [[annotations]]
 path = "third_party/innosetup/NOTICE.txt"
 precedence = "override"
