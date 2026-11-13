@@ -323,10 +323,12 @@ function start(shell) {
             }
         },
     });
-    shell.root.addEventListener("miciri:help", () => guide.open());
     // 首次启动：页面就绪后指南还没看过，且没有测试在跑，就自动开一次。只开一次：
     // 关掉之后哪怕保存失败、快照里仍是未看，也不再弹。别的窗口占着时，等下一个快照再试。
     let guideAuto = false;
+    shell.root.addEventListener("miciri:help", () => {
+        if (guide.open()) guideAuto = true; // 用户自己开过，就不再自动开
+    });
     const guideWanted = (s) =>
         !!s && !s.guideSeen && !Object.values(s.steps || {}).some((x) => x && x.status === "running");
     shell.onState((s) => {

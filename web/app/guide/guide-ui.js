@@ -47,7 +47,8 @@ function paintMask(canvas, hole, style) {
     g.globalCompositeOperation = "destination-out";
     g.fillStyle = "#000";
     g.shadowColor = "#000";
-    g.shadowBlur = GEOM.feather;
+    // shadowBlur 不随画布变换缩放，羽化宽度要自己乘倍率，才和设计坐标里的宽度一致
+    g.shadowBlur = GEOM.feather * k;
     roundedRect(g, hole.x, hole.y, hole.w, hole.h, GEOM.radius);
     g.fill();
     g.globalCompositeOperation = "source-over";
@@ -87,10 +88,13 @@ export function createGuide(o) {
         return a;
     }
 
-    function render() {
+    // keepFocus：窗口大小或语言变了的重画，焦点留在原来的按钮上；翻页的重画才把焦点给说明框
+    function render(keepFocus = false) {
         if (!s) return;
         const t = shell.t;
         const step = s.list[s.i];
+        const had =
+            keepFocus && s.call && s.call.contains(document.activeElement) ? document.activeElement.dataset.part : null;
         const n = targetOf(step);
         const hole = n ? holeFromRect(n.getBoundingClientRect(), root.getBoundingClientRect(), shellFitFactor()) : null;
         paintMask(s.canvas, hole, getComputedStyle(root));
@@ -150,7 +154,8 @@ export function createGuide(o) {
         call.style.top = `${Math.round(pos.y)}px`;
         call.style.visibility = "";
         if (pos.side) call.append(arrow(pos, callH));
-        call.focus({ preventScroll: true });
+        const same = had ? call.querySelector(`[data-part="${had}"]`) : null;
+        (same || call).focus({ preventScroll: true });
     }
 
     function go(dir) {
@@ -221,10 +226,10 @@ export function createGuide(o) {
 
     // 换语言、改窗口大小时按当前页重画
     shell.onState(() => {
-        if (s && shell.getLang() !== s.lang) render();
+        if (s && shell.getLang() !== s.lang) render(true);
     });
     window.addEventListener("resize", () => {
-        if (s) window.requestAnimationFrame(render);
+        if (s) window.requestAnimationFrame(() => render(true));
     });
 
     return { open, close, isOpen: () => !!s };

@@ -7,6 +7,7 @@
 //   ③ 关闭：Esc、跳过、最后一页的“完成”都关，inert 解除、焦点回到“?”；已看过时不再记“指南已看”；
 //   ④ 语言：切到 EN 后再开，标题与按钮是英文；
 //   ⑤ 让位：别的模态开着时不开指南；
+//   ③c 重画（窗口大小变了）不抢走说明框里按钮的焦点；羽化宽度乘后备倍率；手动开过之后快照变未看也不自动开；
 //   ⑥ 首次启动：指南未看时开窗后自动打开一次，关掉只记一次“指南已看”，之后快照怎么变都不再弹；已看过则不弹；
 //   ⑦ 全程没有页面异常、没有外网请求。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
@@ -25,7 +26,7 @@ if (!findBrowser()) run.skip("没有 Chromium 系浏览器；可用环境变量 
 
 const at = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
 const { DESIGN } = await at("web/shared/design-box.js");
-const { STEPS } = await at("web/app/guide/guide-core.js");
+const { STEPS, GEOM } = await at("web/app/guide/guide-core.js");
 const guide = (await at("web/app/guide/guide-strings.js")).default;
 const fmt = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k]);
 
@@ -149,6 +150,12 @@ try {
         "Shift+Tab 也在说明框里",
     );
 
+    // 重画不抢焦点：焦点在“下一步”上，窗口大小变了，重画后焦点仍在“下一步”上
+    await page.eval(`${q('[data-part="guide-next"]')}.focus()`);
+    await page.eval(`${FD}.defaultView.dispatchEvent(new Event("resize"))`);
+    await sleep(300);
+    run.eq(await active(), "guide-next", "窗口大小变了重画，焦点仍在原来的按钮上");
+
     // ---- ③ 关闭：完成、Esc、跳过 ----
     await click('[data-part="guide-next"]'); // 最后一页的“完成”
     run.eq(await isOpen(), false, "最后一页点“完成”关闭");
@@ -163,6 +170,36 @@ try {
     if (total > 1) await click('[data-part="guide-skip"]');
     run.eq(await isOpen(), false, "“跳过”关闭");
     run.eq(await seenCalls(), [], "已看过时，Esc 与跳过也都不记");
+
+    // 手动开过之后，快照变成未看也不自动开（一个页面只自动开一回，手动开也算）
+    await page.eval(`${MOCK}.mutate((st) => { st.guideSeen = false; })`);
+    await sleep(500);
+    run.eq(await isOpen(), false, "手动开过指南之后，快照变成未看也不自动打开");
+    await page.eval(`${MOCK}.mutate((st) => { st.guideSeen = true; })`);
+
+    // 羽化宽度：shadowBlur 不随画布变换缩放。把 dpr 假设成 2，倍率就明显不是 1，羽化要跟着乘
+    await page.eval(`(() => {
+        const w = ${FD}.defaultView;
+        Object.defineProperty(w, "devicePixelRatio", { value: 2, configurable: true });
+        const proto = w.CanvasRenderingContext2D.prototype;
+        const d = Object.getOwnPropertyDescriptor(proto, "shadowBlur");
+        w.__blurs = [];
+        Object.defineProperty(proto, "shadowBlur", {
+            configurable: true,
+            get() { return d.get.call(this); },
+            set(v) { w.__blurs.push(v); d.set.call(this, v); },
+        });
+    })()`);
+    await openGuide();
+    const feather = await page.eval(
+        `({ blur: ${FD}.defaultView.__blurs.at(-1), k: ${q(".guide__mask")}.width / ${DESIGN.shell.w} })`,
+    );
+    run.check(feather.k >= 1.99, `画布后备倍率应含 dpr（实得 ${feather.k.toFixed(2)}）`);
+    run.check(
+        Math.abs(feather.blur - GEOM.feather * feather.k) < 0.05,
+        `羽化宽度应为设计坐标里的 ${GEOM.feather} 乘后备倍率（实得 ${feather.blur}，倍率 ${feather.k.toFixed(2)}）`,
+    );
+    await key("Escape");
 
     // ---- ④ 语言 ----
     await click('[data-lang="en"]');
