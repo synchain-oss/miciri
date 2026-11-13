@@ -1,0 +1,174 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* 详情面板：深色玻璃窗（骨架来自 shared/modal.js 的 .sc-modal）。不用 3D 变换。
+   data-tone 决定圆点颜色；过期（data-stale="1"）整块转灰。 */
+
+.sc-modal.dt {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-12);
+    max-height: 620px;
+    overflow-y: auto;
+    padding: var(--sp-20) var(--sp-24);
+}
+.dt__hd {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-16);
+}
+.dt__ttl {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+    min-width: 0;
+}
+.dt .sc-eyebrow {
+    color: var(--txt-dark-3);
+}
+.dt__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--sp-8) var(--sp-14);
+}
+.dt__word {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-200);
+    color: var(--txt-dark-1);
+}
+.dt__word .sc-dot {
+    background: rgb(var(--tn));
+}
+.dt__nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4) var(--sp-14);
+}
+.dt__num {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-5);
+}
+.dt__num b {
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-200);
+    color: var(--txt-dark-1);
+    font-variant-numeric: tabular-nums;
+}
+.dt i {
+    font-style: normal;
+    font-family: var(--ff-mono);
+    font-size: var(--fs-100);
+    color: var(--txt-dark-3);
+    letter-spacing: var(--mono-ls-ui);
+}
+.dt[data-stale="1"] .dt__num b,
+.dt[data-stale="1"] .dt__word {
+    color: var(--txt-dark-3);
+}
+.dt__stale {
+    display: flex;
+    gap: var(--sp-8);
+    align-items: center;
+    margin: 0;
+    padding: var(--sp-6) var(--sp-10);
+    border-radius: var(--r-md);
+    background: rgba(var(--wh), 0.08);
+    border: 1px dashed rgba(var(--wh), 0.3);
+    font-size: var(--fs-115);
+    color: var(--txt-dark-2);
+}
+.dt__stale svg {
+    stroke: var(--txt-dark-3);
+    flex: none;
+}
+.dt__expl {
+    margin: 0;
+    font-size: var(--fs-130);
+    line-height: 1.55;
+    color: var(--txt-dark-2);
+    text-wrap: pretty;
+}
+.dt__tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-115);
+    color: var(--txt-dark-2);
+}
+.dt__tbl th,
+.dt__tbl td {
+    padding: var(--sp-6) var(--sp-10);
+    text-align: right;
+    border-bottom: 1px solid rgba(var(--wh), 0.1);
+}
+.dt__tbl thead th {
+    font-family: var(--ff-mono);
+    font-size: var(--fs-95);
+    font-weight: 400;
+    letter-spacing: var(--mono-ls-tag);
+    color: var(--txt-dark-3);
+}
+.dt__tbl th:first-child {
+    text-align: left;
+    font-weight: 400;
+}
+.dt__tbl td b {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--txt-dark-1);
+}
+.dt__tbl td i {
+    margin-left: var(--sp-4);
+}
+.dt__tbl tr[data-hl="1"] {
+    background: rgba(var(--sem-violet), 0.22);
+}
+.dt__tbl tr[data-hl="1"] th {
+    color: var(--txt-dark-1);
+}
+.dt__radar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sp-6);
+}
+.dt__notes {
+    display: grid;
+    gap: var(--sp-6);
+}
+.dt__note {
+    display: flex;
+    gap: var(--sp-8);
+    align-items: flex-start;
+    font-size: var(--fs-110);
+    line-height: 1.5;
+    color: var(--txt-dark-3);
+}
+.dt__note svg {
+    stroke: var(--txt-dark-3);
+    flex: none;
+    margin-top: 2px;
+}
+.dt__cta {
+    display: flex;
+    justify-content: flex-end;
+}
+/* 雷达原本画在浅色玻璃上：到深色窗里把线和字换成浅色 */
+.dt__radar .rd__ring {
+    stroke: rgba(var(--wh), 0.3);
+}
+.dt__radar .rd__axis {
+    stroke: rgba(var(--wh), 0.22);
+}
+.dt__radar .radar__lb,
+.dt__radar .radar__ring {
+    color: var(--txt-dark-2);
+}
+.dt__radar .radar__lb b {
+    color: var(--txt-dark-1);
+}

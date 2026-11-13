@@ -3,7 +3,7 @@
 // 报告页的组件：最该改的一件事、距离标尺、九张结果卡加一个“做了改动？”格。
 // 只把 report-core 算出的数据画成 DOM；不读桥，动作经 ctx 回调交给 flow-main。全程只用 DOM API，文字走词条。
 //
-// ctx：{ t, go(view), openPrep(step), retestSteps(steps), reportChange(kind), copy(text) }
+// ctx：{ t, go(view), openPrep(step), retestSteps(steps), reportChange(kind), copy(text), openDetail(cardId) }
 
 import { el } from "../../shared/dom.js";
 import { ctaBtn, ghostBtn, resultCard } from "../flow/flow-ui.js";
@@ -151,26 +151,39 @@ function changeCell(ctx, state) {
     );
 }
 
-/** 方向卡：卡本身不动，小按钮是它的兄弟节点，叠在数字和可信度之间。 */
-function dirSlot(card, kind, state, ctx) {
+/** 一张卡加它的“查看详情”按钮：按钮是卡的兄弟节点，铺满整张卡，叠在卡上；方向卡的小按钮再叠在它上面。 */
+function cardSlot(card, extra, ctx) {
+    const { t } = ctx;
+    return el(
+        "div",
+        { class: "rc-slot", data: { dirhint: extra ? "card" : null } },
+        resultCard(card, false, true, ctx),
+        el("button", {
+            type: "button",
+            class: "rc-slot__open",
+            aria: { label: t("detail.open", { name: t(`flow.card.${card.id}`) }) },
+            data: { part: "card-open", card: card.id },
+            on: { click: () => ctx.openDetail(card.id) },
+        }),
+        extra,
+    );
+}
+
+/** 方向卡上的小按钮：叠在数字和可信度之间。 */
+function dirGo(kind, state, ctx) {
     const sec = state.steps && state.steps.direction ? Math.round(state.steps.direction.durationSec || 0) : 0;
     const again = kind === "again";
     const key = again ? "report.dir.again" : sec > 0 ? "report.dir.card" : "report.dir.go";
     return el(
-        "div",
-        { class: "rc-slot", data: { dirhint: "card" } },
-        resultCard(card, false, true, ctx),
-        el(
-            "button",
-            {
-                type: "button",
-                class: "sc-btn rc-slot__go",
-                data: { glow: "1", part: "dir-go" },
-                on: { click: () => ctx.openPrep("direction") },
-            },
-            again ? ic("retry", 14) : null,
-            el("span", { text: ctx.t(key, { n: sec }) }),
-        ),
+        "button",
+        {
+            type: "button",
+            class: "sc-btn rc-slot__go",
+            data: { glow: "1", part: "dir-go" },
+            on: { click: () => ctx.openPrep("direction") },
+        },
+        again ? ic("retry", 14) : null,
+        el("span", { text: ctx.t(key, { n: sec }) }),
     );
 }
 
@@ -191,7 +204,7 @@ export function renderReport(state, ctx) {
         el(
             "div",
             { class: "rp__grid", data: { n: String(cards.length) } },
-            cards.map((c) => (c.id === "dir" && slot ? dirSlot(c, slot, state, ctx) : resultCard(c, false, true, ctx))),
+            cards.map((c) => cardSlot(c, c.id === "dir" && slot ? dirGo(slot, state, ctx) : null, ctx)),
             changeCell(ctx, state),
         ),
     );
