@@ -5,7 +5,6 @@
 
 export default {
     zh: {
-        "guide.aria": "使用指南",
         "guide.hint": "点任意处继续 · Esc 跳过 · ← → 翻页",
         "guide.step": "{n} / {total}",
         "guide.prev": "上一步",
@@ -30,7 +29,6 @@ export default {
         "guide.help.b": "点这个圆形“?”可以重新看这份引导。",
     },
     en: {
-        "guide.aria": "Guide",
         "guide.hint": "Click anywhere to continue · Esc to skip · ← → to turn pages",
         "guide.step": "{n} / {total}",
         "guide.prev": "Back",

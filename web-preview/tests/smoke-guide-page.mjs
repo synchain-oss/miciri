@@ -88,6 +88,14 @@ try {
         "对话框有角色、aria-modal 与标题名",
     );
     run.eq(await anyInert(), 4, "背景四个区域都是 inert");
+    // 进度点：只有当前一步带 data-current（el() 不写 false，所以非当前的点没有这个属性）
+    const dots = () =>
+        page.eval(`Array.from(${FD}.querySelectorAll(".guide-call__dot")).map((d) => d.hasAttribute("data-current"))`);
+    run.eq(
+        (await dots()).map((on, i) => (on ? i : -1)).filter((i) => i >= 0),
+        [0],
+        "进度点：第一步只亮第一个",
+    );
     const geometry = (stepSel) =>
         page.eval(`(() => {
             const shell = ${FD}.getElementById("shell").getBoundingClientRect();
@@ -117,6 +125,11 @@ try {
     // ---- ② 翻页 ----
     await click('[data-part="guide-prev"]');
     run.check((await where()) === fmt(guide.zh["guide.step"], { n: total - 1, total }), "上一步回得去");
+    run.eq(
+        (await dots()).map((on, i) => (on ? i : -1)).filter((i) => i >= 0),
+        [total - 2],
+        "进度点：只亮当前一步",
+    );
     await key("ArrowLeft");
     run.check((await where()) === fmt(guide.zh["guide.step"], { n: Math.max(1, total - 2), total }), "左方向键上一步");
     await key("ArrowRight");
@@ -189,7 +202,10 @@ try {
     await page.eval(`${MOCK}.mutate((st) => { st.guideSeen = false; })`);
     await sleep(500);
     run.eq(await isOpen(), false, "快照退回未看，也不再自动打开");
-    run.eq(await seenCalls(), ["setGuideSeen:[true]"], "全程只记过一次“指南已看”");
+    await openGuide();
+    await key("Escape");
+    await sleep(300);
+    run.eq(await seenCalls(), ["setGuideSeen:[true]"], "快照退回未看后再开再关，也只记过一次“指南已看”");
 
     // ---- ⑦ 全程 ----
     const external = requests

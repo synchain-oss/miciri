@@ -305,15 +305,21 @@ function start(shell) {
     // ---- 翻页：滚轮与 PageUp/PageDown ----
     const modalOpen = () => !!layers.modal.querySelector(".sc-scrim:not([hidden])");
     // ---- 应用内指南：页脚的“?”发 miciri:help；看完、跳过、Esc 都记“指南已看” ----
+    // 记“指南已看”只发一次：快照回来之前再开再关，不重复发；发失败了才允许下次关闭再试
+    let seenSent = false;
     const guide = createGuide({
         shell,
         isBusy: () => modalOpen() || remote.shown,
         onClose: () => {
-            if (state && !state.guideSeen) {
+            if (state && !state.guideSeen && !seenSent) {
+                seenSent = true;
                 Promise.resolve()
                     .then(() => bridge.setGuideSeen(true))
                     .then(receipt)
-                    .catch(bridgeFailed);
+                    .catch((err) => {
+                        seenSent = false;
+                        bridgeFailed(err);
+                    });
             }
         },
     });

@@ -35,7 +35,7 @@ for (const lang of ["zh", "en"]) {
     for (const s of STEPS) {
         run.check(!!dict[lang][`guide.${s.id}.t`] && !!dict[lang][`guide.${s.id}.b`], `${lang}：${s.id} 有标题和说明`);
     }
-    for (const k of ["aria", "hint", "step", "prev", "next", "skip", "done"]) {
+    for (const k of ["hint", "step", "prev", "next", "skip", "done"]) {
         run.check(!!dict[lang][`guide.${k}`], `${lang}：guide.${k} 存在`);
     }
 }
