@@ -419,10 +419,10 @@ public:
         out.results.click = core::analyseClicks(speech, ctx_.sampleRate);
         analysed();
         // 三项分析各自从自己那段音频的开头计时，换算到这一步的时间轴（与证据波形同一条轴）。
-        // 字表与自然朗读这几个阶段不会重来，所以三段在轴上首尾相接，口水音那段拼接的音频从爆破音字表开头算起
-        shiftMarks(out.results.plosive, plosiveAt_);
-        shiftMarks(out.results.sibilance, sibilantAt_);
-        shiftMarks(out.results.click, plosiveAt_);
+        // 口水音分析的是三段拼起来的音频，按标记起点落在哪一段分别换算，不假定三段在轴上首尾相接
+        moveMarks(out.results.plosive, [this](double) { return seconds(plosiveAt_); });
+        moveMarks(out.results.sibilance, [this](double) { return seconds(sibilantAt_); });
+        moveMarks(out.results.click, [this](double t) { return clickOffset(t); });
         return out;
     }
 
@@ -446,6 +446,8 @@ private:
             append(sibilant_, x, frames);
             break;
         default:
+            if (natural_.empty())
+                naturalAt_ = heardFrames();
             append(natural_, x, frames);
             break;
         }
@@ -463,32 +465,59 @@ private:
                                                                                                : FlowNotice::None;
     }
 
+    // 重来时丢掉这一阶段收到的音频，与进度、证据波形一起退回；这一段的起点在重新收到样本时再记
     void resetPhase(StepPhase phase) override
     {
-        if (phase == StepPhase::SoftClap)
+        switch (phase)
         {
+        case StepPhase::SoftClap:
             claps_ = std::make_unique<core::ClapAnalyser>(ctx_.sampleRate);
             directRatio_.reset();
+            break;
+        case StepPhase::Plosive:
+            plosive_.clear();
+            break;
+        case StepPhase::Sibilant:
+            sibilant_.clear();
+            break;
+        default:
+            natural_.clear();
+            break;
         }
     }
 
-    template<class R>
-    void shiftMarks(std::optional<R>& r, std::size_t at) const
+    double seconds(std::size_t frames) const { return static_cast<double>(frames) / ctx_.sampleRate; }
+
+    // 拼起来的音频（爆破音字表、齿音字表、自然朗读）上的时刻 t 落在哪一段，就加那一段在这一步时间轴上的起点
+    double clickOffset(double t) const
+    {
+        const double p = seconds(plosive_.size());
+        const double s = seconds(sibilant_.size());
+        if (t < p)
+            return seconds(plosiveAt_);
+        if (t < p + s)
+            return seconds(sibilantAt_) - p;
+        return seconds(naturalAt_) - p - s;
+    }
+
+    // 标记的起止一起平移，平移量按起点算
+    template<class R, class F>
+    static void moveMarks(std::optional<R>& r, F offsetAt)
     {
         if (!r)
             return;
-        const double sec = static_cast<double>(at) / ctx_.sampleRate;
         for (auto& m : r->evidence.marks)
         {
-            m.startSec += sec;
-            m.endSec += sec;
+            const double d = offsetAt(m.startSec);
+            m.startSec += d;
+            m.endSec += d;
         }
     }
 
     std::unique_ptr<core::ClapAnalyser> claps_;
     std::optional<core::DirectRatioAnalysis> directRatio_;
     std::vector<double> plosive_, sibilant_, natural_;
-    std::size_t plosiveAt_ = 0, sibilantAt_ = 0; // 两份字表在这一步时间轴上的起点（帧）
+    std::size_t plosiveAt_ = 0, sibilantAt_ = 0, naturalAt_ = 0; // 三段在这一步时间轴上的起点（帧）
 };
 
 // ---- 方向：四个方向各唱一段；别的方向明显更响时追加确认，重唱当前方向与那个方向 ----

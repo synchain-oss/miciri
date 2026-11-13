@@ -462,6 +462,9 @@ std::string snapshotJson(const SessionView& v, core::MicType mic)
     return j.str();
 }
 
+// 事件种类与名表一一对应：枚举加了一项而名表没跟上时编不过，不会越界读
+static_assert(bridge::kEvidenceEventKinds.size() == static_cast<std::size_t>(EvidenceEventKind::Mouth) + 1);
+
 std::string evidenceJson(const EvidencePack& p)
 {
     Json j;
