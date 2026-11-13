@@ -393,6 +393,12 @@ try {
     await page.waitFor(`${q('[data-part="evidence-zoom"]')}?.textContent === "缩放 1.00×"`, {
         label: "新证据到了，视图回到整段",
     });
+    run.eq(
+        await page.eval(`(() => { ${M}.mutate((s) => { s.steps.position.evidenceRev = 3; }); return !!${q(EV)}; })()`),
+        false,
+        "evidenceRev 又变了：新数据到之前不再画旧一版的波形",
+    );
+    await readyEv();
     run.check(
         await page.eval(
             `(() => { const a = ${q('[data-part="evidence"]')}.getBoundingClientRect(), b = ${q('[data-part="detail"]')}.getBoundingClientRect(); return a.left >= b.left && a.right <= b.right; })()`,

@@ -84,7 +84,9 @@ export function createDetail(o) {
             ev = cur.ev = { step: spec.step, comp: createEvidence(spec), rev: 0, ready: false };
         }
         if (ev.rev !== spec.rev) {
+            // 这一步有了新的证据：新数据到之前不再画旧的，免得旧一版的波形和新结果并排
             ev.rev = spec.rev;
+            ev.ready = false;
             fetchEvidence(ev, cur, spec.rev);
         }
         return ev.ready ? ev.comp : null;
@@ -211,6 +213,7 @@ export function createDetail(o) {
         isOpen: () => cur !== null,
         open(id, state) {
             if (!state) return;
+            if (cur) dropEvidence();
             cur = { id, state, ev: null };
             build(state);
             modal.show();
