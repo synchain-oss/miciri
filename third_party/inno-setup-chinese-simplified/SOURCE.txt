@@ -1,0 +1,6 @@
+Simplified Chinese wizard translation for the Windows installer, LICENSE.txt copied unmodified from the translation repository.
+Repository: https://github.com/kira-96/Inno-Setup-Chinese-Simplified-Translation
+License: MIT, Copyright (c) 2019-2020 kirakira.
+Used for: the strings in packaging/win/languages/ChineseSimplified.isl, which is the file from the official Inno Setup repository
+(Files/Languages/Unofficial/ChineseSimplified.isl at tag is-6_7_4), unchanged. See packaging/win/languages/SOURCE.txt.
+It is part of the Windows installer only.

@@ -51,13 +51,73 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "BSD-3-Clause"
 
 # Inno Setup 官方仓库 Unofficial 目录里的简体中文向导翻译，原样提交（哈希钉在 packaging/win/ChineseSimplified.isl.sha256）。
-# 文件头没有写许可，沿用它所在仓库的 Inno Setup License；来源与上游的 MIT 翻译仓见同目录的 SOURCE.txt。
+# 文件头没有写许可。译者的仓库 kira-96/Inno-Setup-Chinese-Simplified-Translation 用 MIT（版权 2019-2020 kirakira），
+# 所以按 MIT 登记；Inno Setup 自己的许可只管安装程序里的运行库，见下面 innosetup 一块。来源见同目录的 SOURCE.txt。
 [[annotations]]
 path = "packaging/win/languages/ChineseSimplified.isl"
 precedence = "override"
 SPDX-FileCopyrightText = [
-  "1997-2026 Jordan Russell",
-  "2000-2026 Martijn Laan",
+  "2019-2020 kirakira",
   "Zhenghan Yang (translation)",
 ]
+SPDX-License-Identifier = "MIT"
+
+# 以下是随发行包带走的第三方许可原文，每份文本对应 third_party/<名字>/ 下的一个文件，来源与版本写在同目录的 SOURCE.txt。
+# 文本逐字取自上游，不改一个字。reuse lint 不看名为 LICENSE* 或 COPYING* 的文件（既不算覆盖也不算引用），所以凡要靠它引用 LICENSES/ 的文本，存成 NOTICE.*（打包脚本同样会带走）；LICENSES/ 里的全文由这些块引用（reuse lint 会把没人引用的许可判为未使用）。
+
+# JUCE（8.0.8）双许可，本项目取 AGPL-3.0-only 这一支。
+[[annotations]]
+path = "third_party/juce/NOTICE.md"
+precedence = "override"
+SPDX-FileCopyrightText = "Raw Material Software Limited"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# AudioUnitSDK 只编进 macOS 的 Audio Unit。上游 LICENSE.txt 是不带版权行的 Apache-2.0 正文，版权行取自源文件头。
+[[annotations]]
+path = "third_party/audiounitsdk/NOTICE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = "2000-2021 Apple Inc."
+SPDX-License-Identifier = "Apache-2.0"
+
+# VST3 SDK 上游双授权（Steinberg VST3 许可或 GPLv3），本项目取 GPLv3。
+[[annotations]]
+path = "third_party/vst3sdk/NOTICE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Steinberg Media Technologies GmbH"
+SPDX-License-Identifier = "GPL-3.0-only"
+
+# WebView2 的 loader 以静态库链进 Windows 版；NuGet 包的 LICENSE.txt 与 NOTICE.txt 一并带上。
+# NOTICE.txt 里除了微软自己的条款，还逐字转录了 Antlr3.Runtime 与 StringTemplate4 的 BSD-3-Clause 文本（版权 The ANTLR Project），
+# 所以它的版权行要多列这一项；LICENSE.txt 只有微软一家。
+[[annotations]]
+path = "third_party/webview2/LICENSE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = "Microsoft Corporation"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = "third_party/webview2/NOTICE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Microsoft Corporation",
+  "2011 The ANTLR Project",
+]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# Inno Setup 的运行库编进 Windows 安装程序，所以它的许可随安装包走。打包脚本只让 LICENSES/LicenseRef-Inno-Setup.txt 单独只进 Windows 安装包；这里的 NOTICE.txt 和其他
+# third_party 目录一样，会进每个包（见 scripts/package.ps1）。
+[[annotations]]
+path = "third_party/innosetup/NOTICE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "1997-2026 Jordan Russell",
+  "2000-2026 Martijn Laan",
+]
 SPDX-License-Identifier = "LicenseRef-Inno-Setup"
+
+# 中文向导翻译的译者仓库许可（MIT）。
+[[annotations]]
+path = "third_party/inno-setup-chinese-simplified/LICENSE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = "2019-2020 kirakira"
+SPDX-License-Identifier = "MIT"

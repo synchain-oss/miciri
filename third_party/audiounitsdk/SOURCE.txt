@@ -1,0 +1,5 @@
+Apple AudioUnitSDK as bundled in JUCE 8.0.8, LICENSE.txt copied unmodified and stored as NOTICE.txt (see REUSE.toml for why).
+Repository: https://github.com/juce-framework/JUCE (commit in .juce-commit)
+Path: modules/juce_audio_plugin_client/AU/AudioUnitSDK/LICENSE.txt
+License: Apache-2.0 (see LICENSES/Apache-2.0.txt). Copyright 2000-2021 Apple Inc., taken from the source file headers.
+Used for: the macOS Audio Unit build only. It is not in the Windows binaries.
