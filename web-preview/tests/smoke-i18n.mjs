@@ -132,6 +132,8 @@ for (const f of [
     "web/app/report/report-copy.js",
     "web/app/detail/detail-ui.js",
     "web/app/detail/detail-core.js",
+    "web/app/detail/evidence-canvas.js",
+    "web/app/detail/evidence-core.js",
 ]) {
     run.eq(findFullwidthLiterals(readText(ROOT, f)), [], `${f}：字符串字面量里不应有全角标点，标点放进词条`);
 }

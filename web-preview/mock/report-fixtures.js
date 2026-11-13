@@ -46,6 +46,17 @@ export function staled(snap, kind) {
     return out;
 }
 
+/** 做完的各步都有证据（假桥的 getEvidence 看 evidenceRev），并且各做完过 runs 次。 */
+export function withEvidence(snap, runs = 1) {
+    const out = structuredClone(snap);
+    for (const id of ["gain", "quiet", "room", "position", "direction"]) {
+        if (out.steps[id].status === "idle") continue;
+        out.steps[id].evidenceRev = runs;
+        out.steps[id].runs = runs;
+    }
+    return out;
+}
+
 const green = (s) => {
     let o = withSection(s, "noise", {
         noiseDbfs: -62,
@@ -78,6 +89,16 @@ export const SCENES = {
             fixes: ["room"],
             advice: advice("move-closer-check-direction", "none", "main-button"),
         }),
+    /** 都好，各步有证据：详情里画证据画布。 */
+    evidence: () => withEvidence(SCENES.ready()),
+    /** 增益与底噪重测过：增益有上次，底噪与电流声是首次测量。 */
+    retestedQuiet: () => {
+        const s = withEvidence(SCENES.ready());
+        s.steps.gain.runs = 2;
+        s.steps.quiet.runs = 2;
+        s.previous = { gain: structuredClone(s.results.gain) };
+        return s;
+    },
     /** 都好：可以开始录音。 */
     ready: () => ({ ...green(measured()), advice: advice("good", "none", "card-button") }),
     /** 离话筒太近：喷麦重。 */
