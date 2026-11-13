@@ -5,11 +5,13 @@
 // 整个文件同时充当无信号窗口、噪声步和增益步，所以对一段“停顿加说话”的录音最有意义。
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "Wav.h"
 
 namespace miciri::tools
 {
-std::string analyseToJson(const WavData& wav);
+// floorDbfs：接通步会读到的底噪（RMS，dBFS），给增益的模拟平顶放宽容差；不给就只用相对容差。
+std::string analyseToJson(const WavData& wav, std::optional<double> floorDbfs = std::nullopt);
 } // namespace miciri::tools

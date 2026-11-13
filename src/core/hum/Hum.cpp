@@ -209,10 +209,12 @@ HumResult HumAnalyser::finish() const
     };
     const double durationSec = static_cast<double>(samplesIn_) / sampleRate_;
 
-    // 啸叫：2 kHz 以上、不属于已检出谐波的稳定窄峰
+    // 啸叫：2 kHz 到 whistle_max_hz 之间、不属于已检出谐波的稳定窄峰。更高的频段里常有听不见的接口与时钟杂散，
+    // 不查；上限以下的杂散（例如 8 kHz 一类整数倍）由下面的电平下限挡住。
     std::vector<std::size_t> candidatesBins;
     const auto excludeBins = static_cast<std::size_t>(std::llround(thr::hum::whistle_exclude_halfwidth_hz / df));
-    for (std::size_t k = lowerBound(thr::hum::whistle_min_hz); k < bins; ++k)
+    for (std::size_t k = lowerBound(thr::hum::whistle_min_hz);
+         k < bins && static_cast<double>(k) * df <= thr::hum::whistle_max_hz; ++k)
     {
         if (over[k] < thr::hum::whistle_over_median_db)
             continue;
@@ -236,10 +238,13 @@ HumResult HumAnalyser::finish() const
             if (over[candidatesBins[j]] > over[peak])
                 peak = candidatesBins[j];
         }
+        i = j + 1;
+        // 窄峰本身的功率低于 whistle_min_dbfs 的不算：峰比本底高，但绝对电平低到听不见
+        if (dsp::powerToDb(excessPower(peak)) < thr::hum::whistle_min_dbfs)
+            continue;
         if (!whistle || over[peak] > over[whistleBin])
             whistleBin = peak;
         whistle = true;
-        i = j + 1;
     }
 
     HumMeasures& m = result.measures;
@@ -283,7 +288,9 @@ HumResult HumAnalyser::finish() const
             m.highestHarmonicHz = highestHz;
             m.levelDbfs = dsp::powerToDb(total);
             m.peakDbfs = dsp::powerToDb(strongestPower);
-            result.verdict.slight = m.energySharePct / 100.0 < thr::hum::slight_energy_share_frac;
+            // 严重度看最强一根谐波从周围底噪里冒出多少：冒得不多只标轻微。占噪声能量的比例只作信息，
+            // 它受宽带噪声大小左右（底噪大的录音里真电流声占比反而小），不能当严重度。
+            result.verdict.slight = m.overFloorDb < thr::hum::slight_below_over_floor_db;
         }
     }
     return result;

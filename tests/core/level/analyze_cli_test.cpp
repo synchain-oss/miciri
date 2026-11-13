@@ -4,6 +4,8 @@
 // 字节都在内存里造，不读写文件。
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -223,6 +225,28 @@ TEST_CASE("report: strictly silent audio is reported, not rejected")
     CHECK(looksBalanced(json));
     CHECK(contains(json, "\"state\":\"all-zero-from-start\""));
     CHECK_FALSE(contains(json, "nan"));
+}
+
+TEST_CASE("options: the gain is applied to every sample, and the floor reading reaches the flat-top check")
+{
+    tools::WavData wav;
+    wav.sampleRate = 48000.0;
+    wav.channels = {{0.5, -0.25}, {0.125, 0.0}};
+    tools::applyGainDb(wav, 20.0 * std::log10(2.0));
+    CHECK(wav.channels[0][0] == within(1.0, 1e-12));
+    CHECK(wav.channels[0][1] == within(-0.5, 1e-12));
+    CHECK(wav.channels[1][0] == within(0.25, 1e-12));
+
+    // 底噪下的硬削正弦：只用相对容差看不出平台，给了接通步的底噪读数才看得出
+    std::vector<double> x = sine(48000.0, 220.0, 0.9, 1.0);
+    for (double& v : x)
+        v = std::clamp(v, -0.5, 0.5);
+    mix(x, whiteNoise(x.size(), 0.001, 3));
+    tools::WavData noisy;
+    noisy.sampleRate = 48000.0;
+    noisy.channels = {x};
+    CHECK(contains(tools::analyseToJson(noisy), "\"maybeFlatTop\":false"));
+    CHECK(contains(tools::analyseToJson(noisy, -60.0), "\"maybeFlatTop\":true"));
 }
 
 TEST_CASE("wav: a forged sample rate or chunk length is refused instead of being trusted")

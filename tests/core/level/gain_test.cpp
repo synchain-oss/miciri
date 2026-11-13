@@ -3,8 +3,10 @@
 // 增益：峰值、真峰值、数字削波、模拟平顶、响度。真值都是解析的（已知幅度的正弦、已知削波电平）。
 #include <catch2/catch_test_macros.hpp>
 
+#include <cmath>
 #include <map>
 
+#include "config/Thresholds.h"
 #include "core/level/Synth.h"
 #include "level/Dsp.h"
 #include "level/Level.h"
@@ -119,6 +121,28 @@ TEST_CASE("analog flat tops are found by their repeated plateau, not by low freq
         for (double hz : {50.0, 80.0, 100.0})
             CHECK_FALSE(core::analyseGain(sine(fs, hz, 0.5, 2.0), nullptr, fs).verdict.maybeFlatTop);
         CHECK_FALSE(core::analyseGain(sine(fs, 220.0, 0.9, 1.0), nullptr, fs).verdict.maybeFlatTop);
+    }
+}
+
+TEST_CASE("quiet takes are not checked for flat tops")
+{
+    // 同一段硬削的正弦缩放到不同峰值：峰值低于 gain.flat_min_peak_dbfs 的不查平顶。
+    // 低电平的稳态信号（例如扫频）在底噪容差里会排成一簇“同电平平台”，实录里就是这样误报的；
+    // 这里再加上底噪读数，让容差足够宽，确认挡住它的是峰值下限而不是容差
+    const double fs = 48000.0;
+    core::GainContext context;
+    context.noiseFloorRms = 1e-4;
+    for (double peakDbfs : {thr::gain::flat_min_peak_dbfs - 18.0, thr::gain::flat_min_peak_dbfs - 1.0,
+                            thr::gain::flat_min_peak_dbfs + 1.0, -1.0})
+    {
+        INFO("peak " << peakDbfs << " dBFS");
+        std::vector<double> x = hardClipped(sine(fs, 220.0, 0.9, 1.0), 0.5);
+        const double scale = std::pow(10.0, peakDbfs / 20.0) / 0.5;
+        for (double& v : x)
+            v *= scale;
+        const core::GainResult r = core::analyseGain(x, nullptr, fs, context);
+        CHECK(r.verdict.maybeFlatTop == (peakDbfs >= thr::gain::flat_min_peak_dbfs));
+        CHECK((r.measures.flatPlateauPeaksL == 0) == (peakDbfs < thr::gain::flat_min_peak_dbfs));
     }
 }
 

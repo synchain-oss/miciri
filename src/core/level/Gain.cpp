@@ -269,8 +269,11 @@ GainResult GainAnalyser::finish() const
             f.samplePeak = std::max(f.samplePeak, std::fabs(v));
         f.truePeak = dsp::truePeak(x.data(), x.size(), oversample);
         f.clipRuns = countClipRuns(x, sampleRate_, stereo_ ? c : -1, result.evidence.marks);
-        f.flatPeaks = std::max(countPlateauPeaks(x, sampleRate_, f.samplePeak, ctx_.noiseFloorRms, false),
-                               countPlateauPeaks(x, sampleRate_, f.samplePeak, ctx_.noiseFloorRms, true));
+        // 峰值低于 flat_min_peak_dbfs 的那一路不查平顶：削波只发生在响的时候，而低电平的稳态信号（例如
+        // 扫频）的波峰在底噪容差里很容易“对齐”成一簇，实录里正是这样误报的
+        if (dsp::amplitudeToDb(f.samplePeak) >= thr::gain::flat_min_peak_dbfs)
+            f.flatPeaks = std::max(countPlateauPeaks(x, sampleRate_, f.samplePeak, ctx_.noiseFloorRms, false),
+                                   countPlateauPeaks(x, sampleRate_, f.samplePeak, ctx_.noiseFloorRms, true));
     }
     if (!stereo_)
         findings[1] = findings[0];

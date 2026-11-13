@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 电流声：已知基频与谐波的合成信号在各个采样率下的检出与估计，buzz 与啸叫，反例，分块无关。
+// 电流声：已知基频与谐波的合成信号在各个采样率下的检出与估计，“轻微”的口径，buzz 与啸叫（频率上限、
+// 绝对电平下限），反例，分块无关。
 // hum 与噪声的比按分析带内的噪声功率算（高采样率会先抽取，带内噪声只剩 1/抽取倍数）。
 #include <catch2/catch_test_macros.hpp>
 
+#include "config/Thresholds.h"
 #include "core/level/Synth.h"
 #include "hum/Hum.h"
+#include "level/Dsp.h"
 
 using namespace miciri;
 using namespace miciri::testing;
@@ -57,17 +60,34 @@ TEST_CASE("mains hum of a known frequency is found at every rate")
     }
 }
 
-TEST_CASE("hum far below the noise is still reported, and marked slight")
+TEST_CASE("hum that barely stands out of the floor is still reported, and marked slight")
 {
     for (double fs : {48000.0, 192000.0})
     {
         INFO("fs " << fs);
         const core::HumResult r = core::analyseHum(
-            withNoise(fs, humSignal(fs, kSeconds, 50.0, kHumProfileDb, bandPower(fs, 0.01)), 0.01, 12), fs);
+            withNoise(fs, humSignal(fs, kSeconds, 50.0, kHumProfileDb, bandPower(fs, 0.001)), 0.001, 12), fs);
         CHECK(r.verdict.kind == core::HumKind::Hum);
         CHECK(r.measures.fundamentalHz == within(50.0, 0.05));
+        CHECK(r.measures.overFloorDb < thr::hum::slight_below_over_floor_db);
         CHECK(r.verdict.slight);
-        CHECK(r.measures.energySharePct == within(0.99, 0.4));
+    }
+}
+
+TEST_CASE("how much of the noise the hum is does not decide slight; how far it stands out does")
+{
+    // 同一个电流声，旁边加一个 1730 Hz 的强单音（不在 50 的整数倍附近，也低于啸叫的下限频率）：
+    // 占噪声能量的比例从约一半掉到 1% 以下，但谐波高出本底的 dB 不变，所以仍不是轻微
+    for (double fs : {48000.0, 96000.0})
+    {
+        INFO("fs " << fs);
+        std::vector<double> x = humSignal(fs, kSeconds, 50.0, kHumProfileDb, bandPower(fs, 1.0));
+        mix(x, sine(fs, 1730.0, std::sqrt(2.0 * 200.0 * bandPower(fs, 1.0)), kSeconds));
+        const core::HumResult r = core::analyseHum(withNoise(fs, x, 1.0, 18), fs);
+        CHECK(r.verdict.kind == core::HumKind::Hum);
+        CHECK(r.measures.energySharePct < 1.0);
+        CHECK(r.measures.overFloorDb >= thr::hum::slight_below_over_floor_db);
+        CHECK_FALSE(r.verdict.slight);
     }
 }
 
@@ -96,6 +116,36 @@ TEST_CASE("a stable narrow tone above 2 kHz is a whistle, not hum")
         CHECK(r.verdict.kind == core::HumKind::Whistle);
         CHECK(r.measures.fundamentalHz == within(4100.0, 1.0));
         CHECK(r.measures.overFloorDb > 15.0);
+    }
+}
+
+TEST_CASE("a stable tone above the whistle band is left alone")
+{
+    // 16 kHz 的稳定强单音：真实录音里这一带常有接口与时钟的杂散，多数听不见
+    for (double fs : {44100.0, 48000.0, 96000.0})
+    {
+        INFO("fs " << fs);
+        const core::HumResult r = core::analyseHum(
+            withNoise(fs, sine(fs, 16000.0, std::sqrt(2.0 * bandPower(fs, 1.0)), kSeconds), 1.0, 19), fs);
+        CHECK(r.verdict.kind == core::HumKind::None);
+    }
+}
+
+TEST_CASE("a whistle has to be loud enough in its own right, not only stand out of a very quiet floor")
+{
+    // 很安静的底噪（-100 dBFS）里的 4.1 kHz 单音：两种电平都远高出本底，只按单音自己的功率分
+    constexpr double quietSigma = 1e-5;
+    for (double fs : {48000.0, 96000.0})
+    {
+        INFO("fs " << fs);
+        for (double toneDbfs : {thr::hum::whistle_min_dbfs - 10.0, thr::hum::whistle_min_dbfs + 10.0})
+        {
+            INFO("tone " << toneDbfs << " dBFS");
+            std::vector<double> x = sine(fs, 4100.0, std::sqrt(2.0 * core::dsp::dbToPower(toneDbfs)), kSeconds);
+            mix(x, whiteNoise(x.size(), quietSigma, 23));
+            const core::HumResult r = core::analyseHum(x, fs);
+            CHECK((r.verdict.kind == core::HumKind::Whistle) == (toneDbfs > thr::hum::whistle_min_dbfs));
+        }
     }
 }
 
