@@ -808,7 +808,7 @@ export function resultModel(state, id) {
     if (id === "quiet" && r.noise) {
         const nz = r.noise;
         const hm = r.hum || NO_HUM;
-        const hv = { f: Math.round(hm.fundamentalHz), p: Math.round(hm.energySharePct) };
+        const hv = { f: Math.round(hm.fundamentalHz), v: fmtDb(hm.overFloorDb), p: Math.round(hm.energySharePct) };
         const dev = r.deviceProcessing && r.deviceProcessing.detected;
         let expl;
         let acts;
