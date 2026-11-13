@@ -465,7 +465,9 @@ private:
                                                                                                : FlowNotice::None;
     }
 
-    // 重来时丢掉这一阶段收到的音频，与进度、证据波形一起退回；这一段的起点在重新收到样本时再记
+    // 重来时丢掉这一阶段收到的音频，与进度、证据波形一起退回；这一段的起点在重新收到样本时再记。
+    // 现在只有轻拍阶段会重来（endOfPhase 只对它要求重来），字表与自然朗读的分支目前跑不到，
+    // 是给以后这些阶段也允许重来时准备的；到那时要补“重来之后标记与包络仍对得上”的用例
     void resetPhase(StepPhase phase) override
     {
         switch (phase)
@@ -488,7 +490,8 @@ private:
 
     double seconds(std::size_t frames) const { return static_cast<double>(frames) / ctx_.sampleRate; }
 
-    // 拼起来的音频（爆破音字表、齿音字表、自然朗读）上的时刻 t 落在哪一段，就加那一段在这一步时间轴上的起点
+    // 拼起来的音频（爆破音字表、齿音字表、自然朗读）上的时刻 t 落在哪一段，就加那一段在这一步时间轴上的起点。
+    // 三段现在总是首尾相接（这几个阶段不会重来），三个分支给出同一个平移量；不相接的情形目前跑不到，原因同 resetPhase
     double clickOffset(double t) const
     {
         const double p = seconds(plosive_.size());

@@ -29,6 +29,7 @@ enum class EvidenceEventKind : std::uint8_t
     Plosive, // 喷麦：levelDb 是起音段低频峰值相对同音节元音稳态低频电平，dB
     Sibilance, // 齿音：这个擦音 6-12 kHz 减底噪后的均方电平，dBFS（高频项关闭时是 3-6 kHz）
     Mouth, // 口水音：约 click.highpass_hz 高通后的峰值，dBFS
+    Count // 哨兵：只用于和名表对齐长度，不上线；新种类加在它前面
 };
 
 struct EvidenceEvent
