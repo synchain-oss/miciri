@@ -29,6 +29,7 @@
 | `release` | 发版 workflow |
 | `packaging` | 打包脚本里可重现 zip 的时间戳与条目属性（取自参考仓的打包脚本，其余是本仓自己的） |
 | `gates` | 本地 gates、定档规则、`CLAUDE.md`、`CONTRIBUTING.md` |
+| `fonts` | 界面字体的生成脚本与 `web/fonts/README.md`（字体文件本身取自 google/fonts，不是复制自参考仓，见 `third_party/fonts/SOURCE.txt`） |
 
 ## 漂移核对
 

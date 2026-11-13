@@ -1,0 +1,17 @@
+The four interface font families in web/fonts/, as subsets built by scripts/fetch_fonts.py. The NOTICE.*.txt files in this
+folder are the upstream OFL.txt of each family, copied unmodified (line endings normalised) and stored as NOTICE.*.txt so
+they ship with every package (see REUSE.toml for why).
+Repository: https://github.com/google/fonts
+Commit: bd8f81ddb5c74d5c8897b36ad88b440266245103 (the script checks the SHA-256 of every source file)
+Files and licence texts:
+  Space Grotesk 2.000   ofl/spacegrotesk/SpaceGrotesk[wght].ttf          -> web/fonts/SpaceGrotesk.woff2   (NOTICE.space-grotesk.txt)
+  IBM Plex Sans 3.201   ofl/ibmplexsans/IBMPlexSans[wdth,wght].ttf       -> web/fonts/MiciriSans.woff2     (NOTICE.ibm-plex-sans.txt)
+  IBM Plex Mono 2.3     ofl/ibmplexmono/IBMPlexMono-Regular.ttf          -> web/fonts/MiciriMono.woff2     (NOTICE.ibm-plex-mono.txt)
+  Noto Sans SC 2.004    ofl/notosanssc/NotoSansSC[wght].ttf              -> web/fonts/NotoSansSC.woff2     (NOTICE.noto-sans-sc.txt)
+License: OFL-1.1 (LICENSES/OFL-1.1.txt).
+Changes (all four are Modified Versions): subset to the characters the interface uses plus common Chinese characters and the
+Latin-1 and Latin Extended-A blocks; Space Grotesk fixed at weight 600; IBM Plex Sans fixed at weight 400 and width 100;
+Noto Sans SC weight axis narrowed to 300-700; U+202F mapped onto the thin-space or no-break-space glyph; IBM Plex Sans and
+IBM Plex Mono renamed to Miciri Sans and Miciri Mono because "Plex" is a Reserved Font Name (OFL-1.1 section 3). The copyright,
+trademark and licence records (name IDs 0, 7, 13, 14) of every file are kept as upstream wrote them.
+Used for: the embedded web interface, compiled into the plug-in (see web/fonts/README.md).
