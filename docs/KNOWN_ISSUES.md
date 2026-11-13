@@ -125,6 +125,30 @@ The plug-in window is drawn with the Microsoft Edge WebView2 Runtime, which is p
 plug-in shows an explanation panel instead of its usual window; install the Evergreen runtime from Microsoft. Audio is not
 affected and still passes through.
 
+## Windows 上同时开着几个宿主
+
+所有 Miciri 窗口，不论在几个宿主进程里，共用同一个 WebView2 数据目录 `%LOCALAPPDATA%\Synchain\Miciri\WebView2`。
+REAPER 和 Cubase 这样同时开着没有问题：后开的窗口接入已经在跑的浏览器进程，不会互相冲突。目录里只有网页缓存，没有录音和测量结果。
+限制：
+
+- 窗口开不出来、显示英文说明面板 “The WebView2 environment did not start” 时，常见原因是这个目录不可写，或被别的程序用不同的设置占着。
+  先确认目录可写；仍不行就关掉所有开着 Miciri 窗口的宿主，删掉这个目录再打开，Miciri 会重建它。
+- 宿主以不同权限级别运行（一个以管理员身份、一个不是）时没有测过。若后开的窗口开不出来，会是上面那块说明面板；
+  请先让两个宿主以同一权限级别运行再试。
+
+## Several hosts open at once on Windows
+
+Every Miciri window, in however many host processes, uses the same WebView2 data folder,
+`%LOCALAPPDATA%\Synchain\Miciri\WebView2`. Having REAPER and Cubase open together is fine: the window opened later joins the
+browser process that is already running, so they do not conflict. The folder holds only web page cache, no recordings and no
+measurement results. Limits:
+
+- If the window does not open and you see the panel saying “The WebView2 environment did not start”, the usual causes are that the
+  folder is not writable, or that another program holds it with different settings. Check that the folder is writable; if that
+  is not it, close every host that has a Miciri window open, delete the folder, and open the plug-in again. Miciri recreates it.
+- Hosts running at different privilege levels (one as administrator, one not) have not been tested. If the window opened later
+  does not open, it will be the panel above; please run both hosts at the same privilege level and try again.
+
 ## 用音箱监听可能啸叫
 
 监听打开、又用音箱外放时，话筒会拾到音箱的声音，可能啸叫，也会影响测量。请戴耳机，不得已用音箱时把音量调低。这不是插件的缺陷，

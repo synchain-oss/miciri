@@ -14,6 +14,7 @@
 import { createRun, repoRoot } from "./lib/harness.mjs";
 import { findBrowser, launchBrowser } from "./lib/browser.mjs";
 import { startStaticServer } from "./lib/static-server.mjs";
+import { checkFontsLoaded } from "./lib/fonts.mjs";
 
 const ROOT = repoRoot();
 const run = createRun("流程页（页面）");
@@ -60,6 +61,7 @@ try {
 
     // ---- ① 接通页 ----
     await loadPage();
+    await checkFontsLoaded(run, page, FD, "流程页");
     run.eq(await stackStep(), "connect", "没有结果时落在接通页");
     run.eq(await page.eval(`${q('[data-part="connect"]')}.dataset.mode`), "first", "首次接通页");
     run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), true, "没有声音时开始按钮不可用");
@@ -255,8 +257,7 @@ try {
         run.check(!/[{}]|null|undefined|\bflow\.|\bmeter\./.test(body), `英文 ${id}：没有占位符或键名残留`);
         run.check(!/[一-鿿]/.test(body), `英文 ${id}：没有汉字`);
     }
-    const errors = page.errors.filter((e) => !/\.woff2/.test(e));
-    run.eq(errors, [], "不应有页面异常或 console.error");
+    run.eq(page.errors, [], "不应有页面异常或 console.error");
 } finally {
     await browser.close();
     await server.close();
