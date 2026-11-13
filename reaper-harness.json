@@ -1,0 +1,489 @@
+{
+  "schema": 1,
+  "name": "miciri-host",
+  "notes": "Miciri 的 REAPER 宿主矩阵（Windows、VST3）。只在本机跑，只配探针构建（MICIRI_HOST_PROBE=ON），说明见 tests/host/README.md 与 docs/HOST_PROBE.md。force_auto_bypass（静音轨自动旁路）这个工具设不了，不在矩阵里，兼容表标未测。",
+  "plugins": {
+    "miciri": {
+      "bundle": "Miciri.vst3",
+      "report": {
+        "env": "MICIRI_HOST_PROBE_JSON",
+        "pid": "pid",
+        "periodMs": 250,
+        "fields": [
+          "sampleRate",
+          "maxBlockSize",
+          "numInputChannels",
+          "numOutputChannels",
+          "prepareCount",
+          "blocksTotal",
+          "blocksNonRealtime",
+          "blocksRealtime",
+          "blocksAllZero",
+          "blocksNonZero",
+          "editorOpens",
+          "editorCloses",
+          "analysisCount"
+        ]
+      }
+    }
+  },
+  "signal": { "seconds": 3, "seed": 7, "noiseDb": -20 },
+  "layouts": {
+    "voice": {
+      "tracks": [{ "name": "Voice", "source": true, "fx": [{ "plugin": "miciri" }] }]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "render-offline-pref-on",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "offline",
+      "host": { "runFxWhenStopped": false, "informOfflineState": true },
+      "report": {
+        "miciri": {
+          "blocksNonRealtime": { "delta": { "min": 1 } },
+          "blocksRealtime": { "delta": 0 },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "render-1x-pref-on",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "1x",
+      "host": { "runFxWhenStopped": false, "informOfflineState": true },
+      "report": {
+        "miciri": {
+          "blocksNonRealtime": { "delta": { "min": 1 } },
+          "blocksRealtime": { "delta": 0 },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "render-online-pref-on",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "online",
+      "host": { "runFxWhenStopped": false, "informOfflineState": true },
+      "report": {
+        "miciri": {
+          "blocksNonRealtime": { "delta": 0 },
+          "blocksRealtime": { "delta": { "min": 1 } },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "render-offline-pref-off",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "offline",
+      "host": { "runFxWhenStopped": false, "informOfflineState": false },
+      "report": {
+        "miciri": {
+          "blocksNonRealtime": { "delta": 0 },
+          "blocksRealtime": { "delta": { "min": 1 } },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "render-1x-pref-off",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "1x",
+      "host": { "runFxWhenStopped": false, "informOfflineState": false },
+      "report": {
+        "miciri": {
+          "blocksNonRealtime": { "delta": 0 },
+          "blocksRealtime": { "delta": { "min": 1 } },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "render-online-pref-off",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "online",
+      "host": { "runFxWhenStopped": false, "informOfflineState": false },
+      "report": {
+        "miciri": {
+          "blocksNonRealtime": { "delta": 0 },
+          "blocksRealtime": { "delta": { "min": 1 } },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "render-mono-source",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "offline",
+      "mono": true,
+      "host": { "runFxWhenStopped": false, "informOfflineState": true },
+      "report": {
+        "miciri": {
+          "numInputChannels": { "value": 2 },
+          "numOutputChannels": { "value": 2 },
+          "blocksNonRealtime": { "delta": { "min": 1 } },
+          "blocksNonZero": { "delta": { "min": 1 } },
+          "analysisCount": { "delta": 0 }
+        }
+      }
+    },
+    {
+      "id": "transport-12",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "feed": { "channels": "different" },
+      "states": [
+        {
+          "name": "stop-unarmed",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "play-unarmed",
+          "transport": "play",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "pause-unarmed",
+          "transport": "pause",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": false, "report": { "miciri": { "blocksTotal": { "delta": 0 } } } }
+        },
+        {
+          "name": "stop-armed-off",
+          "transport": "stop",
+          "arm": true,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "play-armed-off",
+          "transport": "play",
+          "arm": true,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "pause-armed-off",
+          "transport": "pause",
+          "arm": true,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "stop-armed-on",
+          "transport": "stop",
+          "arm": true,
+          "monitor": "on",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "play-armed-on",
+          "transport": "play",
+          "arm": true,
+          "monitor": "on",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "pause-armed-on",
+          "transport": "pause",
+          "arm": true,
+          "monitor": "on",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "stop-armed-auto",
+          "transport": "stop",
+          "arm": true,
+          "monitor": "auto",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "play-armed-auto",
+          "transport": "play",
+          "arm": true,
+          "monitor": "auto",
+          "expect": {
+            "called": true,
+            "input": "silent",
+            "monitoring": false,
+            "report": { "miciri": { "blocksNonZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "pause-armed-auto",
+          "transport": "pause",
+          "arm": true,
+          "monitor": "auto",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 }, "blocksNonRealtime": { "value": 0 } } }
+          }
+        }
+      ]
+    },
+    {
+      "id": "transport-12-runfx-off",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "host": { "runFxWhenStopped": false },
+      "feed": { "channels": "different" },
+      "states": [
+        {
+          "name": "stop-unarmed",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": false, "report": { "miciri": { "blocksTotal": { "delta": 0 } } } }
+        },
+        {
+          "name": "play-unarmed",
+          "transport": "play",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": false, "report": { "miciri": { "blocksTotal": { "delta": 0 } } } }
+        },
+        {
+          "name": "pause-unarmed",
+          "transport": "pause",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": false, "report": { "miciri": { "blocksTotal": { "delta": 0 } } } }
+        },
+        {
+          "name": "stop-armed-off",
+          "transport": "stop",
+          "arm": true,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "play-armed-off",
+          "transport": "play",
+          "arm": true,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "pause-armed-off",
+          "transport": "pause",
+          "arm": true,
+          "monitor": "off",
+          "expect": { "called": true, "input": "silent", "report": { "miciri": { "blocksNonZero": { "delta": 0 } } } }
+        },
+        {
+          "name": "stop-armed-on",
+          "transport": "stop",
+          "arm": true,
+          "monitor": "on",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "play-armed-on",
+          "transport": "play",
+          "arm": true,
+          "monitor": "on",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "pause-armed-on",
+          "transport": "pause",
+          "arm": true,
+          "monitor": "on",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "stop-armed-auto",
+          "transport": "stop",
+          "arm": true,
+          "monitor": "auto",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "play-armed-auto",
+          "transport": "play",
+          "arm": true,
+          "monitor": "auto",
+          "expect": {
+            "called": true,
+            "input": "silent",
+            "monitoring": false,
+            "report": { "miciri": { "blocksNonZero": { "delta": 0 } } }
+          }
+        },
+        {
+          "name": "pause-armed-auto",
+          "transport": "pause",
+          "arm": true,
+          "monitor": "auto",
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "different",
+            "monitoring": true,
+            "report": { "miciri": { "blocksAllZero": { "delta": 0 }, "blocksNonRealtime": { "value": 0 } } }
+          }
+        }
+      ]
+    },
+    {
+      "id": "windows-20",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "feed": { "channels": "different" },
+      "states": [
+        {
+          "name": "open-close-20",
+          "transport": "play",
+          "arm": true,
+          "monitor": "on",
+          "windows": { "plugin": "miciri", "count": 20, "maxBlockDiff": 4 },
+          "expect": {
+            "called": true,
+            "report": {
+              "miciri": {
+                "editorOpens": { "delta": 20 },
+                "editorCloses": { "delta": 20 },
+                "blocksRealtime": { "delta": { "min": 1 } },
+                "blocksNonRealtime": { "delta": 0 },
+                "analysisCount": { "delta": 0 }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "negative": [
+    {
+      "id": "neg-offline-pref-off-is-not-nonrealtime",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "offline",
+      "host": { "runFxWhenStopped": false, "informOfflineState": false },
+      "report": { "miciri": { "blocksNonRealtime": { "delta": { "min": 1 } } } },
+      "expect": "FAIL",
+      "expectDetail": "miciri\\.blocksNonRealtime grew by 0, expected"
+    },
+    {
+      "id": "neg-online-is-not-nonrealtime",
+      "kind": "render",
+      "layout": "voice",
+      "mode": "online",
+      "host": { "runFxWhenStopped": false, "informOfflineState": true },
+      "report": { "miciri": { "blocksNonRealtime": { "delta": { "min": 1 } } } },
+      "expect": "FAIL",
+      "expectDetail": "miciri\\.blocksNonRealtime grew by 0, expected"
+    },
+    {
+      "id": "neg-windows-count-off-by-one",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "feed": { "channels": "different" },
+      "states": [
+        {
+          "name": "open-close-3",
+          "transport": "play",
+          "arm": true,
+          "monitor": "on",
+          "windows": { "plugin": "miciri", "count": 3, "maxBlockDiff": 4 },
+          "expect": { "called": true, "report": { "miciri": { "editorOpens": { "delta": 4 } } } }
+        }
+      ],
+      "expect": "FAIL",
+      "expectDetail": "miciri\\.editorOpens grew by 3, expected"
+    },
+    {
+      "id": "neg-unarmed-has-no-signal",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "feed": { "channels": "different" },
+      "states": [
+        {
+          "name": "stop-unarmed",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "expect": { "called": true, "input": "signal" }
+        }
+      ],
+      "expect": "FAIL",
+      "expectDetail": "failed: silent in [0-9]+ of [0-9]+ blocks"
+    }
+  ]
+}
