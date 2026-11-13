@@ -202,7 +202,8 @@ def scan_web():
     exts = (".js", ".mjs", ".html", ".css")
     for dirpath, dirs, files in os.walk(WEB):
         rel = os.path.relpath(dirpath, ROOT).replace("\\", "/")
-        dirs[:] = sorted(d for d in dirs if "%s/%s" % (rel, d) not in ("web/js", "web/fonts"))
+        # 跳过逐字收录的 JUCE 前端脚本（web/js/juce/，第三方代码，不是界面文本）和字体目录自己；web/js/ 下其他文件照扫
+        dirs[:] = sorted(d for d in dirs if "%s/%s" % (rel, d) not in ("web/js/juce", "web/fonts"))
         for fn in sorted(files):
             if not fn.endswith(exts):
                 continue
@@ -275,7 +276,7 @@ def build_font(data, chars, axes, rename):
     sub.populate(text=chars)
     sub.subset(font)
     if axes:
-        limits = {k: (v if isinstance(v, tuple) else v) for k, v in axes.items()}
+        limits = dict(axes)
         font = instancer.instantiateVariableFont(font, limits, inplace=False)
     if rename:
         rename_font(font, *rename)

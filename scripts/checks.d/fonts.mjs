@@ -390,7 +390,7 @@ export function scanChars(file, text) {
     return out;
 }
 
-/** web/ 下全部文件的相对路径（正斜杠）。web/js 与 web/fonts 里没有界面文本，字符扫描跳过它们（字体文件另查）。 */
+/** web/ 下全部文件的相对路径（正斜杠）。字符扫描跳过逐字收录的 JUCE 前端脚本（web/js/juce/）和字体目录，其余文件都扫；字体文件另查。 */
 function walk(root, dir = "web") {
     const out = [];
     for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
@@ -437,7 +437,7 @@ export function checkTree(root) {
         const have = new Set(Object.values(infos).flatMap((i) => [...i.cmap]));
         const required = new Set();
         for (const f of files) {
-            if (f.startsWith("web/js/") || f.startsWith("web/fonts/")) continue;
+            if (f.startsWith("web/js/juce/") || f.startsWith("web/fonts/")) continue;
             for (const ch of scanChars(f, fs.readFileSync(path.join(root, f), "utf8"))) required.add(ch);
         }
         errors.push(...coverageProblems(required, have));
