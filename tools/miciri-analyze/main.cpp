@@ -40,7 +40,7 @@ int main(int argc, char** argv)
             floorDbfs = v;
         fileArg += 2;
     }
-    if (argc != fileArg + 1 || std::strcmp(argv[1], "--help") == 0 || std::strcmp(argv[1], "-h") == 0)
+    if (argc != fileArg + 1 || std::strcmp(argv[fileArg], "--help") == 0 || std::strcmp(argv[fileArg], "-h") == 0)
     {
         std::fprintf(stderr,
                      "usage: miciri-analyze [--gain-db <dB>] [--floor-dbfs <dB>] <file.wav>\n"
@@ -52,7 +52,7 @@ int main(int argc, char** argv)
                      "applied when a mono track was exported as two identical channels.\n"
                      "--floor-dbfs is the noise floor (RMS, dBFS) a connect step would have read; like the plugin,\n"
                      "it widens the flat-top tolerance. Without it the flat-top check uses the relative tolerance.\n");
-        return argc == 2 ? 0 : 2;
+        return argc == fileArg + 1 ? 0 : 2; // 要帮助是 0，参数不对是 2
     }
     std::ifstream in(argv[fileArg], std::ios::binary);
     if (!in)
