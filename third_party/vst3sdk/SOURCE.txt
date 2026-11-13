@@ -1,0 +1,6 @@
+Steinberg VST3 SDK as bundled in JUCE 8.0.8, LICENSE.txt copied unmodified and stored as NOTICE.txt (see REUSE.toml for why).
+Repository: https://github.com/juce-framework/JUCE (commit in .juce-commit)
+Path: modules/juce_audio_processors/format_types/VST3_SDK/LICENSE.txt
+License: the SDK is offered under the Steinberg VST3 License or under the GPL version 3. Miciri uses the GPLv3 option
+(LICENSES/GPL-3.0-only.txt).
+Used for: the VST3 build (Windows and macOS) and, through JUCE, the Audio Unit wrapper.

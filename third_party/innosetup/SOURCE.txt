@@ -1,0 +1,5 @@
+Inno Setup 6.7.4, license text stored as NOTICE.txt, copied unmodified from LICENSES/LicenseRef-Inno-Setup.txt (the version is pinned in packaging/win/innosetup.sha256).
+Project: https://jrsoftware.org/isinfo.php
+License: the Inno Setup License.
+Used for: building the Windows installer. The installer program contains Inno Setup's runtime, so the license text must travel with it.
+It is not part of the plug-in itself, the zip or the macOS package.

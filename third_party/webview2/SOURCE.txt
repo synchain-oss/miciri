@@ -1,0 +1,5 @@
+Microsoft.Web.WebView2 1.0.2957.106, LICENSE.txt and NOTICE.txt copied unmodified from the NuGet package.
+Package: https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.2957.106
+Package SHA-256: 4c35a54835b63954159eac1d5b7a60ae617a41dbb5b73bfdb11c4870a891080a (pinned in src/plugin/MiciriWebView2.cmake)
+License: BSD-3-Clause (see LICENSE.txt). The package ships the loader as a static library, so only a binary form is linked.
+Used for: the Windows plug-in window. The WebView2 Runtime itself is not bundled; it is part of current Windows 10 and 11.

@@ -1,0 +1,8 @@
+JUCE 8.0.8, LICENSE.md copied unmodified and stored as NOTICE.md (see REUSE.toml for why).
+Repository: https://github.com/juce-framework/JUCE
+Tag: 8.0.8
+Commit: d6181bde38d858c283c3b7bf699ce6340c050b5d (the commit in .juce-commit)
+Path: LICENSE.md
+License: AGPL-3.0-only (JUCE is dual licensed; Miciri uses it under the AGPLv3 option, see LICENSES/AGPL-3.0-only.txt)
+Used for: the plug-in wrapper (VST3, Audio Unit), the web view, and the JavaScript helper that the page uses to talk to the plug-in.
+The JUCE source is not copied into this repository; build instructions pass a checkout with -DJUCE_PATH.
