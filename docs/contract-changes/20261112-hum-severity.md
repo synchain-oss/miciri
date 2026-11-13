@@ -16,6 +16,9 @@
 
 阈值：删 `hum.slight_energy_share_frac`；加 `hum.slight_below_over_floor_db`（16 dB）、`hum.whistle_max_hz`（12 kHz）、
 `hum.whistle_min_dbfs`（-70 dBFS）、`gain.flat_min_peak_dbfs`（-12 dBFS），都是 `pending`，来源记“按实录调整的起始值”。
+删键前全仓查过：旧键只在阈值文件、电流声模块、阈值先后关系测试和契约文档里出现，界面与快照都不读它。
+`tests/contracts/thresholds_test.cpp` 里对旧键的检查换成新键的先后关系；`src/core/result/Results.h` 里 `energySharePct`
+与 `slight` 的注释按新口径改写（只改注释，字段、类型、枚举不变）。
 
 命令行工具 `miciri-analyze` 加了两个可选参数：`--gain-db`（先补一个增益，例如导出时的 -3 dB 声像律）和
 `--floor-dbfs`（像插件那样用接通步的底噪放宽平顶容差）。不给这两个参数时，用法与原来相同。
