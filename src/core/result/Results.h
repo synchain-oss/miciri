@@ -153,9 +153,8 @@ using NoiseResult = Result<NoiseMeasures, NoiseVerdict>;
 struct HumMeasures
 {
     double fundamentalHz = 0.0; // 啸叫时是那条窄峰的频率
-    double overFloorDb = 0.0; // 峰高出本底
-    // 单位是百分比（0 到 100）。阈值 hum.slight_energy_share_frac 是比例，
-    // 比较前先除以 100。
+    double overFloorDb = 0.0; // 峰高出本底；电流声的严重度看它（见 HumVerdict::slight）
+    // 单位是百分比（0 到 100）。只作信息，不参与任何判定：宽带噪声越大，同样的电流声占比越小。
     double energySharePct = 0.0; // 占噪声能量的百分比
     double highestHarmonicHz = 0.0;
     double levelDbfs = 0.0; // 电流声成分的均值，电平管上区间的上沿
@@ -164,7 +163,9 @@ struct HumMeasures
 struct HumVerdict
 {
     HumKind kind = HumKind::None;
-    bool slight = false; // 占比低于阈值：仍报，标“轻微”，不进“最该改”
+    // hum、buzz：overFloorDb 低于 hum.slight_below_over_floor_db，或 levelDbfs 低于 hum.slight_below_dbfs，
+    // 仍报，标“轻微”，不进“最该改”
+    bool slight = false;
 };
 using HumResult = Result<HumMeasures, HumVerdict>;
 

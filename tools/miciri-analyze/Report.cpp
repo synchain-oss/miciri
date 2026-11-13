@@ -109,7 +109,7 @@ Obj envelope(const R& r, const Obj& measures, const Obj& verdict)
 }
 } // namespace
 
-std::string analyseToJson(const WavData& wav)
+std::string analyseToJson(const WavData& wav, std::optional<double> floorDbfs)
 {
     const bool stereo = wav.channels.size() >= 2;
     const std::vector<double>& left = wav.channels.at(0);
@@ -155,7 +155,10 @@ std::string analyseToJson(const WavData& wav)
                                       .add("riseDb", ns.measures.riseDb),
                                   Obj().add("state", toString(ns.verdict.state))));
 
-    const GainResult g = analyseGain(left, stereo ? &right : nullptr, sr);
+    GainContext gainContext;
+    if (floorDbfs)
+        gainContext.noiseFloorRms = std::sqrt(dsp::dbToPower(*floorDbfs));
+    const GainResult g = analyseGain(left, stereo ? &right : nullptr, sr, gainContext);
     const GainMeasures& gm = g.measures;
     root.add("gain", envelope(g,
                               Obj()

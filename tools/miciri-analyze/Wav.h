@@ -17,4 +17,8 @@ struct WavData
 
 // 成功返回 true；失败返回 false 并在 error 里写原因
 bool parseWav(const std::vector<unsigned char>& bytes, WavData& out, std::string& error);
+
+// 所有样本乘以 10^(db/20)，不限幅。用来补回导出时的衰减（例如单声道轨按 -3 dB 声像律导成双声道），
+// 让分析看到的是录音时的电平。
+void applyGainDb(WavData& wav, double db);
 } // namespace miciri::tools

@@ -131,6 +131,13 @@
     "flat_min_ms": { "value": 0.1, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "flat_min_samples": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "flat_min_peaks": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "flat_min_peak_dbfs": {
+      "value": -12.0,
+      "state": "pending",
+      "source": "按实录调整的起始值",
+      "date": null,
+      "note": "a channel whose sample peak is below this is not checked for flat tops; in a real take a quiet steady sweep lined its peaks up inside the noise tolerance"
+    },
     "flat_level_floor_frac": {
       "value": 0.5,
       "state": "pending",
@@ -257,12 +264,33 @@
     "buzz_above_hz": { "value": 1000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_min_hz": { "value": 2000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_over_median_db": { "value": 15.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
-    "slight_energy_share_frac": {
-      "value": 0.0909,
+    "whistle_max_hz": {
+      "value": 12000,
       "state": "pending",
-      "source": "规格起始值",
+      "source": "按实录调整的起始值",
       "date": null,
-      "note": "only marks the result as slight; it never suppresses a detection"
+      "note": "narrow peaks above this are not whistle candidates; real takes carry inaudible converter and clock tones up there"
+    },
+    "whistle_min_dbfs": {
+      "value": -70.0,
+      "state": "pending",
+      "source": "按实录调整的起始值",
+      "date": null,
+      "note": "a narrow peak whose own power is below this is not a whistle, however far it stands above its neighbours"
+    },
+    "slight_below_over_floor_db": {
+      "value": 16.0,
+      "state": "pending",
+      "source": "按实录调整的起始值",
+      "date": null,
+      "note": "strongest harmonic over its local median below this: still reported, marked slight; the energy share is information only"
+    },
+    "slight_below_dbfs": {
+      "value": -70.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "hum level (all detected harmonics) below this: still reported, marked slight; an absolute stand-in for 'relative to the voice', valid only once the gain step has brought the voice near its target"
     },
     "f0_search_window_frac": {
       "value": 0.3,

@@ -32,7 +32,9 @@ TEST_CASE("thresholds keep their bands in order")
     CHECK(thr::hum::whistle_min_hz <= thr::hum::harmonic_max_hz);
     CHECK(thr::hum::min_stable_harmonics <= thr::hum::count_harmonics_up_to);
     CHECK((thr::hum::f0_candidates_hz[0] > 0.0 && thr::hum::f0_candidates_hz[1] > thr::hum::f0_candidates_hz[0]));
-    CHECK((thr::hum::slight_energy_share_frac > 0.0 && thr::hum::slight_energy_share_frac < 1.0));
+    CHECK(thr::hum::slight_below_over_floor_db > thr::hum::peak_over_median_db);
+    CHECK(thr::hum::whistle_min_hz < thr::hum::whistle_max_hz);
+    CHECK(thr::hum::whistle_min_dbfs < 0.0);
 
     CHECK(thr::direction::small_difference_db < thr::direction::repeat_trigger_db);
     CHECK(thr::direction::repeat_trigger_db < thr::direction::priority_db);

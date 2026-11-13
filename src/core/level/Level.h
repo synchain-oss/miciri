@@ -25,6 +25,7 @@ NoSignalResult analyseNoSignal(const std::vector<double>& samples, double sample
 struct GainContext
 {
     // 接通步读到的底噪 RMS（线性幅度）。模拟平顶的容差随它放宽；读不到（0）时只用相对容差，宁可漏报。
+    // 样本峰值低于 gain.flat_min_peak_dbfs 的声道不查平顶。
     double noiseFloorRms = 0.0;
 };
 // 逐块喂样本，finish() 出结果。模拟平顶要等全局峰值才能定门限，所以样本留在内部；

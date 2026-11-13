@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "Wav.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -126,5 +127,13 @@ bool parseWav(const std::vector<unsigned char>& bytes, WavData& out, std::string
         }
     }
     return true;
+}
+
+void applyGainDb(WavData& wav, double db)
+{
+    const double factor = std::pow(10.0, db / 20.0);
+    for (auto& channel : wav.channels)
+        for (double& v : channel)
+            v *= factor;
 }
 } // namespace miciri::tools
