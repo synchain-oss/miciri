@@ -37,6 +37,8 @@ Miciri 要听到你话筒的信号才能测量。这一页写清楚这路信号�
 - 宿主测试用的构建（CMake 选项 `MICIRI_HOST_PROBE`，见 [HOST_PROBE.md](HOST_PROBE.md)）可以把一小份计数的 JSON 写到环境变量指定的路径。
   它默认关闭，发行版的二进制里没有这段代码。计数只有块数和标志，没有音频。
 - 命令行工具 `miciri-analyze` 读你给它的 WAV 文件，把数值打印在你的屏幕上，不上传任何东西。
+  各个模式（默认的 `--mode level`，以及 `room`、`dr`、`plosive`、`sibilance`、`clicks`、`direction`）都只打印数值：
+  电平、时间、比值和个数。不打印样本。
 
 ## 报告问题
 
