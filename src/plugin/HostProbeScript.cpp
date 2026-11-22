@@ -148,11 +148,19 @@ Script loadScript(const std::filesystem::path& file) noexcept
     }
 }
 
-std::optional<double> processedSeconds(std::uint64_t samples, double sampleRate) noexcept
+void SampleClock::prepare(std::uint64_t samplesSoFar, double sampleRate) noexcept
 {
-    if (samples == 0 || !(sampleRate > 0.0) || !std::isfinite(sampleRate))
+    if (samplesSoFar >= foldedSamples_ && rate_ > 0.0)
+        foldedSec_ += static_cast<double>(samplesSoFar - foldedSamples_) / rate_;
+    foldedSamples_ = samplesSoFar;
+    rate_ = sampleRate > 0.0 && std::isfinite(sampleRate) ? sampleRate : 0.0;
+}
+
+std::optional<double> SampleClock::seconds(std::uint64_t samplesSoFar) const noexcept
+{
+    if (samplesSoFar == 0 || rate_ <= 0.0 || samplesSoFar < foldedSamples_)
         return std::nullopt;
-    return static_cast<double>(samples) / sampleRate;
+    return foldedSec_ + static_cast<double>(samplesSoFar - foldedSamples_) / rate_;
 }
 
 Scheduler::Scheduler(std::vector<Action> actions) : actions_(std::move(actions))

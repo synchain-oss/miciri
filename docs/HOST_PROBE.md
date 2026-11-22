@@ -91,7 +91,8 @@
 }
 ```
 
-- `at`：**插件已处理的样本秒**，从探针看到的第一个有样本的块起算（样本数除以当前采样率），不是墙钟。渲染里样本流是确定的，
+- `at`：**插件已处理的样本秒**，从探针看到的第一个有样本的块起算（样本数除以收到它们时的采样率；宿主中途换采样率重新准备时，
+  之前的样本仍按旧采样率算，时钟不跳），不是墙钟。渲染里样本流是确定的，
   墙钟会被宿主启动、打开工程带偏。还没收到有样本的块时时钟没开始，`at` 为 0 的动作也要等第一块。`at` 不得小于前一个动作的 `at`。
 - `do`：只认桥上已有的函数 `setMicType`、`startStep`、`cancelStep`、`reportChange`、`dismissChannelPrompt`。带参数的三个
   （`setMicType`、`startStep`、`reportChange`）必须给字符串 `arg`，取值同桥契约的枚举；`cancelStep`、`dismissChannelPrompt` 不带 `arg`。
@@ -121,7 +122,7 @@
 | `processedSec` | ✓ | ✓ | 写文件时插件已处理的样本秒；还没有样本时为 `null` |
 | `script` | ✓ | ✓ | `state`（`none` 没给脚本、`ok`、`error`）、`error`（只在 `error` 时有）、`actions`（脚本里的动作数）、`remaining`（还没执行完的） |
 | `errors`、`lastError` | ✓ | ✓ | 探针自己出错（异常被吞下、不影响插件）的次数与最近一次的说明，没出过错时 `lastError` 为 `null` |
-| `pendingWrites` | ✓ | ✓ | 写失败、排队等下一拍重写的文件数 |
+| `pendingWrites` | ✓ | ✓ | 写失败、排队等下一拍重写的文件数。排满 256 份时丢掉最早的一份，记进 `errors` 与 `lastError` |
 | `seq`、`step`、`outcome` | ✓ | | 序号、步骤名、结局：`done` 做完，`invalid` 作废（原因看快照里这一步的 `invalidReason`），`cancelled` 取消 |
 | `reason`、`stepFiles` | | ✓ | `release` 或 `destroy`；本实例写过几个 step 文件 |
 | `snapshot` | ✓ | ✓ | 此刻的快照，见下 |

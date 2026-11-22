@@ -66,8 +66,21 @@ Script parseScript(const std::string& text);
 // 读文件再解析；读不到、超过上限也记进 error。不抛异常。
 Script loadScript(const std::filesystem::path& file) noexcept;
 
-// 插件已处理的样本秒：还没收到有样本的块、或还不知道采样率时没有值（时钟还没开始，任何动作都不到期）。
-std::optional<double> processedSeconds(std::uint64_t samples, double sampleRate) noexcept;
+// 插件已处理的样本秒。每块按收到它时的采样率折算：宿主中途用另一个采样率重新 prepare 时，之前的样本按旧采样率
+// 记进已有的秒数，之后的按新采样率，时钟不跳。还没收到有样本的块、或还没 prepare
+// 过时没有值（时钟还没开始，任何动作都不到期）。
+class SampleClock
+{
+public:
+    // prepareToPlay 时调：samplesSoFar 是此刻的累计样本数（宿主 prepare 期间不送块）
+    void prepare(std::uint64_t samplesSoFar, double sampleRate) noexcept;
+    std::optional<double> seconds(std::uint64_t samplesSoFar) const noexcept;
+
+private:
+    double rate_ = 0.0;
+    std::uint64_t foldedSamples_ = 0; // 已按旧采样率记进 foldedSec_ 的样本数
+    double foldedSec_ = 0.0;
+};
 
 // 一个动作的执行记录
 struct ActionRecord

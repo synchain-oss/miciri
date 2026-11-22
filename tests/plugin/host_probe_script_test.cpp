@@ -147,11 +147,19 @@ TEST_CASE("loading a script reports a missing or oversized file instead of throw
 TEST_CASE("the clock is processed samples over the sample rate, and starts with the first samples",
           "[plugin][probe][script]")
 {
-    CHECK_FALSE(probe::processedSeconds(0, 48000.0)); // 还没收到有样本的块
-    CHECK_FALSE(probe::processedSeconds(480, 0.0)); // 还不知道采样率
-    REQUIRE(probe::processedSeconds(24000, 48000.0));
-    CHECK(*probe::processedSeconds(24000, 48000.0) == 0.5);
-    CHECK(*probe::processedSeconds(441, 44100.0) == 0.01);
+    probe::SampleClock clock;
+    CHECK_FALSE(clock.seconds(480)); // 还没 prepare，不知道采样率
+    clock.prepare(0, 48000.0);
+    CHECK_FALSE(clock.seconds(0)); // 还没收到有样本的块
+    REQUIRE(clock.seconds(24000));
+    CHECK(*clock.seconds(24000) == 0.5);
+
+    // 中途用另一个采样率重新 prepare：之前的样本按旧采样率算，时钟不跳
+    clock.prepare(48000, 44100.0);
+    CHECK(*clock.seconds(48000) == 1.0);
+    CHECK(*clock.seconds(48000 + 22050) == 1.5);
+    clock.prepare(48000 + 22050, 44100.0); // 同一采样率再 prepare 一次也不变
+    CHECK(*clock.seconds(48000 + 22050 + 44100) == 2.5);
 }
 
 TEST_CASE("actions run in order once the processed time reaches them", "[plugin][probe][script]")

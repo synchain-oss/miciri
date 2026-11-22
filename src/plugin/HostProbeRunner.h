@@ -41,7 +41,7 @@ public:
     static std::unique_ptr<ProbeRunner> create(MiciriProcessor& processor, const std::atomic<std::uint64_t>& samples);
     ~ProbeRunner() override;
 
-    void prepared() noexcept; // prepareToPlay 之后
+    void prepared() noexcept; // prepareToPlay 末尾（采样率已更新、宿主还没送块）
     void released() noexcept; // releaseResources
 
 private:
@@ -80,6 +80,7 @@ private:
     std::string scriptError_;
     std::size_t scriptActions_ = 0;
     probe::Scheduler scheduler_;
+    probe::SampleClock clock_; // 脚本的时钟：按处理器的样本计数与每次 prepare 的采样率折算
     std::optional<Watch> watch_; // 正在进行、结束时要写 step 文件的那一步
     int stepFiles_ = 0; // step 文件的序号
     int errors_ = 0; // 定时器与写 final 时吞下的异常次数（探针出错不影响插件，但要在输出里看得见）

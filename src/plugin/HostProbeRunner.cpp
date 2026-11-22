@@ -127,6 +127,7 @@ ProbeRunner::~ProbeRunner()
 void ProbeRunner::prepared() noexcept
 {
     const std::lock_guard<std::mutex> lock(mutex_);
+    clock_.prepare(samples_.load(std::memory_order_relaxed), processor_.deviceInfo().sampleRate);
     if (reporter_ != nullptr)
         reporter_->flush();
 }
@@ -174,7 +175,7 @@ void ProbeRunner::noteError(const char* what)
 
 std::optional<double> ProbeRunner::processedSec() const
 {
-    return probe::processedSeconds(samples_.load(std::memory_order_relaxed), processor_.deviceInfo().sampleRate);
+    return clock_.seconds(samples_.load(std::memory_order_relaxed));
 }
 
 // 回执与编辑器里的桥处理相同（见 MiciriEditor.cpp 的 handleBridgeCall）；只是不推快照
@@ -353,9 +354,12 @@ void ProbeRunner::enqueue(const std::string& fileName, const juce::var& content)
         o->setProperty("waiting", waiting ? probe::toVar(*waiting) : juce::var());
         o->setProperty("actions", probe::actionsVar(scheduler_));
     }
-    if (pending_.size() >= kPendingMax)
+    if (pending_.size() >= kPendingMax) // 输出目录一直写不进：丢掉最早的一份，记进错误，输出里看得见
+    {
+        noteError(("output queue full, dropped " + pending_.front().first.filename().string()).c_str());
         pending_.erase(pending_.begin());
-    pending_.emplace_back(*outDir_ / fs::u8path(fileName), juce::JSON::toString(content).toStdString() + "\n");
+    }
+    pending_.emplace_back(*outDir_ / fs::path(fileName), juce::JSON::toString(content).toStdString() + "\n");
     flushPending();
 }
 
