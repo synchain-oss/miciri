@@ -188,8 +188,9 @@ Some of these cannot be told apart from a very quiet room with nobody speaking, 
   over it, add a pop filter or step back within the suggested distance.
 - **Sibilance**: the sharp hiss on s and sh. Too much sounds piercing. The reference is −3 dB (a rule of thumb); over it, angle the
   microphone slightly off the front of your mouth, say the s a little softer, and de-ess after recording.
-- **Mouth noise**: small clicks and wet sounds from the mouth. They are usually worse when you are very close. There is no reference
-  value yet, so no tip; drinking some water helps.
+- **Mouth noise**: small clicks and wet sounds from the mouth. They are usually worse when you are very close. The reference is 60 per
+  minute (a rule of thumb; breathy t and k can be counted by mistake). Over it, step back a little within the suggested distance; if
+  it is still over the next time, drink some water, because a dry mouth makes it worse.
 - **Dynamic / condenser microphone**: a dynamic microphone is rugged and needs more gain; a condenser is more sensitive and needs
   phantom power from the interface. USB microphones have the interface built in.
 - **Phase**: the timing of a wave. Two channels in opposite phase cancel each other when they are added into mono.
