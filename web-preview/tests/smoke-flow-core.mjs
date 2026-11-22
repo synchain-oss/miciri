@@ -464,7 +464,11 @@ run.eq(flow.resultModel(snap(), "gain"), null, "没有结果时结果页没有�
     );
     const unsure2 = done(snap(), ["room"]);
     unsure2.results.reverb = { ...unsure2.results.reverb, reliability: "retest", retestReason: "ambiguous" };
-    run.eq(flow.resultModel(unsure2, "room").cards[0].why, null, "原生要再测但没给我们认识的原因：不编原因");
+    run.eq(
+        flow.resultModel(unsure2, "room").cards[0].why,
+        "flow.cf.why.unsure",
+        "原生要再测但没给我们认识的原因：写通用的“读数不够确定”，不编具体原因",
+    );
 }
 
 {

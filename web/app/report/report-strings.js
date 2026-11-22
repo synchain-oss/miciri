@@ -42,6 +42,7 @@ export default {
         "report.fx.room1.a3": "挪完后按下面的按钮，依次重测增益、安静、房间和位置",
         "report.fx.room3.h": "房间声开始明显：先靠近一点再测，还不行再加吸声",
         "report.fx.room3.a2": "还不行，再用被子、毯子吸一吸回声",
+        "report.fx.room0.h": "房间声偏多：先处理房间",
         "report.fx.hum.h": "电流声是现在最值得处理的一项",
         "report.fx.gain.low.h": "增益偏低：先把输入音量调高",
         "report.fx.gain.high.h": "增益偏高：先把输入音量调低",
@@ -132,6 +133,7 @@ export default {
         "report.fx.room3.h":
             "The room sound is starting to show: get a little closer and re-test, then add absorption if that is not enough",
         "report.fx.room3.a2": "If that is not enough, soak up the echo with duvets or blankets",
+        "report.fx.room0.h": "There is a lot of room sound: deal with the room first",
         "report.fx.hum.h": "The hum is the thing most worth fixing now",
         "report.fx.gain.low.h": "The gain is low: raise the input volume first",
         "report.fx.gain.high.h": "The gain is high: lower the input volume first",

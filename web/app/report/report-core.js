@@ -234,20 +234,23 @@ function fixFor(item, state, p) {
             cta: { key: "report.fx.dir.cta", kind: "go", to: "direction" },
         };
     if (item === "room") {
-        // 房间建议只看 T20：很混先换地方或加吸声，偏混先靠近；别的取值（旧的原生端）按偏混写
-        return advice.room === "change-room-and-move-closer"
-            ? {
-                  tone: "red",
-                  head: act("report.fx.room1.h"),
-                  acts: [act("flow.rr.a1"), close, act("report.fx.room1.a3")],
-                  cta: retestCta(["gain", "quiet", "room", "position"]),
-              }
-            : {
-                  tone: "amber",
-                  head: act("report.fx.room3.h"),
-                  acts: [close, act("report.fx.room3.a2")],
-                  cta: retestCta(["gain", "quiet", "position"]),
-              };
+        // 房间建议只看 T20：很混先换地方或加吸声，偏混先靠近。fixes 说要改房间、建议却不是这两种
+        // （旧的原生端）时，只说“房间声偏多”，不替原生写一条它没发的具体做法
+        if (advice.room === "change-room-and-move-closer")
+            return {
+                tone: "red",
+                head: act("report.fx.room1.h"),
+                acts: [act("flow.rr.a1"), close, act("report.fx.room1.a3")],
+                cta: retestCta(["gain", "quiet", "room", "position"]),
+            };
+        if (advice.room === "move-closer-then-treat")
+            return {
+                tone: "amber",
+                head: act("report.fx.room3.h"),
+                acts: [close, act("report.fx.room3.a2")],
+                cta: retestCta(["gain", "quiet", "position"]),
+            };
+        return { tone: "amber", head: act("report.fx.room0.h"), acts: [act("flow.rr.a2")], cta: retestCta(["room"]) };
     }
     if (item === "hum") {
         const by = {

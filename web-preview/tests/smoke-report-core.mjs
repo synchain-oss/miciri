@@ -108,6 +108,15 @@ const stepsOf = (m) => m.cta.steps;
     run.eq(headKey(legacy), "report.fx.ok.h", "fixes 里只有界面不认识的项：按没有处理");
     const legacy2 = { ...SCENES.veryBoomy(), fixes: ["distance", "room"] };
     run.eq(headKey(legacy2), "report.fx.room1.h", "不认识的项排在前面：跳过，照后面认识的写");
+    const oldRoom = {
+        ...SCENES.veryBoomy(),
+        advice: { ...SCENES.veryBoomy().advice, room: "move-closer-check-direction" },
+    };
+    run.eq(
+        [headKey(oldRoom), core.fixModel(oldRoom).tone],
+        ["report.fx.room0.h", "amber"],
+        "fixes 有房间但建议是旧的取值：只说“房间声偏多”，不替原生写具体做法",
+    );
     const keep = {
         ...SCENES.ready(),
         advice: { room: "keep-close-dont-back-off", distance: "back-off-a-little", directionPrompt: "none" },
@@ -380,6 +389,18 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
             ["sib", "gain-changed", null],
         ],
         "三项读数各写自己的变化：D/R、喷麦、齿音；比得出来的带“现在减上次”，调过增益的齿音不比、不带数",
+    );
+    const noDelta = core.distanceModel(
+        withSection(SCENES.closer(), "distance", { drDeltaDb: Number.NaN, plosiveDeltaDb: undefined }),
+    );
+    run.eq(
+        noDelta.signs.map((x) => [x.sign, x.delta]),
+        [
+            ["closer", null],
+            ["closer", null],
+            ["gain-changed", null],
+        ],
+        "原生说更近却缺差值（NaN 或没有）：只写文字，不写 NaN",
     );
     run.eq(
         m("farther").signs.map((x) => x.delta),

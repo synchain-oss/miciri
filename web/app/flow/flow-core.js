@@ -770,7 +770,9 @@ export const resultCards = {
                 retest: true,
                 why:
                     WHY[rv.retestReason] ||
-                    (rv.reliability === "retest" && !rv.gated && rv.tMidSec != null ? null : roomWhy(rv)),
+                    (rv.reliability === "retest" && !rv.gated && rv.tMidSec != null
+                        ? "flow.cf.why.unsure"
+                        : roomWhy(rv)),
                 need,
             };
         return {
