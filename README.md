@@ -20,7 +20,7 @@ You put Miciri on the track you record vocals on and follow the steps in its win
 | Gain | Sing at your loudest for about 8 seconds | Peak level, clipping, how much to turn the gain up or down |
 | Quiet | Stay quiet for about 8 seconds | Noise floor, mains hum, signs that the device processes the sound |
 | Room | Clap hard from about 1 metre away | Reverberation time (T20) in four bands |
-| Position | From your singing spot: clap lightly, read two short word lists, then speak a short passage | Direct-to-room ratio, plosives, sibilance, mouth noise, and a too-close / too-far scale |
+| Position | From your singing spot: clap lightly, read two short word lists, then speak a short passage | Direct-to-room ratio, plosives, sibilance, mouth noise, and a before/after check of whether you moved closer or farther |
 | Direction (optional) | Speak toward four directions of the mic | Whether the current direction is the loudest and brightest |
 
 The report starts with **the one thing worth changing first** and one to three concrete actions. Each result shows a single

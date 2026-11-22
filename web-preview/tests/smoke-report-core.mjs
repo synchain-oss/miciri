@@ -2,11 +2,14 @@
 //
 // 报告页的纯逻辑冒烟（不要浏览器）：
 //   ① 顶部“最该改”：fixes 与 advice 到标题、动作、主按钮的映射；过期、要再测、没测、可以录各走各的分支；
+//      房间只有很混、偏混两种建议，距离与喷麦不在 fixes 里，旧的原生端留下的项与建议值不照它写；
 //   ② 方向提示的四种放法（主按钮、动作加次要按钮、方向卡上的小按钮、不放），耳机麦没有方向卡；
 //   ③ 九张结果卡：顺序固定，未测是灰卡，D/R、喷麦、齿音与口水音不分档所以卡片无色、词是“未分档”，口水音 0 次不写
 //      “最响一次”，“上次 → 现在”只给有上次的、有结论的卡；喷麦、齿音、口水音的参考值取自 bands，超过时只在自己的卡上
 //      给提示，不进“最该改”，耳机麦的提示不涉及距离；
-//   ④ 距离标尺：位置只是示意，证据越多越靠边，过期与要再测是灰的，齿音与口水音不作证据；
+//   ④ 距离卡：第一次只有“可能离远了”，重测后按三项读数说更近、更远、没有明显变化或说不准；上次的位置是虚影，
+//      标记只示意方向，不显示距离数值；过期与要再测是灰的；
+//      房间读数要再测时不写档位；
 //   ⑤ 复制结果、方向确认文案（点出两个方向、不写角度）、频率常量与 thresholds.json 同值；
 //   ⑥ 缺 bands 时结果页不退回准备页，设备降噪作废时写设备原因；快照缺字段不写 NaN；方向动作最多占第 3 条；
 //   ⑦ 反例：检查要能变红。
@@ -35,26 +38,36 @@ const stepsOf = (m) => m.cta.steps;
 
 // ---- ① 顶部“最该改” ----
 {
-    const m = core.fixModel(SCENES.t20longDrlow());
+    const m = core.fixModel(SCENES.veryBoomy());
     run.eq(
         [m.tone, m.head.key, m.cta.kind, stepsOf(m), m.eyebrow],
         ["red", "report.fx.room1.h", "retest", ["gain", "quiet", "room", "position"], "report.fix"],
-        "T20 长 + D/R 低：红，先换地方并靠近，重测四步",
+        "T20 很混：红，先换地方并靠近，重测四步",
     );
     run.eq(m.acts.length <= 3, true, "动作最多 3 条");
 }
 {
-    const m = core.fixModel(SCENES.t20okDrlow());
+    const m = core.fixModel(SCENES.maybeTooFar());
     run.eq(
-        [m.tone, m.head.key, m.cta.kind, m.cta.to, m.cta.prep],
-        ["red", "report.fx.room2.h", "go", "direction", true],
-        "T20 正常 + D/R 低且提示在主按钮：主按钮去方向的准备页",
+        [m.tone, m.head.key, m.cta.kind, m.cta.to, m.cta.prep, m.acts[0].key],
+        ["red", "report.fx.far.h", "go", "direction", true, "report.fx.closer"],
+        "T20 正常 + 底噪偏大 + 可能离远了且提示在主按钮：先靠近，主按钮去方向的准备页",
     );
-    const none = { ...SCENES.t20okDrlow(), advice: { ...SCENES.t20okDrlow().advice, directionPrompt: "none" } };
+    const none = { ...SCENES.maybeTooFar(), advice: { ...SCENES.maybeTooFar().advice, directionPrompt: "none" } };
     run.eq(
         [headKey(none), core.fixModel(none).cta.kind, stepsOf(core.fixModel(none))],
-        ["report.fx.room2.hs", "retest", ["position"]],
-        "方向不提示（耳机麦或测过）：标题只说距离，主按钮重测位置",
+        ["report.fx.farnoise.h", "retest", ["position"]],
+        "方向不提示（耳机麦或测过）：标题只说离远了，主按钮重测位置",
+    );
+    const boomy = core.fixModel({
+        ...SCENES.veryBoomy(),
+        fixes: ["room"],
+        advice: { ...SCENES.veryBoomy().advice, room: "move-closer-then-treat" },
+    });
+    run.eq(
+        [boomy.tone, boomy.head.key, stepsOf(boomy)],
+        ["amber", "report.fx.room3.h", ["gain", "quiet", "position"]],
+        "T20 偏混：琥珀，先靠近再测，不行再加吸声",
     );
 }
 {
@@ -77,25 +90,29 @@ const stepsOf = (m) => m.cta.steps;
     run.eq(core.fixModel(tested).acts.length, 1, "方向测过：不再提方向");
 }
 {
-    const m = core.fixModel(SCENES.tooClose());
+    // 距离与喷麦不进“最该改”：重测后更近、更远、说不准，顶部都还是绿的
+    for (const name of ["closer", "farther", "noChange", "overReference"]) {
+        const m = core.fixModel(SCENES[name]());
+        run.eq([m.tone, m.head.key], ["green", "report.fx.ok.h"], `${name}：顶部仍是“可以开始录音了”`);
+    }
+    const c = core.fixModel(SCENES.conflicting());
     run.eq(
-        [m.tone, m.head.key, stepsOf(m)],
-        ["red", "report.fx.near.h", ["position"]],
-        "喷麦重、太近：红，先退后，重测位置",
+        [c.tone, c.head.key, c.acts.length, c.sec && c.sec.to, c.sec && c.sec.prep],
+        ["green", "report.fx.ok.h", 2, "direction", true],
+        "几项读数指向不同方向 + 动作加按钮：顶部仍是绿的，多一个去方向准备页的次要按钮",
     );
-    const c = SCENES.conflict();
-    const m2 = core.fixModel(c);
-    run.eq(
-        [m2.head.key, m2.acts.length, m2.acts[2] && m2.acts[2].dir, m2.sec && m2.sec.to],
-        ["report.fx.conf.h", 3, true, "direction"],
-        "证据矛盾 + 动作加按钮：最后一条是方向，次要按钮去方向",
-    );
-    const off = { ...c, advice: { ...c.advice, directionPrompt: "none" } };
-    run.eq(
-        [headKey(off), core.fixModel(off).acts.length, core.fixModel(off).sec],
-        ["report.fx.conf.hs", 2, null],
-        "矛盾且方向不提示：标题不提方向，没有次要按钮",
-    );
+    const off = { ...SCENES.conflicting(), advice: { ...SCENES.conflicting().advice, directionPrompt: "none" } };
+    run.eq(core.fixModel(off).sec, null, "方向不提示：没有次要按钮");
+    // 旧的原生端留下的项与建议值：不认识的项跳过，不认识的建议不单独成卡
+    const legacy = { ...SCENES.ready(), fixes: ["distance", "plosive"] };
+    run.eq(headKey(legacy), "report.fx.ok.h", "fixes 里只有界面不认识的项：按没有处理");
+    const legacy2 = { ...SCENES.veryBoomy(), fixes: ["distance", "room"] };
+    run.eq(headKey(legacy2), "report.fx.room1.h", "不认识的项排在前面：跳过，照后面认识的写");
+    const keep = {
+        ...SCENES.ready(),
+        advice: { room: "keep-close-dont-back-off", distance: "back-off-a-little", directionPrompt: "none" },
+    };
+    run.eq(headKey(keep), "report.fx.ok.h", "旧的“别退后”“退后一点”不再单独成卡");
 }
 {
     const m = core.fixModel(SCENES.lowConfidence());
@@ -141,20 +158,11 @@ const stepsOf = (m) => m.cta.steps;
         ["report.fx.part.h", "room", ["room", "position"]],
         "只测了增益和安静：灰，还没测房间和位置，主按钮去第一个没测的",
     );
-    const keep = {
-        ...SCENES.ready(),
-        advice: { room: "keep-close-dont-back-off", distance: "none", directionPrompt: "none" },
-    };
-    run.eq(
-        [core.fixModel(keep).tone, headKey(keep)],
-        ["amber", "report.fx.keep.h"],
-        "T20 长 + D/R 高：fixes 为空也给琥珀的“别退后”",
-    );
     const clipStale = { ...staled(SCENES.ready(), "gain"), fixes: ["digital-clip"] };
     run.eq(headKey(clipStale), "report.fx.clip.h", "数字削波固定在前：有过期结果也照 fixes 来");
     const nosig = { ...SCENES.ready(), fixes: ["no-signal"] };
     run.eq([core.fixModel(nosig).cta.kind, core.fixModel(nosig).cta.to], ["go", "connect"], "没信号：主按钮回接通页");
-    const hum = { ...SCENES.t20longDrlow(), fixes: ["hum"] };
+    const hum = { ...SCENES.veryBoomy(), fixes: ["hum"] };
     run.eq(
         [core.fixModel(hum).head.key, stepsOf(core.fixModel(hum))],
         ["report.fx.hum.h", ["quiet"]],
@@ -163,18 +171,14 @@ const stepsOf = (m) => m.cta.steps;
 }
 
 // ---- ② 方向卡上的小按钮 ----
-run.eq(core.directionSlot(SCENES.t20longDrlow()), "go", "card-button：方向卡上有“测一下方向”");
+run.eq(core.directionSlot(SCENES.veryBoomy()), "go", "card-button：方向卡上有“测一下方向”");
 run.eq(
     core.directionSlot({ ...SCENES.ready(), advice: { ...SCENES.ready().advice, directionPrompt: "stale" } }),
     "again",
     "stale：方向卡上写“重测”",
 );
-run.eq(core.directionSlot(SCENES.t20okDrlow()), null, "主按钮放法：方向卡上不放小按钮");
-run.eq(
-    core.directionSlot({ ...SCENES.t20longDrlow(), micType: "headset" }),
-    null,
-    "耳机麦：没有方向卡，也就没有小按钮",
-);
+run.eq(core.directionSlot(SCENES.maybeTooFar()), null, "主按钮放法：方向卡上不放小按钮");
+run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, "耳机麦：没有方向卡，也就没有小按钮");
 
 // ---- ③ 九张结果卡 ----
 {
@@ -345,30 +349,73 @@ run.eq(
     run.eq(core.cardsOf(retest).find((c) => c.id === "level").prev, undefined, "要再测的卡没有结论，不写上次 → 现在");
 }
 
-// ---- ④ 距离标尺 ----
+// ---- ④ 距离卡 ----
 {
-    const pos = (kind, close = 0, far = 0) => core.rulerPos({ kind, closeEvidence: close, farEvidence: far });
-    run.check(pos("too-close", 1) < pos("fine") && pos("fine") < pos("too-far", 0, 1), "标尺：太近 < 合适 < 太远");
-    run.check(pos("too-close", 3) < pos("too-close", 1), "太近的证据越多，越靠左");
-    run.check(pos("too-far", 0, 2) > pos("too-far", 0, 1), "太远的证据越多，越靠右");
-    run.eq(pos("unknown"), null, "证据不足：没有标记");
-    const r = core.rulerModel(SCENES.tooClose());
+    const m = (name) => core.distanceModel(SCENES[name]());
+    const first = m("maybeTooFar");
     run.eq(
-        [r.st, r.near[0].on, r.near[1].on, r.near[2].on, r.near[1].off],
-        ["fresh", true, false, false, true],
-        "喷麦重触发“太近”；齿音与口水音不作证据",
+        [first.st, first.kind, first.hint, first.ghost, first.pos, first.signs.length],
+        ["fresh", "maybe-too-far", true, null, null, 0],
+        "第一次：只有“可能离远了”的弱提示，没有标尺、没有三项读数",
     );
-    // 桥版本 2 起 D/R 不分档（没有 band），这条证据不再触发；标尺按前后对比重做之前先钉住现状
-    run.eq(core.rulerModel(SCENES.t20longDrlow()).far[0].on, false, "D/R 不分档：不触发“太远”主证据");
-    run.eq(core.rulerModel(SCENES.conflict()).conflict, true, "矛盾");
-    run.eq(core.rulerModel(SCENES.stalePosition()).st, "stale", "位置过期：灰");
-    run.eq(core.rulerModel(buildSnapshot()).st, "low", "没测位置：灰，没有标记");
-    const ghost = {
-        ...SCENES.tooClose(),
-        previous: { distance: withResult("distance", { kind: "too-far", closeEvidence: 0, farEvidence: 1 }) },
-    };
-    run.check(core.rulerModel(ghost).prev > 0.5, "上次的位置画成虚影");
-    run.eq(JSON.stringify(core.rulerModel(SCENES.tooClose())).match(/\bcm\b|厘米/), null, "标尺不显示距离数值");
+    const near = m("closer");
+    run.eq(
+        [near.kind, near.hint, near.ghost, near.read.key, near.read.vars.n],
+        ["closer", false, 0.5, "flow.pr.e.closer", 2],
+        "重测后更近：上次的位置是中间的虚影，句子写几项指向更近",
+    );
+    run.check(near.pos < near.ghost && m("farther").pos > m("farther").ghost, "更近的标记在虚影左边，更远的在右边");
+    run.check(m("farther").pos - 0.5 > 0.5 - near.pos, "指向更远的项数越多，离虚影越远（3 项比 2 项远）");
+    run.eq([m("noChange").pos, m("noChange").ghost], [0.5, 0.5], "没有明显变化：标记和虚影重合");
+    run.eq(
+        [m("conflicting").kind, m("conflicting").ghost, m("conflicting").pos],
+        ["conflicting", 0.5, null],
+        "几项指向不同方向：只有虚影，不画现在的标记",
+    );
+    run.eq(
+        near.signs.map((x) => [x.key, x.sign, x.delta]),
+        [
+            ["dr", "closer", "+4.1"],
+            ["plosive", "closer", "+7.5"],
+            ["sib", "gain-changed", null],
+        ],
+        "三项读数各写自己的变化：D/R、喷麦、齿音；比得出来的带“现在减上次”，调过增益的齿音不比、不带数",
+    );
+    run.eq(
+        m("farther").signs.map((x) => x.delta),
+        ["−3.6", "−8.2", "−6.0"],
+        "挪远：差值带负号（U+2212）",
+    );
+    run.eq(
+        [m("ready").signs.length, m("ready").kind, m("ready").hint],
+        [0, "unknown", false],
+        "没比过：不列三项读数，也没有弱提示",
+    );
+    const noEv = core.distanceModel(withSection(SCENES.closer(), "distance", { closeEvidence: 0 }));
+    run.eq(
+        [noEv.kind, noEv.read.key, noEv.pos],
+        ["unknown", "flow.pr.e.unknown", null],
+        "更近但项数不到 1：按还不够判断写，不画标记",
+    );
+    run.eq(core.distanceModel(staled(SCENES.closer(), "position")).st, "stale", "位置过期：灰");
+    run.eq(core.distanceModel(staled(SCENES.closer(), "position")).pos, null, "位置过期：不画标记");
+    const retest = core.distanceModel(
+        withSection(SCENES.closer(), "distance", { reliability: "retest", retestReason: "ambiguous" }),
+    );
+    run.eq([retest.st, retest.pos, retest.signs.length], ["low", null, 0], "原生要再测：灰，没有标记");
+    const none = core.distanceModel(buildSnapshot());
+    run.eq([none.st, none.read.key], ["none", "report.dist.none"], "没测位置：写“还没测”");
+    const old = core.distanceModel(withSection(SCENES.closer(), "distance", { kind: "too-close" }));
+    run.eq([old.kind, old.pos], ["unknown", null], "旧的原生端的 too-close：不认识，按还不够判断写");
+    run.eq(JSON.stringify(core.distanceModel(SCENES.closer())).match(/厘米/), null, "距离卡的标尺与读数不写距离数值");
+    run.eq([m("closer").rec.vars.a, m("overReferenceHeadset").rec], ["15", null], "推荐距离取自快照；耳机麦没有");
+    // 房间读数要再测：原生的 band 仍可能写着 normal，卡上不写档位也不写数
+    const room = core.cardsOf(SCENES.lowConfidence()).find((c) => c.id === "room");
+    run.eq(
+        [room.word, room.nums.length, room.retest, room.tone],
+        ["flow.w.unk", 0, true, "gray"],
+        "房间读数要再测：卡上不写档位，也不写 T20",
+    );
 }
 
 // ---- ⑤ 复制结果、方向确认、常量 ----
@@ -527,7 +574,7 @@ run.eq(flow.CLICK_HIGHPASS_HZ, thresholds.click.highpass_hz.value, "口水音高
     const worded = good.map((c) => (c.id === "plosive" ? { ...c, word: "flow.w.untested" } : c));
     run.eq(worded.some(greenUngraded), true, "反例：喷麦卡写了别的词（档位词）会被查出");
     const wrongRoom = {
-        ...SCENES.t20longDrlow(),
+        ...SCENES.veryBoomy(),
         advice: { room: "unknown", distance: "none", directionPrompt: "none" },
     };
     run.check(core.fixModel(wrongRoom).tone !== "green", "反例：fixes 说要改房间，advice 缺失时也不能给绿色");

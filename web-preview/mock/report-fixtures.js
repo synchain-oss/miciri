@@ -78,21 +78,23 @@ const green = (s) => {
 
 /** 场景：名字对应报告里的情形。 */
 export const SCENES = {
-    /** T20 长 + D/R 低：先换地方并靠近。 */
-    t20longDrlow: () =>
+    /** T20 很混：先换地方并靠近。 */
+    veryBoomy: () =>
         measured({ fixes: ["room"], advice: advice("change-room-and-move-closer", "none", "card-button") }),
-    /** T20 正常 + D/R 低：靠近，或方向放反；方向检查放在主按钮。 */
-    t20okDrlow: () =>
-        measured({
-            results: withSection(measured(), "reverb", {
-                t20Sec: [0.4, 0.38, 0.35, 0.3],
-                tMidSec: 0.38,
-                band: "normal",
-                tone: "green",
-            }).results,
-            fixes: ["room"],
-            advice: advice("move-closer-check-direction", "none", "main-button"),
-        }),
+    /** T20 正常、底噪偏大、可能离远了：先靠近，方向检查放在主按钮。 */
+    maybeTooFar: () => {
+        let s = green(measured());
+        s = withSection(s, "noise", {
+            noiseDbfs: -48,
+            noiseDbfsA: -52,
+            snrDb: 24,
+            noisePeakDbfs: -40,
+            band: "bad",
+            tone: "red",
+        });
+        s = withSection(s, "distance", { kind: "maybe-too-far", empiricalLimitM: 0.41 });
+        return { ...s, fixes: ["noise"], advice: advice("good", "move-closer", "main-button") };
+    },
     /** 都好，各步有证据：详情里画证据画布。 */
     evidence: () => withEvidence(SCENES.ready()),
     /** 增益与底噪重测过：增益有上次，底噪与电流声是首次测量。 */
@@ -105,22 +107,63 @@ export const SCENES = {
     },
     /** 都好：可以开始录音。 */
     ready: () => ({ ...green(measured()), advice: advice("good", "none", "card-button") }),
-    /** 离话筒太近：喷麦重。 */
-    tooClose: () => {
-        let s = green(measured());
-        s = withSection(s, "plosive", { worstRatioDb: 10.3, severity: "heavy", tone: "red" });
-        s = withSection(s, "distance", { closeEvidence: 1, farEvidence: 0, kind: "too-close", tone: "none" });
-        return { ...s, fixes: ["distance"], advice: advice("good", "back-off-a-little", "card-button") };
+    /** 重测位置后挪近了：D/R 与喷麦指向更近，齿音因为调过增益不比。 */
+    closer: () => {
+        const s = withSection(green(measured()), "distance", {
+            closeEvidence: 2,
+            farEvidence: 0,
+            drDeltaDb: 4.1,
+            plosiveDeltaDb: 7.5,
+            sibilanceDeltaDb: 0,
+            kind: "closer",
+            drSign: "closer",
+            plosiveSign: "closer",
+            sibilanceSign: "gain-changed",
+        });
+        return { ...s, fixes: [], advice: advice("good", "none", "card-button") };
     },
-    /** 证据矛盾：又像太近又像太远；方向提示是动作加次要按钮。 */
-    conflict: () => {
-        let s = withSection(measured(), "plosive", { worstRatioDb: 6.2, severity: "moderate", tone: "amber" });
-        s = withSection(s, "distance", { closeEvidence: 1, farEvidence: 1, kind: "conflicting", tone: "none" });
-        return {
-            ...s,
-            fixes: ["distance"],
-            advice: advice("change-room-and-move-closer", "fix-room-or-direction-first", "action-with-button"),
-        };
+    /** 重测位置后挪远了：三项都指向更远。 */
+    farther: () => {
+        const s = withSection(green(measured()), "distance", {
+            closeEvidence: 0,
+            farEvidence: 3,
+            drDeltaDb: -3.6,
+            plosiveDeltaDb: -8.2,
+            sibilanceDeltaDb: -6,
+            kind: "farther",
+            drSign: "farther",
+            plosiveSign: "farther",
+            sibilanceSign: "farther",
+        });
+        return { ...s, fixes: [], advice: advice("good", "none", "card-button") };
+    },
+    /** 重测位置后没有明显变化。 */
+    noChange: () => {
+        const s = withSection(green(measured()), "distance", {
+            drDeltaDb: 0.4,
+            plosiveDeltaDb: -1.2,
+            sibilanceDeltaDb: 0.8,
+            kind: "no-change",
+            drSign: "no-change",
+            plosiveSign: "no-change",
+            sibilanceSign: "no-change",
+        });
+        return { ...s, fixes: [], advice: advice("good", "none", "card-button") };
+    },
+    /** 几项读数指向不同的方向：说不准；方向提示是动作加次要按钮。 */
+    conflicting: () => {
+        const s = withSection(green(measured()), "distance", {
+            closeEvidence: 1,
+            farEvidence: 1,
+            drDeltaDb: 3.8,
+            plosiveDeltaDb: -7,
+            sibilanceDeltaDb: 0.6,
+            kind: "conflicting",
+            drSign: "closer",
+            plosiveSign: "farther",
+            sibilanceSign: "no-change",
+        });
+        return { ...s, fixes: [], advice: advice("good", "none", "action-with-button") };
     },
     /** 喷麦、齿音、口水音都超过参考值：各自卡上有参考行与轻提示（口水音的参考值在这里设成每分钟 6 次）。 */
     overReference: () => {

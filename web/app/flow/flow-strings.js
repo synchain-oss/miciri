@@ -271,6 +271,7 @@ export default {
         "flow.bn.device": "检测到约 {ms} ms 的严格数字零。设备或系统可能在做降噪或噪声门。",
         "flow.rr.below": "{b} 以下未测",
         "flow.rf.e": "{total} 次里只有 {valid} 次有效，凑不够 {need} 次，所以这次无法判断房间。",
+        "flow.rf.e.retest": "这次房间的读数不够确定，先不下结论。按下面几条处理后再测一次。",
         "flow.rm.room.gated": "设备可能开了降噪或噪声门，关掉后再拍一遍。",
         "flow.cd.sib.bw": "有效带宽只有 {bw} kHz",
         "flow.w.s.part": "高频段未测",
@@ -629,6 +630,8 @@ export default {
         "flow.rr.below": "Below {b} was not measured",
         "flow.rf.e":
             "Only {valid} of {total} claps were valid, short of the {need} needed, so the room cannot be judged this time.",
+        "flow.rf.e.retest":
+            "The room reading is not certain enough this time, so there is no verdict yet. Follow the steps below and test again.",
         "flow.rm.room.gated": "The device may have noise reduction or a gate switched on. Turn it off and clap again.",
         "flow.cd.sib.bw": "Usable bandwidth is only {bw} kHz",
         "flow.w.s.part": "Top band untested",

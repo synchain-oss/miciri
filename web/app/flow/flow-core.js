@@ -551,6 +551,8 @@ const sec = (r) => ({
     why: WHY[r.retestReason] || null,
 });
 const num = (text, unit, unitKey) => ({ text, unit, unitKey });
+/** 房间读不出来时没有原因的兜底：设备处理，否则是拍手不够。 */
+const roomWhy = (rv) => (rv.gated ? "flow.cf.why.device" : "flow.cf.why.fewclaps");
 
 /**
  * 齿音两个频段的显示范围（Hz），与 thresholds.json 的 sibilance.mid_high_band_hz、high_band_hz 同值（冒烟逐项核对）。
@@ -751,8 +753,11 @@ export const resultCards = {
             ...sec(h),
         };
     },
-    /** 作废太多或给不出 T20：无色、写原因。设备的降噪或噪声门作废时即使原生没给原因，也写设备原因。 */
-    room(state, rv, failed = rv.gated || rv.tMidSec == null) {
+    /**
+     * 作废太多、给不出 T20，或原生要再测（confidence 为 retest，这时 band 仍可能写着 normal）：无色、不写档位、写原因。
+     * 设备的降噪或噪声门作废时即使原生没给原因，也写设备原因。
+     */
+    room(state, rv, failed = rv.gated || rv.tMidSec == null || rv.reliability === "retest") {
         const need = (state.live || {}).clapsNeeded;
         if (failed)
             return {
@@ -763,7 +768,9 @@ export const resultCards = {
                 tone: "gray",
                 stale: false,
                 retest: true,
-                why: WHY[rv.retestReason] || (rv.gated ? "flow.cf.why.device" : "flow.cf.why.fewclaps"),
+                why:
+                    WHY[rv.retestReason] ||
+                    (rv.reliability === "retest" && !rv.gated && rv.tMidSec != null ? null : roomWhy(rv)),
                 need,
             };
         return {
@@ -827,6 +834,18 @@ export const resultCards = {
 
 /** 距离的几种情形（桥契约的 DistanceCase）：只有第一次的弱提示与重测后的前后对比。 */
 const DISTANCE_KINDS = ["unknown", "conflicting", "maybe-too-far", "closer", "farther", "no-change"];
+
+/**
+ * 距离的读法：kind 不认识（旧的原生端）按“还不够判断”写。更近、更远的句子要写“几项读数指向它”：
+ * 项数缺失、不是数或不到 1 项时也按“还不够判断”写，免得露出占位符，或写成“有迹象，但 0 项读数指向它”。
+ * shown 是句子的词条后缀（flow.pr.e.<shown>），n 是项数。
+ */
+export function distanceReading(d) {
+    const kind = d && DISTANCE_KINDS.includes(d.kind) ? d.kind : "unknown";
+    const n = kind === "closer" ? d.closeEvidence : kind === "farther" ? d.farEvidence : null;
+    const shown = (kind === "closer" || kind === "farther") && !(n >= 1) ? "unknown" : kind;
+    return { kind, shown, n };
+}
 
 /**
  * 一页结果的数据。没有对应结果时返回 null（调用方回退到准备页）。
@@ -930,7 +949,9 @@ export function resultModel(state, id) {
     }
     if (id === "room" && r.reverb) {
         const rv = r.reverb;
-        const failed = statusOf(state, "room") === "invalid" || rv.gated || rv.tMidSec == null;
+        const unreadable = statusOf(state, "room") === "invalid" || rv.gated || rv.tMidSec == null;
+        // 有读数但原生要再测：不下结论，不写档位和房间建议；原因不一定是拍手不够，说明句只说“不够确定”
+        const failed = unreadable || rv.reliability === "retest";
         const live = state.live || {};
         if (failed) {
             const claps = clapSlots({ claps: live.claps, clapsMax: (live.claps || []).length });
@@ -939,7 +960,9 @@ export function resultModel(state, id) {
                 cards: [resultCards.room(state, rv, true)],
                 cols: 1,
                 side: false,
-                expl: act("flow.rf.e", { total: (live.claps || []).length, valid, need: live.clapsNeeded }),
+                expl: unreadable
+                    ? act("flow.rf.e", { total: (live.claps || []).length, valid, need: live.clapsNeeded })
+                    : act("flow.rf.e.retest"),
                 acts: [act("flow.rf.a1"), act("flow.rf.a2"), act("flow.rf.a3")],
                 viz: { kind: "slots", slots: claps, title: "flow.ms.t20" },
                 ctas: [{ ...retest("room"), primary: true }, goNext],
@@ -966,8 +989,8 @@ export function resultModel(state, id) {
     }
     if (id === "position" && r.directRatio) {
         const dr = r.directRatio;
-        // 距离只有前后对比与一条弱提示，不给绝对判断；不认识的 kind（旧的原生端）按“还不够判断”写
-        const kind = r.distance && DISTANCE_KINDS.includes(r.distance.kind) ? r.distance.kind : "unknown";
+        // 距离只有前后对比与一条弱提示，不给绝对判断
+        const { kind, shown, n } = distanceReading(r.distance);
         const x = cardExtras(state);
         const cards = [
             resultCards.dr(dr),
@@ -975,15 +998,11 @@ export function resultModel(state, id) {
             r.sibilance && resultCards.sib(r.sibilance, x),
             r.click && resultCards.mouth(r.click, x),
         ].filter(Boolean);
-        // 更近、更远的句子要写“几项读数指向它”：项数缺失、不是数或不到 1 项时按“还不够判断”写，
-        // 免得露出占位符，或写成“有迹象，但 0 项读数指向它”
-        const evidence = r.distance && (kind === "closer" ? r.distance.closeEvidence : r.distance.farEvidence);
-        const shown = (kind === "closer" || kind === "farther") && !(evidence >= 1) ? "unknown" : kind;
         return {
             cards,
             cols: 2,
             side: true,
-            expl: act(`flow.pr.e.${shown}`, { n: evidence }),
+            expl: act(`flow.pr.e.${shown}`, { n }),
             // 往哪边挪由原生侧的建议决定：只有“可能离远了”会给 move-closer；超过参考值的轻提示按卡的顺序接在后面
             acts: [
                 ...(kind === "maybe-too-far" && (state.advice || {}).distance === "move-closer"

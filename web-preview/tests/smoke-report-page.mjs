@@ -46,6 +46,11 @@ try {
     const qa = (sel) => `${FD}.querySelectorAll(${JSON.stringify(sel)})`;
     const exists = (sel) => page.eval(`!!${q(sel)}`);
     const text = (sel) => page.eval(`${q(sel)}?.textContent ?? null`);
+    // 推荐距离是唯一写厘米的地方：查文案里有没有厘米数，要先把它拿掉
+    const plain = (sel) =>
+        page.eval(
+            `(() => { const r = ${q(sel)}.cloneNode(true); r.querySelectorAll('[data-part="rec-dist"]').forEach((n) => n.remove()); return r.textContent; })()`,
+        );
     const click = (sel) => page.eval(`${q(sel)}.click()`);
     const calls = () => page.eval(`${M}.calls.map((c) => [c.name, ...c.args])`);
     const load = async (query, scene) => {
@@ -66,19 +71,24 @@ try {
     const settle = () => page.waitFor(`!!${q('[data-part="report-page"]')}`, { label: "报告页" });
 
     // ---- ① 整页报告 ----
-    await load("", "t20longDrlow");
-    run.eq(await page.eval(`${q(".fix")}.dataset.tone`), "red", "T20 长 + D/R 低：顶部是红色");
+    await load("", "veryBoomy");
+    run.eq(await page.eval(`${q(".fix")}.dataset.tone`), "red", "T20 很混：顶部是红色");
     run.check((await text(".fix__head")).length > 4, "顶部有一句话");
     run.eq(await page.eval(`${qa(".rp__grid .rc")}.length`), 9, "九张结果卡");
     run.eq(await exists(".chg"), true, "有“做了改动？”格");
-    run.eq(await page.eval(`${q(".ruler")}.dataset.st`), "fresh", "距离标尺");
+    run.eq(await page.eval(`${q('[data-part="distance"]')}.dataset.st`), "fresh", "距离卡");
     run.eq(await exists(".stk--report .rp"), true, "报告在整页容器里，没有叠卡的上下露出");
     run.eq(await page.eval(`${qa(".stk__peek")}.length`), 0, "报告页没有摘要卡");
     const fitReport = () =>
         page.eval(`(() => {
         const main = ${q("#main")}.getBoundingClientRect();
         const bad = [];
-        for (const n of ${qa(".rp .rc, .rp .fix, .rp .ruler, .rp .chg")}) {
+        // 顶部一行的高度是固定的：卡里的内容不能把它撑出去压到下面的卡上
+        const top = ${q(".rp__top")}.getBoundingClientRect();
+        for (const n of ${qa(".rp .fix, .rp .dist")}) {
+            if (n.getBoundingClientRect().bottom > top.bottom + 1) bad.push(n.className + " 超出顶部一行");
+        }
+        for (const n of ${qa(".rp .rc, .rp .fix, .rp .dist, .rp .chg")}) {
             const r = n.getBoundingClientRect();
             if (r.left < main.left - 1 || r.right > main.right + 1 || r.top < main.top - 1 || r.bottom > main.bottom + 1) bad.push(n.className + " 超出主区");
             if (n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1) bad.push(n.className + " 内容溢出");
@@ -93,7 +103,7 @@ try {
     run.eq(await text('.rp .rc[data-card="sib"] .rc__word'), "未分档", "齿音卡的词是“未分档”，不是“正常”");
     run.eq(await page.eval(`${q('.rp .rc[data-card="dir"]')}.dataset.st`), "none", "方向没测：灰色未测卡");
     run.check((await text('.rp .rc[data-card="dir"]')).includes("未测"), "未测卡写“未测”，不写“可信”");
-    run.eq(await page.eval(`${qa(".ev")}.length`), 5, "标尺的证据标签：近 3 个，远 2 个");
+    run.eq(await page.eval(`${qa(".ev")}.length`), 0, "第一次测位置：没有前后对比，不列三项读数");
 
     // ---- ③ 报告动作 ----
     await click(".chg .sc-btn:nth-of-type(1)");
@@ -120,15 +130,16 @@ try {
     run.eq((await calls()).filter((c) => c[0] === "startStep").length, 1, "下一步由用户自己点开始，界面不替他开");
 
     // ---- ④ 方向提示、耳机麦 ----
-    await load("", "t20longDrlow");
+    await load("", "veryBoomy");
     run.eq(await exists(".rc-slot__go"), true, "card-button：方向卡上有小按钮");
     await click(".rc-slot__go");
     await page.waitFor(`${q('[data-part="prep"]')}?.dataset.step === "direction"`, { label: "小按钮进方向准备页" });
-    await load("", "conflict");
-    run.eq(await page.eval(`${qa(".fix__acts li")}.length`), 3, "矛盾：动作 3 条");
-    run.eq(await page.eval(`${q(".fix__acts li:last-child")}.dataset.dirhint`), "act", "方向这条排最后");
-    run.eq(await page.eval(`${qa(".fix__btns .sc-btn")}.length`), 2, "主按钮下有次要按钮");
-    await load("", "t20longDrlow");
+    await load("", "conflicting");
+    run.eq(await page.eval(`${q(".fix")}.dataset.tone`), "green", "说不准：距离不进最该改，顶部仍是绿的");
+    run.eq(await page.eval(`${qa(".fix__btns .sc-btn")}.length`), 2, "主按钮下有去测方向的次要按钮");
+    await click(".fix__btns .sc-btn:not(.sc-btn--cta)");
+    await page.waitFor(`${q('[data-part="prep"]')}?.dataset.step === "direction"`, { label: "次要按钮进方向准备页" });
+    await load("", "veryBoomy");
     await page.eval(`${M}.mutate((s) => { s.micType = "headset"; })`);
     await page.waitFor(`${q(".rp__grid")}?.dataset.n === "8"`, { label: "耳机麦：八张卡" });
     run.eq(
@@ -164,7 +175,7 @@ try {
     );
 
     // ---- 流程页的挂账 ----
-    await load("", "t20longDrlow");
+    await load("", "veryBoomy");
     await page.eval(
         `${M}.mutate((s) => { s.steps.gain.durationSec = 0; s.steps.gain.status = "idle"; delete s.results.gain; })`,
     );
@@ -191,18 +202,19 @@ try {
     );
 
     // ---- ⑥ 滚轮、英文 ----
-    await load("", "t20longDrlow");
+    await load("", "veryBoomy");
     await page.eval(`${q("#main")}.dispatchEvent(new WheelEvent("wheel", { deltaY: -400, bubbles: true }))`);
     await page.eval(`new Promise((r) => setTimeout(r, 200))`);
     run.eq(await page.eval(`${q(".stk")}.dataset.step`), "report", "滚轮不会从报告翻回前一步");
-    await load("?lang=en", "tooClose");
+    await load("?lang=en", "closer");
     const en = await page.eval(`${q(".rp")}.textContent`);
     run.check(!/[{}]|undefined|null/.test(en), "英文报告没有占位符残留");
     run.check(!/[一-鿿]/.test(en), "英文报告里没有汉字");
-    await load("", "tooClose");
+    await load("", "closer");
     const zh = await page.eval(`${q(".rp")}.textContent`);
     run.check(!/[{}]|undefined|null/.test(zh), "中文报告没有占位符残留");
-    run.check(!/厘米|\bcm\b|零延迟|绝对/.test(zh), "文案里没有厘米数和禁用措辞");
+    run.check(!/零延迟|绝对/.test(zh), "文案里没有禁用措辞");
+    run.check(!/厘米|\bcm\b/.test(await plain(".rp")), "报告里除推荐距离外没有厘米数");
 
     // ---- ⑦ 详情面板 ----
     const open = (id) =>
@@ -211,7 +223,7 @@ try {
     const inert = () => page.eval(`${q("#main")}.hasAttribute("inert")`);
     const esc = () =>
         page.eval(`${FD}.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
-    await load("", "t20longDrlow");
+    await load("", "veryBoomy");
     run.eq(await page.eval(`${qa('[data-part="card-open"]')}.length`), 9, "每张卡都有“查看详情”按钮");
     const topmost = await page.eval(`(() => {
         const b = ${q('[data-part="dir-go"]')};
@@ -265,7 +277,7 @@ try {
     await page.waitFor(`${q('[data-part="detail"]')}.parentElement.hidden`, { label: "方向卡没了，面板跟着关" });
     run.eq(await shown(), false, "耳机麦：方向卡消失时，打开着的方向详情自动关闭");
 
-    await load("?lang=en", "tooClose");
+    await load("?lang=en", "closer");
     await open("plosive");
     const dt = await text('[data-part="detail"]');
     run.check(!/[{}]|undefined|null|NaN/.test(dt), "英文详情没有占位符残留");
@@ -294,7 +306,7 @@ try {
     run.eq(await text('[data-part="first"]'), "First measurement", "首次测量的英文");
     await load("", "evidence");
     run.eq(await firstOf(), [], "每步只做过一次：不写首次测量");
-    await load("", "t20longDrlow"); // 这个场景检出了电流声
+    await load("", "veryBoomy"); // 这个场景检出了电流声
     run.check(
         (await text('.rc[data-card="hum"] .rc__note')).includes("高出本底"),
         "电流声卡：数字是高出本底的 dB，占比降为次要",
@@ -537,7 +549,7 @@ try {
         );
         run.eq(await fitReport(), [], `${lang}：带参考行与提示的报告也不溢出（卡内不滚动）`);
         run.eq(await page.eval(`${q(".fix")}.dataset.tone`), "green", `${lang}：三条提示都不进“最该改”，顶部仍是绿色`);
-        const body = await page.eval(`${q(".rp")}.textContent`);
+        const body = await plain(".rp");
         run.check(!/[{}]|undefined|null|NaN/.test(body), `${lang}：报告没有占位符残留`);
         run.check(
             en ? !/[一-鿿]/.test(body) : !/厘米|\bcm\b|零延迟|绝对/.test(body),
@@ -609,13 +621,16 @@ try {
     for (const lang of ["zh", "en"]) {
         for (const scene of [
             "ready",
-            "t20longDrlow",
-            "tooClose",
-            "conflict",
+            "veryBoomy",
+            "closer",
+            "conflicting",
             "lowConfidence",
             "staleGain",
             "stalePosition",
             "staleRoom",
+            "maybeTooFar",
+            "farther",
+            "noChange",
             "retestedQuiet",
             "evidence",
             "overReference",
@@ -647,6 +662,83 @@ try {
     );
     await goPos("prep");
     run.eq(await exists('[data-part="rec-dist"]'), false, "耳机麦：位置步的准备页不显示推荐距离");
+
+    // ---- ⑫ 距离卡：第一次的弱提示与重测后的前后对比 ----
+    const dist = (sel) => `${q('[data-part="distance"]')}.querySelector(${JSON.stringify(sel)})`;
+    const mid = (sel) =>
+        page.eval(
+            `(() => { const r = ${dist(sel)}?.getBoundingClientRect(); return r ? r.left + r.width / 2 : null; })()`,
+        );
+    for (const lang of ["zh", "en"]) {
+        const en = lang === "en";
+        const qs = en ? "?lang=en" : "";
+        await load(qs, "maybeTooFar");
+        run.eq(
+            [
+                await exists('[data-part="distance"] [data-part="hint"]'),
+                await exists('[data-part="compare"]'),
+                await exists(".ev"),
+            ],
+            [true, false, false],
+            `${lang}：第一次：只有“可能离远了”，没有前后标尺和三项读数`,
+        );
+        run.check(
+            (await text('[data-part="distance"] [data-part="hint"]')).includes(en ? "Maybe too far" : "可能离远了"),
+            `${lang}：弱提示的字`,
+        );
+        run.check(
+            (await text('[data-part="distance"] [data-part="rec-dist"]')).includes("15 cm"),
+            `${lang}：距离卡上写推荐距离`,
+        );
+        run.eq(await page.eval(`${q(".fix")}.dataset.tone`), "red", `${lang}：底噪偏大的顶部卡是红的`);
+        await click(".fix__btns .sc-btn--cta");
+        await page.waitFor(`${q('[data-part="prep"]')}?.dataset.step === "direction"`, {
+            label: "可能离远了且方向没测：主按钮去方向准备页",
+        });
+        for (const scene of ["closer", "farther", "noChange", "conflicting"]) {
+            await load(qs, scene);
+            const items = await page.eval(`[...${qa(".dist .ev")}].map((e) => e.dataset.k + ":" + e.dataset.sign)`);
+            run.eq(items.length, 3, `${lang} ${scene}：三项读数各一格（D/R、喷麦、齿音）`);
+            run.eq(
+                await exists('[data-part="distance"] [data-part="hint"]'),
+                false,
+                `${lang} ${scene}：重测后不再有弱提示`,
+            );
+            const dt = await text('[data-part="distance"]');
+            run.check(!/[{}]|undefined|null|NaN/.test(dt), `${lang} ${scene}：距离卡没有占位符`);
+            run.check(en ? !/[一-鿿]/.test(dt) : true, `${lang} ${scene}：英文距离卡里没有汉字`);
+        }
+        await load(qs, "closer");
+        const ghost = await mid(".dist__ghost");
+        run.check((await mid(".dist__mk")) < ghost, `${lang}：更近：现在的标记在上次的虚影左边`);
+        run.check(
+            (await text('[data-part="distance"]')).includes(en ? "Gain changed" : "增益变了，不比"),
+            `${lang}：调过增益的齿音写“不比”，不假装比过`,
+        );
+        run.check((await text('[data-part="distance"]')).includes("+4.1"), `${lang}：比得出来的写差值`);
+        await load(qs, "farther");
+        run.check((await mid(".dist__mk")) > (await mid(".dist__ghost")), `${lang}：更远：标记在虚影右边`);
+        await load(qs, "noChange");
+        run.check(
+            Math.abs((await mid(".dist__mk")) - (await mid(".dist__ghost"))) < 2,
+            `${lang}：没有明显变化：标记和虚影重合`,
+        );
+        await load(qs, "conflicting");
+        run.eq(
+            [await exists(".dist__ghost"), await exists(".dist__mk")],
+            [true, false],
+            `${lang}：几项指向不同方向：只有虚影，不画现在的标记`,
+        );
+        await load(qs, "stalePosition");
+        run.eq(
+            await page.eval(`${q('[data-part="distance"]')}.dataset.st`),
+            "stale",
+            `${lang}：位置过期：距离卡标过期`,
+        );
+        run.eq(await exists(".dist__mk"), false, `${lang}：过期的距离卡不画标记`);
+        await load(qs, "overReferenceHeadset");
+        run.eq(await exists('.dist [data-part="rec-dist"]'), false, `${lang}：耳机麦：距离卡不写推荐距离`);
+    }
     void settle;
 } finally {
     await browser.close();

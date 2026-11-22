@@ -442,6 +442,29 @@ run.eq(flow.resultModel(snap(), "gain"), null, "没有结果时结果页没有�
         fm.cards[0].why === "flow.cf.why.fewclaps" && fm.cards[0].need === 4,
         "房间失败：原因里的“需要几次”取自 live.clapsNeeded",
     );
+    // 有读数但原生要再测（confidence 为 retest）：band 仍可能写着 normal，不写档位、不写房间建议
+    const unsure = done(snap(), ["room"]);
+    unsure.results.reverb = {
+        ...unsure.results.reverb,
+        band: "normal",
+        tMidSec: 0.35,
+        gated: false,
+        reliability: "retest",
+        retestReason: "low-pnr",
+    };
+    const um = flow.resultModel(unsure, "room");
+    run.eq(
+        [um.cards[0].word, um.cards[0].nums.length, um.cards[0].retest, um.cards[0].why, um.expl.key],
+        ["flow.w.unk", 0, true, "flow.cf.why.tail", "flow.rf.e.retest"],
+        "房间读数要再测：卡上不写档位与 T20，写原因，说明句只说不够确定",
+    );
+    run.check(
+        !um.acts.some((a) => a.key === "flow.rr.a.ok") && um.ctas[0].retest === "room",
+        "房间读数要再测：不给“房间正常”的动作，主按钮重测房间",
+    );
+    const unsure2 = done(snap(), ["room"]);
+    unsure2.results.reverb = { ...unsure2.results.reverb, reliability: "retest", retestReason: "ambiguous" };
+    run.eq(flow.resultModel(unsure2, "room").cards[0].why, null, "原生要再测但没给我们认识的原因：不编原因");
 }
 
 {
