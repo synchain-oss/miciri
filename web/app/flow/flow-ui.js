@@ -423,6 +423,7 @@ function prepPage(state, id, ctx) {
         ),
         el("h2", { class: "pn__title", text: t(prepKey(`flow.pp.${k}.t`, p), p.vars) }),
         el("p", { class: "pn__lead", text: t(prepKey(`flow.pp.${k}.l`, p), p.vars) }),
+        recDistLine(p.rec, ctx),
         el("div", {}, el("span", { class: "sc-eyebrow", text: t("flow.pn.how") }), how),
         el(
             "div",
@@ -448,6 +449,25 @@ function prepPage(state, id, ctx) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 结果页
+
+/** 参考值一行（经验值）；超过时变琥珀，字面的“超过参考”标签在词那一行，不只靠颜色。 */
+const refLine = (ref, t) =>
+    el("div", {
+        class: "rc__ref",
+        data: { part: "ref", over: ref.over ? "1" : "0" },
+        text: tt(t, ref.key, ref.vars),
+    });
+
+/** 推荐距离：静态建议，不是测量值；没有（耳机麦）时不画。位置步的准备页、结果页与报告的距离卡共用。 */
+export function recDistLine(rec, ctx) {
+    if (!rec) return null;
+    return el(
+        "div",
+        { class: "recd", data: { part: "rec-dist" } },
+        ic("pos", 14),
+        el("div", {}, el("b", { text: ctx.t(rec.key, rec.vars) }), el("span", { text: ctx.t("flow.rd.note") })),
+    );
+}
 
 export function resultCard(card, big, multi, ctx) {
     const { t } = ctx;
@@ -481,9 +501,16 @@ export function resultCard(card, big, multi, ctx) {
             data: { tone, st: card.stale ? "stale" : card.none ? "none" : "fresh", card: card.id },
         },
         el("div", { class: "rc__eb" }, el("span", { class: "sc-eyebrow", text: t(`flow.card.${card.id}`) })),
-        el("div", { class: "rc__word" }, el("i", { class: "sc-dot" }), el("span", { text: t(card.word) })),
+        el(
+            "div",
+            { class: "rc__word" },
+            el("i", { class: "sc-dot" }),
+            el("span", { text: t(card.word) }),
+            card.ref && card.ref.over ? el("b", { class: "rc__over", text: t("flow.ref.over") }) : null,
+        ),
         el("div", { class: "rc__nums" }, nums),
         card.note ? el("div", { class: "rc__note", text: tt(t, card.note.key, card.note.vars) }) : null,
+        card.ref ? refLine(card.ref, t) : null,
         card.prev ? el("div", { class: "rc__prev", text: t("report.prev", card.prev) }) : null,
         el(
             "div",
@@ -666,7 +693,7 @@ function resultPage(state, id, m, ctx) {
                 m.below ? el("div", { class: "res__note", text: tt(t, m.below.key, m.below.vars) }) : null,
             ),
         );
-    add(m.side ? viz : col, lead, acts);
+    add(m.side ? viz : col, lead, acts, recDistLine(m.rec, ctx));
     add(
         col,
         el(

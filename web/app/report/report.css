@@ -33,7 +33,8 @@
 .rp__grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    /* 第二行的喷麦、齿音、口水音卡要多放参考行和提示标记，第一行的卡内容少 */
+    grid-template-rows: minmax(0, 0.8fr) minmax(0, 1.2fr);
     gap: var(--sp-10);
     flex: 1;
     min-height: 0;

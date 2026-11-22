@@ -21,7 +21,7 @@ const run = createRun("流程页逻辑");
 const at = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
 const flow = await at("web/app/flow/flow-core.js");
 const meter = await at("web/app/meter/meter-core.js");
-const { BANDS, buildSnapshot, PLAN_SEC } = await at("web-preview/mock/snapshot.js");
+const { BANDS, buildSnapshot, PLAN_SEC, recommendedDistanceOf } = await at("web-preview/mock/snapshot.js");
 const { resultsFor } = await at("web-preview/mock/results.js");
 const { createFlowSim } = await at("web-preview/mock/flow-sim.js");
 const thresholds = JSON.parse(readText(ROOT, "thresholds.json"));
@@ -263,6 +263,126 @@ const dirRes = R("direction", ["direction"], (s) => {
 });
 run.eq(dirRes.viz.rel, [-2, 0, -3, -6], "方向雷达：把当前方向转到第一位，再取相对最响的差");
 run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
+
+// 位置结果页：四张卡都不分档；距离只有前后对比与一条弱提示；推荐距离取自快照
+{
+    const dist = (kind, patch = {}, advice = {}) =>
+        R("position", ["position"], (s) => {
+            s.results.distance = { ...s.results.distance, kind, ...patch };
+            s.advice = { ...s.advice, ...advice };
+        });
+    const kinds = ["unknown", "conflicting", "maybe-too-far", "closer", "farther", "no-change"];
+    run.eq(
+        kinds.map((k) => dist(k).expl.key),
+        kinds.map((k) => `flow.pr.e.${k}`),
+        "位置结果页：每一种距离情形各有一句说明",
+    );
+    run.eq(
+        [dist("closer", { closeEvidence: 2 }).expl.vars.n, dist("farther", { farEvidence: 1 }).expl.vars.n],
+        [2, 1],
+        "更近、更远：写指向它的项数，取自快照",
+    );
+    run.eq(dist("no-change").acts, [], "没有明显变化：不给动作");
+    run.eq(
+        dist("maybe-too-far", {}, { distance: "move-closer" }).acts.map((a) => a.key),
+        ["flow.pr.a.closer"],
+        "可能离远了：动作跟着原生侧的 move-closer",
+    );
+    run.eq(dist("maybe-too-far").acts, [], "不给 move-closer 时界面不自己加动作");
+    // 超过参考值的轻提示按卡的顺序列在动作里；各项建议只来自 advice，不影响距离那一格
+    const tips = R("position", ["position"], (s) => {
+        s.results.plosive = { ...s.results.plosive, overReference: true };
+        s.results.click = { ...s.results.click, overReference: true };
+        s.advice = { ...s.advice, plosive: "pop-filter-or-back-off", click: "drink-water" };
+    });
+    run.eq(
+        tips.acts.map((a) => a.key),
+        ["flow.tip.pop-filter-or-back-off", "flow.tip.drink-water"],
+        "位置结果页：喷麦、口水音的轻提示按卡的顺序列在动作里",
+    );
+    const both = R("position", ["position"], (s) => {
+        s.advice = { ...s.advice, distance: "move-closer", sibilance: "angle-soften-de-ess" };
+        s.results.distance = { ...s.results.distance, kind: "maybe-too-far" };
+    });
+    run.eq(
+        both.acts.map((a) => a.key),
+        ["flow.pr.a.closer", "flow.tip.angle-soften-de-ess"],
+        "可能离远了的动作在前，轻提示在后",
+    );
+    run.eq(
+        R("position", ["position"], (s) => {
+            s.results.distance = { ...s.results.distance, kind: "too-close" };
+        }).expl.key,
+        "flow.pr.e.unknown",
+        "不认识的距离情形（旧的原生端）：按“还不够判断”写，不留键名",
+    );
+    run.eq(
+        R("position", ["position"], (s) => {
+            delete s.results.distance;
+        }).expl.key,
+        "flow.pr.e.unknown",
+        "没有距离结果：按“还不够判断”写",
+    );
+    const p = R("position", ["position"]);
+    run.eq(
+        p.cards.map((c) => [c.id, c.word, c.tone]),
+        ["dr", "plosive", "sib", "mouth"].map((id) => [id, "flow.w.ungraded", "none"]),
+        "位置：四张卡都是“未分档”、无色",
+    );
+}
+
+// 推荐距离：数值全取自快照，耳机麦没有
+{
+    const rd = (patch) => flow.recDistance(snap(patch));
+    run.eq(
+        rd({}),
+        { key: "flow.rd.r", vars: { a: "15", min: "10", max: "30" } },
+        "电容、USB、不确定：约一个数，再写不小于、不大于",
+    );
+    run.eq(
+        rd({ micType: "dynamic", recommendedDistance: recommendedDistanceOf("dynamic") }),
+        { key: "flow.rd", vars: { a: "5–10" } },
+        "动圈：约一段，范围与它相同时不重复写",
+    );
+    run.eq(rd({ micType: "headset", recommendedDistance: null }), null, "耳机麦（null）：不显示");
+    run.eq(rd({ recommendedDistance: undefined }), null, "旧的原生端没有这一项：不显示");
+    run.eq(
+        rd({ recommendedDistance: { aroundLowCm: 20, aroundHighCm: 20, minCm: 12, maxCm: 40 } }),
+        { key: "flow.rd.r", vars: { a: "20", min: "12", max: "40" } },
+        "数值随快照走，不是写死的 15/10/30",
+    );
+    run.eq(
+        rd({ recommendedDistance: { aroundLowCm: 15, aroundHighCm: 15, minCm: 10 } }),
+        null,
+        "字段不全（缺 maxCm）：不显示，不写 undefined",
+    );
+    run.eq(flow.prepModel(snap(), "position").rec, rd({}), "位置步的准备页带推荐距离");
+    run.eq(flow.prepModel(snap(), "gain").rec, null, "其他步的准备页没有推荐距离");
+    run.eq(
+        flow.prepModel(snap({ micType: "headset", recommendedDistance: null }), "position").rec,
+        null,
+        "耳机麦：准备页不显示",
+    );
+    run.eq(R("position", ["position"]).rec, rd({}), "位置结果页带推荐距离");
+}
+
+// 叠卡摘要：位置步写读数，不写档位词
+{
+    const sum = flow.peekSegments(done(snap(), ["position"]), "position").map((g) => [g.key, g.vars.n]);
+    run.eq(
+        sum,
+        [
+            ["flow.sum.dr", "+3.8"],
+            ["flow.sum.plosive", "+2.0"],
+            ["flow.sum.sib", "−18.0"],
+            ["flow.sum.mouth", "3"],
+        ],
+        "位置摘要：D/R、喷麦、齿音、口水音只写读数",
+    );
+    const narrow = done(snap(), ["position"]);
+    narrow.results.sibilance = { ...narrow.results.sibilance, highBandDisabled: true };
+    run.eq(flow.peekSegments(narrow, "position")[2].vars.n, "−12.0", "高频项关闭：齿音摘要取 3-6 kHz 那一格");
+}
 run.eq(flow.resultModel(snap(), "gain"), null, "没有结果时结果页没有数据");
 
 // 评审补的边界：旧的原生端没有 bands 或 live 时不进测试中视图；已完成的房间结果读数为空时摘要卡不崩；

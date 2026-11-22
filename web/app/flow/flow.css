@@ -579,6 +579,7 @@
 }
 .rc__word {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--sp-6);
     font-family: var(--ff-grotesk);
@@ -645,6 +646,62 @@
 }
 .rc__conf[data-ok="0"] {
     color: var(--ink-amber);
+}
+/* 参考值（经验值）一行；超过时这一行变琥珀，词那一行多一个字面的“超过参考”标签，卡片本身仍然无色 */
+.rc__ref {
+    font-size: var(--fs-110);
+    line-height: 1.35;
+    color: var(--txt-ui);
+}
+.rc__ref[data-over="1"] {
+    color: var(--ink-amber);
+}
+.rc__over {
+    padding: 0 var(--sp-5);
+    border: 1px solid var(--ink-amber);
+    border-radius: var(--r-pill);
+    font-family: var(--ff-sans);
+    font-size: var(--fs-95);
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--ink-amber);
+    white-space: nowrap;
+}
+/* 位置结果页的右栏要放说明、几条动作与推荐距离：字小一点，英文也放得下 */
+.res[data-side="1"] .pn__viz {
+    gap: var(--sp-10);
+    padding: var(--sp-14);
+}
+.res[data-side="1"] .pn__lead,
+.res[data-side="1"] .res__acts li {
+    font-size: var(--fs-125);
+    line-height: 1.45;
+}
+.res[data-side="1"] .res__acts {
+    gap: var(--sp-6);
+}
+/* 推荐距离：静态建议 */
+.recd {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-8);
+    padding: var(--sp-8) var(--sp-12);
+    border: 1px dashed var(--card-border);
+    border-radius: var(--r-lg);
+    color: var(--txt-ui);
+}
+.recd svg {
+    flex: none;
+    margin-top: 2px;
+}
+.recd b {
+    display: block;
+    font-size: var(--fs-125);
+    font-weight: 600;
+    color: var(--txt-1);
+}
+.recd span {
+    font-size: var(--fs-110);
 }
 .rc[data-st="stale"] {
     border-style: dashed;

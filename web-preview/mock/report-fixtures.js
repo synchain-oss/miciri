@@ -7,10 +7,10 @@ import { STALE_SECTIONS, resultsFor, withResult } from "./results.js";
 import { buildSnapshot, fields } from "./snapshot.js";
 import { SNAPSHOT_ADVICE } from "../../web/shared/bridge-api.js";
 
-const advice = (room = "unknown", distance = "none", directionPrompt = "none") =>
+const advice = (room = "unknown", distance = "none", directionPrompt = "none", voice = {}) =>
     fields(
         SNAPSHOT_ADVICE,
-        { room, distance, directionPrompt, plosive: "none", sibilance: "none", click: "none" },
+        { room, distance, directionPrompt, plosive: "none", sibilance: "none", click: "none", ...voice },
         "advice",
     );
 
@@ -122,6 +122,27 @@ export const SCENES = {
             advice: advice("change-room-and-move-closer", "fix-room-or-direction-first", "action-with-button"),
         };
     },
+    /** 喷麦、齿音、口水音都超过参考值：各自卡上有参考行与轻提示（口水音的参考值在这里设成每分钟 6 次）。 */
+    overReference: () => {
+        let s = withSection(green(measured()), "plosive", { worstRatioDb: 10.3, overReference: true });
+        s = withSection(s, "sibilance", { highOverVowelDb: -1.5, overReference: true });
+        s = withSection(s, "click", { perMinute: 9, count: 2, overReference: true });
+        return {
+            ...s,
+            bands: { ...s.bands, clickReferencePerMin: 6 },
+            advice: advice("good", "none", "card-button", {
+                plosive: "pop-filter-or-back-off",
+                sibilance: "angle-soften-de-ess",
+                click: "back-off-a-little",
+            }),
+        };
+    },
+    /** 同上，耳机麦：没有推荐距离，也没有方向卡；带“退后一点”的提示只说不涉及距离的部分。 */
+    overReferenceHeadset: () => ({
+        ...SCENES.overReference(),
+        micType: "headset",
+        recommendedDistance: null,
+    }),
     /** 房间要换且方向提示是动作加次要按钮：顶部卡的动作最多。 */
     room1Dir: () =>
         measured({ fixes: ["room"], advice: advice("change-room-and-move-closer", "none", "action-with-button") }),

@@ -87,7 +87,7 @@ const BUILDERS = {
             "plosive",
             RESULT_PLOSIVE,
             { worstRatioDb: 2, events: 6, severity: "light", lowSensitivity: false, overReference: false },
-            "green",
+            "none",
         ),
     sibilance: () =>
         section(

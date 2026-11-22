@@ -11,7 +11,7 @@
 //   4. fixes 有第一项：照 fixes 与 advice 来；
 //   5. fixes 为空：近距离压住了房间声（advice.room）是琥珀的“别退后”，四步都做过是绿的“可以录”，否则灰的“还没测完”。
 
-import { resultCards, STEP_IDS, visibleSteps } from "../flow/flow-core.js";
+import { cardExtras, resultCards, STEP_IDS, visibleSteps } from "../flow/flow-core.js";
 
 /** 九张卡的固定顺序，以及每张卡对应的结果区段与步骤。 */
 export const CARD_ORDER = ["level", "noise", "hum", "room", "dr", "plosive", "sib", "mouth", "dir"];
@@ -44,6 +44,8 @@ const inOrder = (steps) => RETEST_STEPS.filter((id) => steps.includes(id));
 /** 一张卡。区段缺失时是“未测”的灰卡；上次（previous）也用同一个函数画。 */
 export function cardOf(id, state, from = results(state)) {
     const r = from;
+    // 参考行与轻提示只属于当前结果：上次（previous）的卡不带建议
+    const x = cardExtras(state, from === state.results);
     const built = {
         level: () => r.gain && resultCards.level(state, r.gain),
         noise: () => r.noise && resultCards.noise(r.noise),
@@ -54,9 +56,9 @@ export function cardOf(id, state, from = results(state)) {
         },
         room: () => r.reverb && resultCards.room(state, r.reverb),
         dr: () => r.directRatio && resultCards.dr(r.directRatio),
-        plosive: () => r.plosive && resultCards.plosive(r.plosive),
-        sib: () => r.sibilance && resultCards.sib(r.sibilance),
-        mouth: () => r.click && resultCards.mouth(r.click),
+        plosive: () => r.plosive && resultCards.plosive(r.plosive, x),
+        sib: () => r.sibilance && resultCards.sib(r.sibilance, x),
+        mouth: () => r.click && resultCards.mouth(r.click, x),
         dir: () => r.direction && resultCards.dir(r.direction),
     }[id]();
     return built || { id, word: "flow.w.untested", nums: [], none: true, missing: true, tone: "gray", stale: false };
@@ -88,6 +90,13 @@ export function isFirstMeasure(id, state) {
     return runs >= RETESTED_RUNS && PREVIOUS_OF[id].every((s) => !prev[s]);
 }
 
+/** “上次 → 现在”写哪两个数：一般是第一个数；齿音按 cmp 取（同一频段才可比）。 */
+function compared(before, now) {
+    if (before.cmp && now.cmp)
+        return before.cmp.high && now.cmp.high ? [before.cmp.high, now.cmp.high] : [before.cmp.mid, now.cmp.mid];
+    return [before.nums[0] && before.nums[0].text, now.nums[0] && now.nums[0].text];
+}
+
 export function cardsOf(state) {
     const prevAll = state.previous || {};
     const hideDir = !visibleSteps(state).includes("direction");
@@ -95,8 +104,7 @@ export function cardsOf(state) {
         const card = cardOf(id, state);
         if (!conclusive(card)) return card;
         const before = cardOf(id, state, prevAll);
-        const a = before.nums[0] && before.nums[0].text;
-        const b = card.nums[0] && card.nums[0].text;
+        const [a, b] = compared(before, card);
         if (conclusive(before) && a && b) return { ...card, prev: { a, b } };
         return isFirstMeasure(id, state) ? { ...card, first: true } : card;
     });
