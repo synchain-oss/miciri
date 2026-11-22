@@ -76,6 +76,50 @@ TEST_CASE("齿音：固定增益下的绝对电平随录音电平变化，不随
     CHECK(louderVowels.measures.highDb == within(base.measures.highDb, 0.3));
 }
 
+TEST_CASE("齿音：对元音的比值随元音变化，超过参考值才标出", "[voice][sibilance][reference]")
+{
+    const double fs = 48000.0;
+    const auto quietVowels = core::analyseSibilance(sibilantTake(fs, 0.03), fs);
+    const auto louderVowels = core::analyseSibilance(sibilantTake(fs, 0.3), fs);
+    INFO("quiet vowels " << quietVowels.measures.highOverVowelDb << " dB, louder "
+                         << louderVowels.measures.highOverVowelDb);
+    CHECK(quietVowels.measures.vowelEvents == 6);
+    CHECK(louderVowels.measures.vowelEvents == 6);
+    // 只有元音变了：比值跟着元音走 20 dB，绝对电平不变
+    CHECK(quietVowels.measures.highOverVowelDb - louderVowels.measures.highOverVowelDb == within(20.0, 0.5));
+    CHECK(quietVowels.measures.highDb == within(louderVowels.measures.highDb, 0.3));
+    // 两边都离参考值几个 dB：元音轻时超过，元音响时不超过
+    CHECK(quietVowels.measures.highOverVowelDb > thr::sibilance::reference_max_db + 3.0);
+    CHECK(quietVowels.verdict.overReference);
+    CHECK(louderVowels.measures.highOverVowelDb < thr::sibilance::reference_max_db - 3.0);
+    CHECK_FALSE(louderVowels.verdict.overReference);
+}
+
+TEST_CASE("齿音：擦音后面没有元音时没有元音参考，不标超过", "[voice][sibilance][reference]")
+{
+    const double fs = 48000.0;
+    std::vector<double> x = whiteNoise(static_cast<std::size_t>(8.0 * fs), 3e-5, 21);
+    for (int i = 0; i < 6; ++i)
+        addNoiseBurst(x, fs, 0.5 + 1.2 * i, 0.15, kHissRms, 100 + static_cast<std::uint64_t>(i));
+    const auto r = core::analyseSibilance(x, fs);
+    CHECK(r.measures.events == 6);
+    CHECK(r.measures.vowelEvents == 0);
+    CHECK_FALSE(r.verdict.overReference);
+}
+
+TEST_CASE("齿音：有效带宽不到 10 kHz 时高频项关闭，比值超过参考值也不标出", "[voice][sibilance][reference]")
+{
+    // 16 kHz 采样：有效带宽到不了 10 kHz。擦音照样检得出、元音很轻，比值本来超过参考值
+    const double fs = 16000.0;
+    const auto r = core::analyseSibilance(sibilantTake(fs, 0.03), fs);
+    INFO("bandwidth " << r.measures.effectiveBandwidthHz << " Hz, over vowel " << r.measures.highOverVowelDb << " dB");
+    CHECK(r.measures.events == 6);
+    CHECK(r.measures.vowelEvents == 6);
+    CHECK(r.measures.highOverVowelDb > thr::sibilance::reference_max_db + 3.0);
+    CHECK(r.verdict.highBandDisabled);
+    CHECK_FALSE(r.verdict.overReference);
+}
+
 TEST_CASE("齿音：只有元音时没有事件，要求再测", "[voice][sibilance]")
 {
     const double fs = 48000.0;

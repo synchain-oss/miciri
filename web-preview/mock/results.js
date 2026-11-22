@@ -86,7 +86,7 @@ const BUILDERS = {
         section(
             "plosive",
             RESULT_PLOSIVE,
-            { worstRatioDb: 2, events: 6, severity: "light", lowSensitivity: false },
+            { worstRatioDb: 2, events: 6, severity: "light", lowSensitivity: false, overReference: false },
             "green",
         ),
     sibilance: () =>
@@ -100,6 +100,9 @@ const BUILDERS = {
                 events: 8,
                 severity: "light",
                 highBandDisabled: false,
+                highOverVowelDb: -6,
+                vowelEvents: 6,
+                overReference: false,
             },
             "none",
         ),
@@ -114,6 +117,7 @@ const BUILDERS = {
                 analysedSeconds: 15,
                 count: 1,
                 severity: "light",
+                overReference: false,
             },
             "none",
         ),

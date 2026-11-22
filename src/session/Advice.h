@@ -5,6 +5,7 @@
 // 候选只有方向、房间（只看 T20）、电流声、增益、宽带噪声；距离与喷麦只作报告，不进候选。
 // 要再测的（置信度为零）不进候选，过期的结果也不进（它说的是改动之前的情况）。
 // 固定在前的两项只看过期、不看置信度：削波样本与接通状态是直接数出来的，要再测时它们也已经发生。
+// 喷麦、齿音、口水音超过参考值时各给一条轻提示，只在各自的卡上，同样只看当前、可信的结果。
 #pragma once
 
 #include <vector>
@@ -19,6 +20,9 @@ struct Advice
     core::RoomAdvice room = core::RoomAdvice::Unknown;
     core::DistanceAdvice distance = core::DistanceAdvice::None;
     core::DirectionPrompt directionPrompt = core::DirectionPrompt::None;
+    core::PlosiveAdvice plosive = core::PlosiveAdvice::None;
+    core::SibilanceAdvice sibilance = core::SibilanceAdvice::None;
+    core::ClickAdvice click = core::ClickAdvice::None;
 };
 
 Advice decideAdvice(const SessionView& view, core::MicType mic);

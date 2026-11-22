@@ -501,7 +501,8 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
 
     const JsonNode root = JsonReader(session::snapshotJson(v)).parse();
     CHECK(root.keys() == std::vector<std::string>{"steps", "results", "bands", "live", "connect", "offlineRender",
-                                                  "fixes", "advice", "previous"});
+                                                  "fixes", "advice", "previous", "recommendedDistance"});
+    CHECK(root["recommendedDistance"].keys() == names(bridge::kSnapshotRecommendedDistance));
     CHECK(root["advice"].keys() == names(bridge::kSnapshotAdvice));
     CHECK(root["previous"].keys() == std::vector<std::string>{"gain"});
     CHECK(root["previous"]["gain"].keys() == withCommon(bridge::kResultGain));
@@ -534,6 +535,8 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     CHECK(r["hum"]["stale"].flag);
     CHECK(root["bands"].keys() == names(bridge::kSnapshotBands));
     CHECK(root["bands"]["tpQuietDbfs"].number == Catch::Approx(thr::gain::tp_quiet_below_dbfs));
+    CHECK(root["bands"]["plosiveReferenceDb"].number == Catch::Approx(thr::plosive::reference_max_db));
+    CHECK(root["bands"]["clickReferencePerMin"].kind == JsonNode::Kind::Null); // 还没定：界面不显示参考
     CHECK(root["live"].keys() == names(bridge::kSnapshotLive));
     CHECK(root["live"]["claps"].items.size() == 2);
     CHECK(root["live"]["claps"].items[1].text == "truncated");
@@ -706,4 +709,66 @@ TEST_CASE("channel prompts follow the host: no mono tracks means no 'make it mon
     CHECK(prompt() == "antiphase");
     v.results.channels->confidence = core::retest(core::RetestReason::TooShort);
     CHECK(prompt() == "none");
+}
+
+TEST_CASE("over-reference hints for plosives, sibilance and clicks stay on their own cards")
+{
+    session::SessionView v;
+    auto& r = v.results;
+    const auto advice = [&v] { return session::decideAdvice(v, core::MicType::Condenser); };
+    r.plosive = core::PlosiveResult{};
+    r.sibilance = core::SibilanceResult{};
+    r.click = core::ClickResult{};
+    CHECK(advice().plosive == core::PlosiveAdvice::None); // 没超过
+    CHECK(advice().sibilance == core::SibilanceAdvice::None);
+    CHECK(advice().click == core::ClickAdvice::None);
+
+    r.plosive->verdict.overReference = true;
+    r.sibilance->verdict.overReference = true;
+    r.click->verdict.overReference = true;
+    CHECK(advice().plosive == core::PlosiveAdvice::PopFilterOrBackOff);
+    CHECK(advice().sibilance == core::SibilanceAdvice::AngleSoftenDeEss);
+    CHECK(advice().click == core::ClickAdvice::BackOffALittle);
+    CHECK(advice().fixes.empty()); // 只是轻提示，不进“最该改”
+
+    // 上一次位置步也超过（退后之后还多）：喝点水；上一次要再测时不算
+    v.previous.click = core::ClickResult{};
+    v.previous.click->verdict.overReference = true;
+    CHECK(advice().click == core::ClickAdvice::DrinkWater);
+    v.previous.click->confidence = core::retest(core::RetestReason::TooShort);
+    CHECK(advice().click == core::ClickAdvice::BackOffALittle);
+
+    // 过期或要再测的结果不给提示
+    v.stale[static_cast<std::size_t>(session::Section::Sibilance)] = true;
+    r.plosive->confidence = core::retest(core::RetestReason::TooShort);
+    CHECK(advice().plosive == core::PlosiveAdvice::None);
+    CHECK(advice().sibilance == core::SibilanceAdvice::None);
+
+    const JsonNode root = JsonReader(session::snapshotJson(v)).parse();
+    CHECK(root["advice"]["click"].text == "back-off-a-little");
+    CHECK(root["results"]["click"]["overReference"].flag);
+}
+
+TEST_CASE("the recommended distance follows the mic type and is absent for a headset")
+{
+    namespace rd = thr::recommended_distance;
+    const session::SessionView v;
+    const auto of = [&v](core::MicType mic) { return JsonReader(session::snapshotJson(v, mic)).parse(); };
+    for (const auto mic : {core::MicType::Condenser, core::MicType::Usb, core::MicType::Unknown})
+    {
+        const JsonNode d = of(mic)["recommendedDistance"];
+        CHECK(d["aroundLowCm"].number == Catch::Approx(rd::condenser_around_cm));
+        CHECK(d["aroundHighCm"].number == Catch::Approx(rd::condenser_around_cm));
+        CHECK(d["minCm"].number == Catch::Approx(rd::condenser_range_cm[0]));
+        CHECK(d["maxCm"].number == Catch::Approx(rd::condenser_range_cm[1]));
+    }
+    const JsonNode dynamic = of(core::MicType::Dynamic)["recommendedDistance"];
+    CHECK(dynamic["aroundLowCm"].number == Catch::Approx(rd::dynamic_range_cm[0]));
+    CHECK(dynamic["aroundHighCm"].number == Catch::Approx(rd::dynamic_range_cm[1]));
+    CHECK(dynamic["maxCm"].number == Catch::Approx(rd::dynamic_range_cm[1]));
+    CHECK(of(core::MicType::Headset)["recommendedDistance"].kind == JsonNode::Kind::Null);
+    // 范围本身有序，“约”落在范围里
+    CHECK(rd::condenser_range_cm[0] <= rd::condenser_around_cm);
+    CHECK(rd::condenser_around_cm <= rd::condenser_range_cm[1]);
+    CHECK(rd::dynamic_range_cm[0] < rd::dynamic_range_cm[1]);
 }

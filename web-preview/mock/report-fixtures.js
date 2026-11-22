@@ -8,7 +8,11 @@ import { buildSnapshot, fields } from "./snapshot.js";
 import { SNAPSHOT_ADVICE } from "../../web/shared/bridge-api.js";
 
 const advice = (room = "unknown", distance = "none", directionPrompt = "none") =>
-    fields(SNAPSHOT_ADVICE, { room, distance, directionPrompt }, "advice");
+    fields(
+        SNAPSHOT_ADVICE,
+        { room, distance, directionPrompt, plosive: "none", sibilance: "none", click: "none" },
+        "advice",
+    );
 
 /** 四步做完（方向没测）的快照。 */
 export function measured(patch = {}) {

@@ -104,6 +104,18 @@ TEST_CASE("喷麦：爆发越强比值越大，但不分档", "[voice][plosive]"
     CHECK(core::analysePlosive(wordList(fs, listWithOnePop(12.0)), fs).verdict.severity == core::Severity::Light);
 }
 
+TEST_CASE("喷麦：最大值超过参考值才标出，只是轻提示", "[voice][plosive]")
+{
+    const double fs = 48000.0;
+    const auto clean = core::analysePlosive(wordList(fs, std::vector<double>(12, kNone)), fs);
+    CHECK_FALSE(clean.verdict.overReference);
+    const auto strong = core::analysePlosive(wordList(fs, listWithOnePop(12.0)), fs);
+    INFO("worst " << strong.measures.worstRatioDb);
+    CHECK(strong.measures.worstRatioDb > thr::plosive::reference_max_db + 1.0); // 离参考值够远，不贴边
+    CHECK(strong.verdict.overReference);
+    CHECK(strong.verdict.severity == core::Severity::Light); // 仍不分档
+}
+
 TEST_CASE("喷麦：同一段录音整体衰减不改变比值", "[voice][plosive]")
 {
     const double fs = 48000.0;

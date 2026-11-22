@@ -11,6 +11,7 @@ import {
     SNAPSHOT_BANDS,
     SNAPSHOT_CONNECT,
     SNAPSHOT_ADVICE,
+    SNAPSHOT_RECOMMENDED_DISTANCE,
     SNAPSHOT_DEVICE,
     SNAPSHOT_LIVE,
     SNAPSHOT_ROOT,
@@ -37,7 +38,17 @@ export const BANDS = {
     drResolutionDb: 3,
     plosiveResolutionDb: 6,
     sibilanceResolutionDb: 5.2,
+    plosiveReferenceDb: 9,
+    sibilanceReferenceDb: -3,
+    clickReferencePerMin: null,
 };
+
+/** 推荐距离的占位值，与 thresholds.json 的 recommended_distance 相等；耳机麦为 null。 */
+export function recommendedDistanceOf(micType) {
+    if (micType === "headset") return null;
+    const [lo, hi, min, max] = micType === "dynamic" ? [5, 10, 5, 10] : [15, 15, 10, 30];
+    return fields(SNAPSHOT_RECOMMENDED_DISTANCE, { aroundLowCm: lo, aroundHighCm: hi, minCm: min, maxCm: max }, "rd");
+}
 
 /** 没有步骤在跑时的 live。 */
 export function idleLive() {
@@ -133,8 +144,20 @@ export function buildSnapshot(o = {}) {
             bands: fields(SNAPSHOT_BANDS, { ...BANDS }, "bands"),
             live: idleLive(),
             fixes: [],
-            advice: fields(SNAPSHOT_ADVICE, { room: "unknown", distance: "none", directionPrompt: "none" }, "advice"),
+            advice: fields(
+                SNAPSHOT_ADVICE,
+                {
+                    room: "unknown",
+                    distance: "none",
+                    directionPrompt: "none",
+                    plosive: "none",
+                    sibilance: "none",
+                    click: "none",
+                },
+                "advice",
+            ),
             previous: {},
+            recommendedDistance: recommendedDistanceOf("unknown"),
         },
         "snapshot",
     );

@@ -104,6 +104,13 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
                                                               r.gain->verdict.band == core::GainBand::Quiet)) ||
                            (usable(r.noise, Section::Noise) && r.noise->verdict.band == core::NoiseBand::Bad);
     a.directionPrompt = core::decideDirectionPrompt(in);
+
+    if (usable(r.plosive, Section::Plosive))
+        a.plosive = core::plosiveAdviceOf(*r.plosive);
+    if (usable(r.sibilance, Section::Sibilance))
+        a.sibilance = core::sibilanceAdviceOf(*r.sibilance);
+    if (usable(r.click, Section::Click))
+        a.click = core::clickAdviceOf(*r.click, v.previous.click);
     return a;
 }
 } // namespace miciri::session

@@ -32,7 +32,7 @@ status: frozen
 | `deviceProcessing` | `detected` | 只作横幅；极低不上升态下不显示 | 否 |
 | `reverb` | `band`（`gated`） | 拍手算。T20 门限只作废那一下的那个频带，`gated` 表示作废太多、主指标给不出；给不出值的频带 `t20Sec` 为 0。房间建议只看它：干、正常不提，偏混与很混给建议（`src/core/decide`） | 偏混、很混按排序 |
 | `directRatio` | 无（`lowerBoundOnly`） | 拍手算，只用没削波的几下，尾部测不到时只报下限（真值只会更高）。**不分档**：拍手相对扫频真值的偏移随房间与位置变化，绝对档位判不准，只用于重测位置之后的“上次 → 现在” | 否 |
-| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | **三项都不分档**，`severity` 停在 `light` 表示未分档，不表示良好。喷麦取一遍字表的最大值，齿音给固定增益下的绝对电平，两者只供重测位置之后的“上次 → 现在”；口水音只作“可能有口水音”的提示 | 否 |
+| `plosive`、`sibilance`、`click` | `severity`（`lowSensitivity`、`highBandDisabled`） | **三项都不分档**，`severity` 停在 `light` 表示未分档，不表示良好。喷麦取一遍字表的最大值，齿音给固定增益下的绝对电平，两者只供重测位置之后的“上次 → 现在”；口水音只作“可能有口水音”的提示。三项另有参考值（经验值）与 `overReference`，见下文“参考值与推荐距离” | 否 |
 | `direction` | `kind` | 只回答“当前方向是不是最响”；亮度只显示、不参与判断；放反要重测那一对确认；没测过不算问题 | 两次的差都 ≥10 dB 才进 |
 | `distance` | `kind`（`drSign`、`plosiveSign`、`sibilanceSign`） | 由别的结果合成（`src/core/decide`），不给绝对判断，置信度恒为可信、不确定写在 `kind` 里。第一次测试只有 `maybe-too-far` 这条弱提示（当前、可信的噪声档位为差，且有当前、可信的 T20）；重测位置之后按 D/R、喷麦、齿音的“上次 → 现在”给 `closer`、`farther`、`no-change`，方向不一致为 `conflicting`。阈值在 `thresholds.json` 的 `distance` 分组，规则见下文 | 否 |
 
@@ -50,6 +50,23 @@ status: frozen
   房间体积与指向性取典型值，是经验值；没有当前、可信的 T20 时为 0。距离标尺不显示厘米，这个数只供提示的文案使用。
 - 距离的建议只由 `kind` 决定：`maybe-too-far` 给 `move-closer`，其余不给。口水音的“退后一点”“喝点水”跟着口水音走，不占距离这一格。
 - 距离不进“最该改”：第一次只有弱提示，重测后的前后对比是报告，不当作要先改的问题。
+
+### 参考值与推荐距离
+
+参考值是经验值，不是档位：卡片照样无色，超过时只在这张卡上给一条轻提示（`advice.plosive`、`advice.sibilance`、`advice.click`），
+不进“最该改”，也不作距离证据。只看当前、可信的结果。
+
+| 项 | 比的是什么 | 参考 | 超过时 |
+|---|---|---|---|
+| 喷麦 | `worstRatioDb`（每遍字表最响音节的瞬态比，取最大） | `plosive.reference_max_db`（9 dB 以下） | `overReference`；建议 `pop-filter-or-back-off`：加防喷罩，或在推荐距离范围内退后一点再测 |
+| 齿音 | `highOverVowelDb`（6-12 kHz 对紧随其后的元音 200-4000 Hz，有元音参考的擦音取中位数，`vowelEvents` 是这样的擦音个数） | `sibilance.reference_max_db`（−3 dB 以下） | `overReference`；建议 `angle-soften-de-ess`：话筒偏开嘴的正前方 15-30°（朝下巴或嘴角），s 念轻一点，录完用齿音消除。不建议退后（挪远后比值反而变大），不说再测对比 |
+| 口水音 | `perMinute` | `click.reference_max_per_min`（还没有值） | `overReference`（参考值定下来之前恒为 `false`）；建议 `back-off-a-little`：在推荐距离范围内退后一点；上一次位置步（`previous.click`，可信）也超过、这次仍超过时 `drink-water` |
+
+- 齿音：高频项关闭（`highBandDisabled`，有效带宽不足 10 kHz）或 `vowelEvents` 为 0 时不比，`overReference` 为 `false`，参考值不显示。
+  对元音的比值随距离的方向不稳（近讲效应），只作参考；前后对比仍只用固定增益下的绝对电平。
+- 推荐距离（快照根上的 `recommendedDistance`）：静态的常见做法，不是测量，按接通步选的话筒类型给。电容、USB、不确定：约 15 cm，
+  范围 10-30 cm；动圈：约 5-10 cm；耳机麦不给（`null`）。数值在 `thresholds.json` 的 `recommended_distance` 分组。
+  喷麦、口水音的“退后一点”都以这个范围为界。
 
 ## 色调
 

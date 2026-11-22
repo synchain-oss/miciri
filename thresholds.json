@@ -564,7 +564,14 @@
     "vowel_within_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
     "vowel_min_frames": { "value": 6, "state": "pending", "source": "规格起始值", "date": null },
     "reference_floor_margin_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
-    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null }
+    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
+    "reference_max_db": {
+      "value": 9.0,
+      "state": "pending",
+      "source": "经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人 5 cm 时每遍字表的最大值都超过它，60 cm 时都低于它；一位在 15 cm 处有一遍超过",
+      "date": null,
+      "note": "reference shown next to the worst syllable of each pass; above it the card gives a light hint, no grade"
+    }
   },
   "sibilance": {
     "mid_high_band_hz": { "value": [3000.0, 6000.0], "state": "pending", "source": "规格起始值", "date": null },
@@ -622,7 +629,56 @@
     "bandwidth_smoothing_hz": { "value": 250.0, "state": "pending", "source": "规格起始值", "date": null },
     "bandwidth_active_percentile": { "value": 95, "state": "pending", "source": "规格起始值", "date": null },
     "bandwidth_active_within_db": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
-    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null }
+    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
+    "vowel_gap_ms": {
+      "value": 30.0,
+      "state": "pending",
+      "source": "规格起始值：与实录分析同一种取法",
+      "date": null,
+      "note": "the vowel reference starts this long after the fricative ends"
+    },
+    "vowel_window_ms": {
+      "value": 300.0,
+      "state": "pending",
+      "source": "规格起始值：与实录分析同一种取法",
+      "date": null,
+      "note": "and ends this long after the fricative ends"
+    },
+    "vowel_centroid_max_hz": {
+      "value": 3500.0,
+      "state": "pending",
+      "source": "规格起始值：与实录分析同一种取法",
+      "date": null,
+      "note": "vowel frames have their centroid below this"
+    },
+    "vowel_within_db": {
+      "value": 12.0,
+      "state": "pending",
+      "source": "规格起始值：与实录分析同一种取法",
+      "date": null,
+      "note": "and are within this of the loudest frame in the window"
+    },
+    "vowel_min_frames": {
+      "value": 4,
+      "state": "pending",
+      "source": "规格起始值：与实录分析同一种取法",
+      "date": null,
+      "note": "fewer kept frames: this fricative has no vowel reference"
+    },
+    "vowel_loudest_frac": {
+      "value": 0.5,
+      "state": "pending",
+      "source": "规格起始值：与实录分析同一种取法",
+      "date": null,
+      "note": "the vowel level is the mean of this share of the loudest kept frames"
+    },
+    "reference_max_db": {
+      "value": -3.0,
+      "state": "pending",
+      "source": "经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −5.4、−7.1 dB，都低于它；一位挪到 60 cm 后升到 −2.8 dB，比值随距离的方向不稳，只作参考",
+      "date": null,
+      "note": "reference for the 6-12 kHz over vowel ratio; not shown when the high band is off"
+    }
   },
   "click": {
     "highpass_hz": { "value": 2000.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -709,7 +765,14 @@
       "note": "high-frequency background around the spike, relative to the speech; louder backgrounds are sibilant onsets or aspiration; adjusted on real recordings, uncalibrated"
     },
     "cluster_gap_ms": { "value": 100.0, "state": "pending", "source": "规格起始值", "date": null },
-    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null }
+    "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
+    "reference_max_per_min": {
+      "value": null,
+      "state": "pending",
+      "source": "待定：要等第二位说话人的试听标签",
+      "date": null,
+      "note": "reference for clicks per minute; no value yet, so the card shows none"
+    }
   },
   "direction": {
     "repeat_trigger_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -775,6 +838,29 @@
       "source": "工程起始值：临界距离的一半，扩散声场下那里的直达声比房间声高约 6 dB",
       "date": null,
       "note": "the empirical distance limit is this fraction of the critical distance"
+    }
+  },
+  "recommended_distance": {
+    "condenser_around_cm": {
+      "value": 15.0,
+      "state": "pending",
+      "source": "产品约定：常见做法，维护者确认（2026-11）",
+      "date": null,
+      "note": "condenser, USB and not sure: about this far"
+    },
+    "condenser_range_cm": {
+      "value": [10.0, 30.0],
+      "state": "pending",
+      "source": "产品约定：常见做法，维护者确认（2026-11）",
+      "date": null,
+      "note": "condenser, USB and not sure: stay within"
+    },
+    "dynamic_range_cm": {
+      "value": [5.0, 10.0],
+      "state": "pending",
+      "source": "产品约定：常见做法，维护者确认（2026-11）",
+      "date": null,
+      "note": "dynamic: about this far; headset: none"
     }
   },
   "priority": {

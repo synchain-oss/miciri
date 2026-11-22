@@ -63,4 +63,22 @@ struct DirectionPromptInput
 };
 // 没测过方向不算问题：这里只决定提示放在哪，不影响“可以开始录音了”
 DirectionPrompt decideDirectionPrompt(const DirectionPromptInput& in);
+
+// ---- 参考值与推荐距离 ----
+// 超过参考值时的轻提示，只看各自结果的 overReference；调用方只传当前、可信的结果。不进“最该改”
+PlosiveAdvice plosiveAdviceOf(const PlosiveResult& plosive);
+SibilanceAdvice sibilanceAdviceOf(const SibilanceResult& sibilance);
+// before 是被这次位置步换下来的上一次：它也超过、这次仍超过（退后之后还多），才建议喝点水
+ClickAdvice clickAdviceOf(const ClickResult& now, const std::optional<ClickResult>& before);
+
+// 推荐距离：静态的常见做法，不是测量。喷麦、口水音的“退后一点”都以这个范围为界
+struct RecommendedDistance
+{
+    double aroundLowCm = 0.0; // “约 …”：两端相等时是一个数，不等时是一段
+    double aroundHighCm = 0.0;
+    double minCm = 0.0; // 范围
+    double maxCm = 0.0;
+};
+// 电容、USB、不确定共用一组；动圈一组；耳机麦不给
+std::optional<RecommendedDistance> recommendedDistanceOf(MicType mic);
 } // namespace miciri::core

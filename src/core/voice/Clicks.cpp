@@ -322,7 +322,9 @@ ClickResult summariseClicks(const ClickScan& scan, double residualMultiple)
     voice::keepStrongest(r.evidence.marks, static_cast<std::size_t>(c::evidence_max_marks));
     r.measures.loudestDbfs = loudest;
     r.measures.loudestRelDb = loudest - *scan.speechDb;
-    // 档界还没有实录依据：只给测量值，“可能有口水音”的提示由上层按 count 决定，severity 保持最低档
+    // 档界还没有实录依据：只给测量值，“可能有口水音”的提示由上层按 count 决定，severity 保持最低档。
+    // 参考值 click.reference_max_per_min 还是 null，overReference 恒为 false；定值后在这里按 perMinute
+    // 设置，并同时改 SnapshotJson.cpp 里写 clickReferencePerMin 的那一行
     return r;
 }
 

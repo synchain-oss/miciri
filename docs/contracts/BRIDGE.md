@@ -114,7 +114,14 @@ status: frozen
 - `advice`（`SNAPSHOT_ADVICE`）：`room` 取 `ENUM_ROOM_ADVICE`（只看 T20：干、正常 `good`，偏混 `move-closer-then-treat`，很混
   `change-room-and-move-closer`；没有 T20、要再测或过期时 `unknown`），`distance` 取 `ENUM_DISTANCE_ADVICE`（可能离远了时 `move-closer`），
   `directionPrompt` 取 `ENUM_DIRECTION_PROMPT`（方向测试的提示放在哪；没测过方向不算问题；T20 干或正常且可能离远了时 `main-button`）。
+  追加 `plosive`（`ENUM_PLOSIVE_ADVICE`）、`sibilance`（`ENUM_SIBILANCE_ADVICE`）、`click`（`ENUM_CLICK_ADVICE`）：对应结果超过参考值时的轻提示，
+  只在各自的卡上，规则与每个建议键的意思见 `RESULT.md` 的“参考值与推荐距离”。
   文案由界面按这些名字取词条。
+- 参考值（追加）：`results.plosive`、`results.sibilance`、`results.click` 各追加 `overReference`；`results.sibilance` 另追加
+  `highOverVowelDb`（dB）与 `vowelEvents`（为 0 时 `highOverVowelDb` 不是测量值）。`bands` 末尾追加 `plosiveReferenceDb`、
+  `sibilanceReferenceDb`、`clickReferencePerMin`，参考值还没定时为 `null`，界面这时不显示参考。
+- `recommendedDistance`（`SNAPSHOT_RECOMMENDED_DISTANCE`，根上追加）：`aroundLowCm`、`aroundHighCm` 是“约 …”（两端相等时是一个数，
+  不等时是一段），`minCm`、`maxCm` 是范围。按 `micType` 给，耳机麦为 `null`。不是测量值，位置步与距离卡显示它。
 - `previous`：形状与 `results` 相同，每个区段是被最近一次新结果换下来的那一次（“上次→现在”），没有上次的区段不出现。只在内存里，
   卸载插件就没了，不进插件 state；`stale` 恒为 `false`，`direction` 的 `repeatIndex` 为 -1。
 - `results.direction` 追加 `repeatIndex`、`confirmedAdvantageDb`：那一对是当前方向与 `repeatIndex`，只在还要重唱这一对、

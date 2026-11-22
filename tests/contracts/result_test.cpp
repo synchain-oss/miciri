@@ -66,6 +66,9 @@ TEST_CASE("result contract: names, plain measures and tone mapping")
     checkNames(kDirectionCaseNames);
     checkNames(kDistanceCaseNames);
     checkNames(kDistanceSignNames);
+    checkNames(kPlosiveAdviceNames);
+    checkNames(kSibilanceAdviceNames);
+    checkNames(kClickAdviceNames);
     checkNames(kMicTypeNames);
     checkNames(kChangeKindNames);
 

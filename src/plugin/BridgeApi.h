@@ -34,7 +34,7 @@ inline constexpr auto kReasons = names("bad-lang", "bad-scale", "bad-step", "bad
 
 inline constexpr auto kSnapshotRoot =
     names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device", "connect", "steps", "results", "bands",
-          "live", "fixes", "advice", "previous");
+          "live", "fixes", "advice", "previous", "recommendedDistance");
 inline constexpr auto kSnapshotDevice = names("sampleRate", "bufferSize", "layout", "hostName", "offlineRender");
 inline constexpr auto kSnapshotConnect =
     names("signalState", "callbackAgeSec", "allZero", "noiseDbfs", "channelStatusL", "channelStatusR", "channelPrompt",
@@ -60,11 +60,12 @@ inline constexpr auto kResultDeviceProcessing = names("longestZeroMs", "zeroRuns
 inline constexpr auto kResultReverb =
     names("t20Sec", "tMidSec", "bandPnrDb", "bandR2", "repeatMaxOverMin", "band", "gated");
 inline constexpr auto kResultDirectRatio = names("drDb", "lowerBoundOnly");
-inline constexpr auto kResultPlosive = names("worstRatioDb", "events", "severity", "lowSensitivity");
-inline constexpr auto kResultSibilance =
-    names("midHighDb", "highDb", "effectiveBandwidthHz", "events", "severity", "highBandDisabled");
+// 三项的 overReference、齿音的 highOverVowelDb 与 vowelEvents 是追加（参考值）
+inline constexpr auto kResultPlosive = names("worstRatioDb", "events", "severity", "lowSensitivity", "overReference");
+inline constexpr auto kResultSibilance = names("midHighDb", "highDb", "effectiveBandwidthHz", "events", "severity",
+                                               "highBandDisabled", "highOverVowelDb", "vowelEvents", "overReference");
 inline constexpr auto kResultClick =
-    names("perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity");
+    names("perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity", "overReference");
 inline constexpr auto kResultDirection = names("levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb",
                                                "kind", "repeatIndex", "confirmedAdvantageDb");
 inline constexpr auto kResultDistance =
@@ -78,13 +79,16 @@ inline constexpr auto kMeterFields =
 inline constexpr auto kSnapshotBands =
     names("tpTooQuietDbfs", "tpQuietDbfs", "tpLoudDbfs", "tpTooLoudDbfs", "targetPeakDbfs", "snrBadBelowDb",
           "snrGoodAboveDb", "t20DryBelowS", "t20NormalBelowS", "t20BoomyBelowS", "clipAdviceDropDb", "t20BandsHz",
-          "drResolutionDb", "plosiveResolutionDb", "sibilanceResolutionDb");
+          "drResolutionDb", "plosiveResolutionDb", "sibilanceResolutionDb", "plosiveReferenceDb",
+          "sibilanceReferenceDb", "clickReferencePerMin");
 inline constexpr auto kSnapshotLive =
     names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps", "clapsNeeded", "clapsMax",
           "directionIndex", "notice", "noticeSec", "clapDetails");
 // 追加（建议与“最该改”）：房间步每一下拍手的明细、建议
 inline constexpr auto kSnapshotClapDetail = names("timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec");
-inline constexpr auto kSnapshotAdvice = names("room", "distance", "directionPrompt");
+inline constexpr auto kSnapshotAdvice = names("room", "distance", "directionPrompt", "plosive", "sibilance", "click");
+// 追加（参考值与推荐距离）：根上的 recommendedDistance，耳机麦为 null
+inline constexpr auto kSnapshotRecommendedDistance = names("aroundLowCm", "aroundHighCm", "minCm", "maxCm");
 // 追加（证据波形）：getEvidence 的回执载荷与事件种类，含义见 docs/contracts/BRIDGE.md
 inline constexpr auto kEvidencePack = names("stepId", "rev", "durationSec", "envelope", "events");
 inline constexpr auto kEvidenceEnvelope = names("hopSec", "min", "max");
@@ -169,6 +173,10 @@ inline std::vector<Table> contractTables()
         table("EVIDENCE_ENVELOPE", kEvidenceEnvelope),
         table("EVIDENCE_EVENT", kEvidenceEvent),
         table("EVIDENCE_EVENT_KINDS", kEvidenceEventKinds),
+        table("SNAPSHOT_RECOMMENDED_DISTANCE", kSnapshotRecommendedDistance),
+        table("ENUM_PLOSIVE_ADVICE", c::kPlosiveAdviceNames),
+        table("ENUM_SIBILANCE_ADVICE", c::kSibilanceAdviceNames),
+        table("ENUM_CLICK_ADVICE", c::kClickAdviceNames),
     };
 }
 } // namespace miciri::bridge
