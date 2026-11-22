@@ -126,7 +126,8 @@
 | `waiting` | ✓ | ✓ | 到期了但回了 `busy`、正在等的那个动作（字段同下），没有为 `null` |
 | `actions` | ✓ | ✓ | 已执行完的动作日志：`index`、`at`、`do`、`arg`、`firstTriedSec`（第一次尝试时的样本秒）、`doneSec`（拿到非 `busy` 回执时）、`busyReplies`、`reply` |
 
-`snapshot` 与桥的快照（`requestInitialState` 的回执）是同一份测试会话 JSON、同样的键序，区别只有三处：没有编辑器才有的界面字段
+`snapshot` 与桥的快照（`requestInitialState` 的回执）出自同一个拼装函数（`src/plugin/BridgeSnapshot.h`，编辑器也用它），
+`micType`、`device`、`recommendedDistance` 等非界面字段都在，键序相同。区别只有三处：没有编辑器才有的界面字段
 `lang`、`uiScale`、`guideSeen`；`connect.callbackAgeSec` 是会话的占位值（编辑器用墙钟覆盖它）；`fixes` 里没有只有墙钟才看得出的“没有回调”。
 
 证据里的包络是分析用的那一路的电平包络（派生数据），不是音频；输出文件只在宿主测试构建里写，写到测试者自己指定的目录。

@@ -8,6 +8,7 @@
 #include <string_view>
 
 #include "BridgeApi.h"
+#include "BridgeSnapshot.h"
 #include "MiciriProcessor.h"
 #include "session/Evidence.h"
 
@@ -258,40 +259,11 @@ void ProbeRunner::finishStep(const session::SessionView& view)
             content);
 }
 
-// 快照：与编辑器的 buildSnapshot 同一份 Session
-// JSON、同样的键序。没有编辑器才有的界面字段（lang、uiScale、guideSeen）； connect.callbackAgeSec 保留 Session
-// 的占位值，fixes 里也没有只有墙钟才看得出的“没有回调”
+// 快照：与编辑器同一个拼装函数，只是不带界面字段（lang、uiScale、guideSeen）；
+// 也没有墙钟的回调年龄，所以 connect.callbackAgeSec 是 Session 的占位值，fixes 里也没有“没有回调”
 juce::var ProbeRunner::snapshot() const
 {
-    const auto device = processor_.deviceInfo();
-    const auto view = processor_.session().view();
-    const auto micIndex = static_cast<std::size_t>(processor_.micType());
-    const auto parsed = parseJson(session::snapshotJson(view, static_cast<core::MicType>(micIndex)));
-    auto part = [&parsed](const char* key) {
-        const auto v = parsed.getProperty(key, {});
-        return v.isObject() ? v : makeObject({});
-    };
-    auto fixes = parsed.getProperty("fixes", {});
-    if (!fixes.isArray())
-        fixes = juce::var(juce::Array<juce::var>());
-    const auto layout = device.numChannels >= 2 ? core::ChannelLayout::Stereo : core::ChannelLayout::Mono;
-    const auto deviceObj = makeObject({{"sampleRate", device.sampleRate},
-                                       {"bufferSize", device.bufferSize},
-                                       {"layout", wire(core::toString(layout))},
-                                       {"hostName", hostName_},
-                                       {"offlineRender", processor_.offlineRendering() || view.offlineRender}});
-    return makeObject({{"apiVersion", bridge::kApiVersion},
-                       {"micType", wire(core::kMicTypeNames[micIndex])},
-                       {"device", deviceObj},
-                       {"connect", part("connect")},
-                       {"steps", part("steps")},
-                       {"results", part("results")},
-                       {"bands", part("bands")},
-                       {"live", part("live")},
-                       {"fixes", fixes},
-                       {"advice", part("advice")},
-                       {"previous", part("previous")},
-                       {"recommendedDistance", parsed.getProperty("recommendedDistance", {})}});
+    return buildBridgeSnapshot(processor_, hostName_, nullptr, std::nullopt);
 }
 
 // 与桥的 getEvidence 回执相同

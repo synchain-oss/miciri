@@ -10,12 +10,18 @@ endif()
 enable_language(C)
 
 set(_plugin_src "${CMAKE_SOURCE_DIR}/src/plugin")
-# 带探针（MICIRI_HOST_PROBE=1）编处理器时要一起编的探针源文件
-set(_probe_src "${_plugin_src}/HostProbe.cpp" "${_plugin_src}/HostProbeScript.cpp" "${_plugin_src}/HostProbeRunner.cpp")
+# 带探针（MICIRI_HOST_PROBE=1）编处理器时要一起编的探针源文件；探针写快照用编辑器同一个拼装函数
+set(_probe_src "${_plugin_src}/HostProbe.cpp" "${_plugin_src}/HostProbeScript.cpp" "${_plugin_src}/HostProbeRunner.cpp"
+  "${_plugin_src}/BridgeSnapshot.cpp")
 
 # 处理器测试自己提供 createEditor 的空实现，所以不用链编辑器与 WebView。
 miciri_add_test(NAME plugin_passthrough
   SOURCES passthrough_test.cpp EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp"
+  LINK miciri_session juce::juce_audio_processors)
+
+# 桥快照的拼装（编辑器与宿主探针共用）：键序按契约，输出与抽成共用函数之前的编辑器逐字节相同。
+miciri_add_test(NAME plugin_bridge_snapshot
+  SOURCES bridge_snapshot_test.cpp EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp" "${_plugin_src}/BridgeSnapshot.cpp"
   LINK miciri_session juce::juce_audio_processors)
 
 # 宿主探针的核心逻辑（全 0 判断、分类、JSON、原子写文件、环境变量开关）与自动操作脚本（解析、按样本秒调度）：
@@ -63,7 +69,9 @@ target_sources(plugin_editor_open_close PRIVATE
   editor_open_close_test.cpp
   frontend_resource_test.cpp
   "${_plugin_src}/MiciriProcessor.cpp"
-  ${_probe_src}
+  "${_plugin_src}/HostProbe.cpp"
+  "${_plugin_src}/HostProbeScript.cpp"
+  "${_plugin_src}/HostProbeRunner.cpp"
   ${_ui_sources})
 target_include_directories(plugin_editor_open_close PRIVATE
   "${_plugin_src}" "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/tests")

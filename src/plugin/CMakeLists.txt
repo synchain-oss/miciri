@@ -47,6 +47,7 @@ juce_add_plugin(Miciri
 # 编辑器一侧的源码清单：编辑器开关测试也编这些（它要自己的 WebView2 链接）。
 set(MICIRI_PLUGIN_UI_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/BridgeBase.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/BridgeSnapshot.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/FallbackPanel.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/MiciriEditor.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/PlatformWebView.cpp"
