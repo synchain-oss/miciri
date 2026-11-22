@@ -492,10 +492,10 @@ try {
             3,
             `${lang}：喷麦、齿音、口水音三张卡的参考行都标出“超过”`,
         );
-        run.eq(
-            await page.eval(`${qa(".rp .rc .rc__tip")}.length`),
-            0,
-            `${lang}：报告页的卡很窄，只画参考行与“超过参考”标记，提示在详情窗里`,
+        const TIP_WORDS = en ? /pop filter|de-ess|step back|water/i : /防喷罩|齿音消除|退后一点|喝点水/;
+        run.check(
+            !TIP_WORDS.test(await page.eval(`[...${qa(".rp .rc")}].map((c) => c.textContent).join(" ")`)),
+            `${lang}：报告页的卡很窄，只画参考行与“超过参考”标记，提示的话在详情窗里，不在卡上`,
         );
         run.eq(
             await page.eval(
@@ -558,10 +558,9 @@ try {
             ),
             `${lang}：位置结果页除推荐距离外不写厘米`,
         );
-        run.eq(
-            await page.eval(`${qa(".res .rc .rc__tip")}.length`),
-            0,
-            `${lang}：卡片很窄，位置结果页的卡上也只有参考行与“超过参考”标记，不画提示行`,
+        run.check(
+            !TIP_WORDS.test(await page.eval(`[...${qa(".res .rc")}].map((c) => c.textContent).join(" ")`)),
+            `${lang}：卡片很窄，位置结果页的卡上也只有参考行与“超过参考”标记，提示的话只在右侧动作里`,
         );
         const acts = await page.eval(`[...${qa(".res__acts li")}].map((li) => li.textContent)`);
         run.check(

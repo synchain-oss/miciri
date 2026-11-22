@@ -273,7 +273,7 @@ run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
         });
     const kinds = ["unknown", "conflicting", "maybe-too-far", "closer", "farther", "no-change"];
     run.eq(
-        kinds.map((k) => dist(k).expl.key),
+        kinds.map((k) => dist(k, { closeEvidence: 2, farEvidence: 2 }).expl.key),
         kinds.map((k) => `flow.pr.e.${k}`),
         "位置结果页：每一种距离情形各有一句说明",
     );
@@ -290,6 +290,14 @@ run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
     );
     run.eq(dist("maybe-too-far").acts, [], "不给 move-closer 时界面不自己加动作");
     run.eq(
+        R("position", ["position"], (s) => {
+            s.results.plosive = { ...s.results.plosive, overReference: true };
+            s.advice = { ...s.advice, plosive: "constructor", sibilance: "__proto__" };
+        }).acts,
+        [],
+        "原生端给了原型上的名字当建议：当作没有建议，不报错",
+    );
+    run.eq(
         ["closer", "farther", "no-change"].map((k) => dist(k, {}, { distance: "move-closer" }).acts.length),
         [0, 0, 0],
         "move-closer 只在“可能离远了”时出现：别的情形即使收到也不加动作",
@@ -299,9 +307,10 @@ run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
             dist("closer", { closeEvidence: undefined }).expl.key,
             dist("farther", { farEvidence: Number.NaN }).expl.key,
             dist("farther", { farEvidence: 0 }).expl.key,
+            dist("closer", { closeEvidence: 1 }).expl.key,
         ],
-        ["flow.pr.e.unknown", "flow.pr.e.unknown", "flow.pr.e.farther"],
-        "更近、更远的项数缺失或不是数：按“还不够判断”写，不露出占位符；0 是有限数，照写",
+        ["flow.pr.e.unknown", "flow.pr.e.unknown", "flow.pr.e.unknown", "flow.pr.e.closer"],
+        "更近、更远的项数缺失、不是数或为 0：按“还不够判断”写，不露出占位符，也不写“0 项指向它”；1 项起照写",
     );
     // 超过参考值的轻提示按卡的顺序列在动作里；各项建议只来自 advice，不影响距离那一格
     const tips = R("position", ["position"], (s) => {

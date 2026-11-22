@@ -637,7 +637,9 @@ export const cardExtras = (state, current = true) => ({
 /** 参考行与轻提示：过期或要再测的结果不比、不提示（建议本来就只看当前、可信的结果，这里再挡一道）。 */
 function voiceExtras(r, ref, advice, x) {
     const live = !r.stale && r.reliability !== "retest";
-    const id = live && advice && TIP_ID[advice] ? TIP_ID[advice](x.noDistance) : null;
+    // advice 来自原生端：只认自己的键（不认 constructor、__proto__ 这类原型上的名字）
+    const mapTip = live && advice && Object.hasOwn(TIP_ID, advice) ? TIP_ID[advice] : null;
+    const id = mapTip ? mapTip(x.noDistance) : null;
     return { ref: ref && { ...ref, over: live && ref.over }, tip: id ? { id, needsRec: TIP_NEEDS_REC.has(id) } : null };
 }
 
@@ -973,9 +975,10 @@ export function resultModel(state, id) {
             r.sibilance && resultCards.sib(r.sibilance, x),
             r.click && resultCards.mouth(r.click, x),
         ].filter(Boolean);
-        // 更近、更远的句子要写“几项读数”；原生端漏发数时按“还不够判断”写，不让页面露出 {n}
+        // 更近、更远的句子要写“几项读数指向它”：项数缺失、不是数或不到 1 项时按“还不够判断”写，
+        // 免得露出占位符，或写成“有迹象，但 0 项读数指向它”
         const evidence = r.distance && (kind === "closer" ? r.distance.closeEvidence : r.distance.farEvidence);
-        const shown = (kind === "closer" || kind === "farther") && !Number.isFinite(evidence) ? "unknown" : kind;
+        const shown = (kind === "closer" || kind === "farther") && !(evidence >= 1) ? "unknown" : kind;
         return {
             cards,
             cols: 2,
