@@ -3,8 +3,9 @@
 // 报告页的纯逻辑冒烟（不要浏览器）：
 //   ① 顶部“最该改”：fixes 与 advice 到标题、动作、主按钮的映射；过期、要再测、没测、可以录各走各的分支；
 //   ② 方向提示的四种放法（主按钮、动作加次要按钮、方向卡上的小按钮、不放），耳机麦没有方向卡；
-//   ③ 九张结果卡：顺序固定，未测是灰卡，齿音与口水音不分档所以卡片无色、词是“未分档”，口水音 0 次不写“最响一次”，
-//      “上次 → 现在”只给有上次的、有结论的卡；
+//   ③ 九张结果卡：顺序固定，未测是灰卡，D/R、喷麦、齿音与口水音不分档所以卡片无色、词是“未分档”，口水音 0 次不写
+//      “最响一次”，“上次 → 现在”只给有上次的、有结论的卡；喷麦、齿音、口水音的参考值取自 bands，超过时只在自己的卡上
+//      给提示，不进“最该改”，耳机麦的提示不涉及距离；
 //   ④ 距离标尺：位置只是示意，证据越多越靠边，过期与要再测是灰的，齿音与口水音不作证据；
 //   ⑤ 复制结果、方向确认文案（点出两个方向、不写角度）、频率常量与 thresholds.json 同值；
 //   ⑥ 缺 bands 时结果页不退回准备页，设备降噪作废时写设备原因；快照缺字段不写 NaN；方向动作最多占第 3 条；
@@ -205,11 +206,119 @@ run.eq(
     const flat = withSection(s, "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 });
     const sb = core.cardsOf(flat).find((c) => c.id === "sib");
     run.eq([sb.nums[1].na, sb.note.vars.bw], ["flow.w.s.part", "8"], "带宽受限：高频段写“未测”，带宽数取自快照");
-    const graded = withSection(s, "sibilance", { severity: "moderate", tone: "amber" });
+    // 不分档是契约：原生即使给了档位与色调（旧的原生端），这四张卡也不按档写词、不着色
+    const graded = (id, section, patch) => core.cardsOf(withSection(s, section, patch)).find((c) => c.id === id);
     run.eq(
-        core.cardsOf(graded).find((c) => c.id === "sib").word,
-        "flow.w.s.hi",
-        "将来分了档（tone 不再是 none）就按档位写词",
+        [
+            graded("sib", "sibilance", { severity: "moderate", tone: "amber" }),
+            graded("plosive", "plosive", { severity: "heavy", tone: "red", worstRatioDb: 12 }),
+            graded("mouth", "click", { severity: "heavy", tone: "red" }),
+            graded("dr", "directRatio", { tone: "green" }),
+        ].map((c) => [c.word, c.tone]),
+        Array(4).fill(["flow.w.ungraded", "none"]),
+        "原生给了档位与色调：D/R、喷麦、齿音、口水音仍写“未分档”、无色",
+    );
+    run.eq(
+        graded("plosive", "plosive", { worstRatioDb: 10.3 }).nums[0].text,
+        "+10.3",
+        "喷麦卡的数字是每遍字表最大的瞬态比",
+    );
+}
+
+// 参考值与轻提示：数值取自快照的 bands；超过参考值时只在各自的卡上给提示，不进“最该改”
+{
+    const by = (s) => Object.fromEntries(core.cardsOf(s).map((c) => [c.id, c]));
+    const base = by(SCENES.ready());
+    run.eq(
+        [base.plosive.ref, base.plosive.tip],
+        [{ key: "flow.ref.plosive", vars: { v: "9" }, over: false }, null],
+        "喷麦：参考 9 dB 以下，取自 bands.plosiveReferenceDb；没超过不提示",
+    );
+    run.eq(
+        base.sib.ref,
+        { key: "flow.ref.sib", vars: { b: "6–12 kHz", r: "−6.0", v: "−3" }, over: false },
+        "齿音：写 6-12 kHz 对元音的比值与参考 −3 dB，取自 bands.sibilanceReferenceDb",
+    );
+    run.eq(base.mouth.ref, null, "口水音：参考值是 null 时不显示参考");
+    const moved = { ...SCENES.ready(), bands: { ...SCENES.ready().bands, plosiveReferenceDb: 7.5 } };
+    run.eq(by(moved).plosive.ref.vars.v, "7.5", "参考值不写在界面里：bands 变了，显示跟着变");
+    const noBands = SCENES.ready();
+    delete noBands.bands;
+    run.eq(
+        [by(noBands).plosive.ref, by(noBands).sib.ref, by(noBands).mouth.ref],
+        [null, null, null],
+        "旧的原生端没有 bands：不显示参考，也不写 undefined",
+    );
+    const narrow = withSection(SCENES.overReference(), "sibilance", {
+        highBandDisabled: true,
+        effectiveBandwidthHz: 8000,
+    });
+    run.eq(
+        [by(narrow).sib.ref, by(narrow).sib.tip && by(narrow).sib.tip.id],
+        [null, "angle-soften-de-ess"],
+        "高频项关闭：齿音不显示参考（建议键由原生侧决定，卡片照给）",
+    );
+    const noVowel = withSection(SCENES.ready(), "sibilance", { vowelEvents: 0 });
+    run.eq(by(noVowel).sib.ref, null, "没有元音可比（vowelEvents 为 0）：不显示参考，比值也不是测量值");
+
+    const over = by(SCENES.overReference());
+    run.eq(
+        [over.plosive.ref.over, over.plosive.tip, over.sib.ref.over, over.sib.tip, over.mouth.ref.over, over.mouth.tip],
+        [
+            true,
+            { id: "pop-filter-or-back-off", needsRec: true },
+            true,
+            { id: "angle-soften-de-ess", needsRec: false },
+            true,
+            { id: "back-off-a-little", needsRec: true },
+        ],
+        "超过参考值：各自的卡上有提示，建议键取自 advice",
+    );
+    run.eq(over.mouth.ref.vars.v, "6", "口水音有参考值时显示每分钟次数的参考");
+    run.eq(headKey(SCENES.overReference()), "report.fx.ok.h", "三条提示都不进“最该改”：顶部仍是“可以开始录音了”");
+    run.eq(
+        by(SCENES.overReferenceHeadset()).plosive.tip.id + "|" + by(SCENES.overReferenceHeadset()).mouth.tip.id,
+        "pop-filter|back-off-a-little.nodist",
+        "耳机麦没有推荐距离：带“退后一点”的提示只说不涉及距离的部分",
+    );
+    const water = { ...SCENES.overReference(), advice: { ...SCENES.overReference().advice, click: "drink-water" } };
+    run.eq(by(water).mouth.tip, { id: "drink-water", needsRec: false }, "口水音：喝点水");
+    const stale = by(staled(SCENES.overReference(), "position"));
+    run.eq(
+        [stale.plosive.tip, stale.plosive.ref.over, stale.sib.tip],
+        [null, false, null],
+        "过期的结果：不比、不提示（建议只看当前的结果）",
+    );
+    const retest = by(
+        withSection(SCENES.overReference(), "plosive", { reliability: "retest", retestReason: "too-short" }),
+    );
+    run.eq([retest.plosive.tip, retest.plosive.ref.over], [null, false], "要再测的结果：不提示");
+    const o = SCENES.overReference();
+    const withPrev = { ...o, previous: { plosive: withResult("plosive", { worstRatioDb: 11, overReference: true }) } };
+    run.eq(
+        core.cardOf("plosive", withPrev, withPrev.previous).tip,
+        null,
+        "上次（previous）的卡不带建议，建议只属于当前结果",
+    );
+    run.eq(
+        core.cardsOf(withPrev).find((c) => c.id === "plosive").prev,
+        { a: "+11.0", b: "+10.3" },
+        "喷麦：上次 → 现在，只显示数值",
+    );
+    const sibPrev = (patch) => ({
+        ...SCENES.ready(),
+        steps: { ...SCENES.ready().steps, position: { ...SCENES.ready().steps.position, runs: 2 } },
+        previous: { sibilance: withResult("sibilance", patch) },
+    });
+    run.eq(
+        core.cardsOf(sibPrev({ highDb: -21 })).find((c) => c.id === "sib").prev,
+        { a: "−21.0", b: "−18.0" },
+        "齿音：上次 → 现在比 6-12 kHz",
+    );
+    run.eq(
+        core.cardsOf(sibPrev({ highDb: -21, highBandDisabled: true, midHighDb: -15 })).find((c) => c.id === "sib").prev,
+        { a: "−15.0", b: "−12.0" },
+        "齿音：两次里有一次高频项关闭，两次都比 3-6 kHz",
     );
 }
 {
@@ -407,11 +516,16 @@ run.eq(flow.CLICK_HIGHPASS_HZ, thresholds.click.highpass_hz.value, "口水音高
 
 // ---- ⑦ 反例：检查要能变红 ----
 {
-    const greenUngraded = (c) => c.tone === "green" && (c.id === "sib" || c.id === "mouth");
+    const UNGRADED = ["dr", "plosive", "sib", "mouth"];
+    const greenUngraded = (c) => UNGRADED.includes(c.id) && (c.tone === "green" || c.word !== "flow.w.ungraded");
     const good = core.cardsOf(SCENES.ready());
-    run.eq(good.some(greenUngraded), false, "正例：未分档的卡不是绿色");
-    const bad = good.map((c) => (c.id === "sib" ? { ...c, tone: "green" } : c));
-    run.eq(bad.some(greenUngraded), true, "反例：把齿音卡着成绿色会被查出");
+    run.eq(good.some(greenUngraded), false, "正例：未分档的卡不是绿色，词也不是档位词");
+    for (const id of UNGRADED) {
+        const colored = good.map((c) => (c.id === id ? { ...c, tone: "green" } : c));
+        run.eq(colored.some(greenUngraded), true, `反例：把${id}卡着成绿色会被查出`);
+    }
+    const worded = good.map((c) => (c.id === "plosive" ? { ...c, word: "flow.w.untested" } : c));
+    run.eq(worded.some(greenUngraded), true, "反例：喷麦卡写了别的词（档位词）会被查出");
     const wrongRoom = {
         ...SCENES.t20longDrlow(),
         advice: { room: "unknown", distance: "none", directionPrompt: "none" },

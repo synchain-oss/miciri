@@ -74,7 +74,8 @@ try {
     run.eq(await page.eval(`${q(".ruler")}.dataset.st`), "fresh", "距离标尺");
     run.eq(await exists(".stk--report .rp"), true, "报告在整页容器里，没有叠卡的上下露出");
     run.eq(await page.eval(`${qa(".stk__peek")}.length`), 0, "报告页没有摘要卡");
-    const fit = await page.eval(`(() => {
+    const fitReport = () =>
+        page.eval(`(() => {
         const main = ${q("#main")}.getBoundingClientRect();
         const bad = [];
         for (const n of ${qa(".rp .rc, .rp .fix, .rp .ruler, .rp .chg")}) {
@@ -84,7 +85,7 @@ try {
         }
         return bad;
     })()`);
-    run.eq(fit, [], "报告里的卡片都在主区内、内容不溢出（卡内不滚动）");
+    run.eq(await fitReport(), [], "报告里的卡片都在主区内、内容不溢出（卡内不滚动）");
 
     // ---- ② 色调与未测 ----
     const tone = (id) => page.eval(`${q(`.rp .rc[data-card="${id}"]`)}.dataset.tone`);
@@ -477,6 +478,175 @@ try {
         run.eq(await exists(".dt__ev"), true, `getEvidence ${label}：恢复后下一版证据能画出来`);
         await esc();
     }
+    // ---- ⑪ 参考值、轻提示、推荐距离 ----
+    const goPos = async (part) => {
+        await page.eval(`${q('.step[data-step="position"]')}.click()`);
+        await page.waitFor(`!!${q(`[data-part="${part}"]`)}`, { label: `位置步的${part}页` });
+    };
+    for (const lang of ["zh", "en"]) {
+        const en = lang === "en";
+        await load(en ? "?lang=en" : "", "overReference");
+        const cardText = (id) => text(`.rp .rc[data-card="${id}"]`);
+        run.eq(
+            await page.eval(`${qa('.rp .rc .rc__ref[data-over="1"]')}.length`),
+            3,
+            `${lang}：喷麦、齿音、口水音三张卡的参考行都标出“超过”`,
+        );
+        const TIP_WORDS = en ? /pop filter|de-ess|step back|water/i : /防喷罩|齿音消除|退后一点|喝点水/;
+        run.check(
+            !TIP_WORDS.test(await page.eval(`[...${qa(".rp .rc")}].map((c) => c.textContent).join(" ")`)),
+            `${lang}：报告页的卡很窄，只画参考行与“超过参考”标记，提示的话在详情窗里，不在卡上`,
+        );
+        run.eq(
+            await page.eval(
+                `${qa(".rp .rc:not([data-card=plosive]):not([data-card=sib]):not([data-card=mouth]) .rc__ref")}.length`,
+            ),
+            0,
+            `${lang}：其余的卡没有参考行`,
+        );
+        // 完整提示在详情窗里：喷麦（防喷罩、推荐距离）与齿音（偏轴、齿音消除）
+        await page.eval(`${q('[data-part="card-open"][data-card="plosive"]')}.click()`);
+        await page.waitFor(`!!${q('[data-part="detail"] .dt__notes')}`, { label: "喷麦详情" });
+        const pn = await text('[data-part="detail"] .dt__notes');
+        run.check(
+            pn.includes(en ? "pop filter" : "防喷罩") &&
+                pn.includes("15 cm") &&
+                pn.includes(en ? "rule of thumb" : "经验值"),
+            `${lang}：喷麦详情写参考、完整提示与推荐距离`,
+        );
+        await page.eval(
+            `${FD}.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`,
+        );
+        await page.eval(`${q('[data-part="card-open"][data-card="sib"]')}.click()`);
+        await page.waitFor(`!!${q('[data-part="detail"] .dt__notes')}`, { label: "齿音详情" });
+        const sn = await text('[data-part="detail"] .dt__notes');
+        run.check(
+            sn.includes(en ? "15–30°" : "15–30°") &&
+                sn.includes(en ? "de-ess" : "齿音消除") &&
+                !sn.includes(en ? "step back" : "退后"),
+            `${lang}：齿音详情写偏轴 15–30° 与齿音消除，不说退后`,
+        );
+        await page.eval(
+            `${FD}.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`,
+        );
+        run.check(
+            (await cardText("plosive")).includes(en ? "under 9 dB" : "9 dB 以下") &&
+                (await cardText("sib")).includes(en ? "under −3 dB" : "−3 dB 以下") &&
+                (await cardText("mouth")).includes(en ? "under 6 per minute" : "每分钟 6 次以下"),
+            `${lang}：参考行写出 bands 里的数（9、−3、6）`,
+        );
+        run.eq(await fitReport(), [], `${lang}：带参考行与提示的报告也不溢出（卡内不滚动）`);
+        run.eq(await page.eval(`${q(".fix")}.dataset.tone`), "green", `${lang}：三条提示都不进“最该改”，顶部仍是绿色`);
+        const body = await page.eval(`${q(".rp")}.textContent`);
+        run.check(!/[{}]|undefined|null|NaN/.test(body), `${lang}：报告没有占位符残留`);
+        run.check(
+            en ? !/[一-鿿]/.test(body) : !/厘米|\bcm\b|零延迟|绝对/.test(body),
+            `${lang}：文案里没有${en ? "汉字" : "厘米数和禁用措辞"}`,
+        );
+        // 位置结果页：推荐距离是静态建议，只有这一处写厘米
+        await goPos("result");
+        const rec = await text('[data-part="rec-dist"]');
+        run.check(
+            rec.includes("15 cm") && (en ? rec.includes("10–30 cm") : rec.includes("10 cm") && rec.includes("30 cm")),
+            `${lang}：位置结果页写推荐距离（15 cm，10 到 30 cm），数值取自快照`,
+        );
+        run.check(
+            !/\bcm\b|厘米/.test(
+                await page.eval(
+                    `(() => { const r = ${q(".res")}.cloneNode(true); r.querySelector('[data-part="rec-dist"]').remove(); return r.textContent; })()`,
+                ),
+            ),
+            `${lang}：位置结果页除推荐距离外不写厘米`,
+        );
+        run.check(
+            !TIP_WORDS.test(await page.eval(`[...${qa(".res .rc")}].map((c) => c.textContent).join(" ")`)),
+            `${lang}：卡片很窄，位置结果页的卡上也只有参考行与“超过参考”标记，提示的话只在右侧动作里`,
+        );
+        const acts = await page.eval(`[...${qa(".res__acts li")}].map((li) => li.textContent)`);
+        run.check(
+            acts.length === 3 &&
+                acts[0].includes(en ? "pop filter" : "防喷罩") &&
+                acts[1].includes(en ? "de-ess" : "齿音消除") &&
+                acts[2].includes(en ? "step back" : "退后一点"),
+            `${lang}：位置结果页右侧按卡的顺序列出三条轻提示（喷麦、齿音、口水音）`,
+        );
+        run.eq(
+            await page.eval(`(() => {
+                const res = ${q(".res")}.getBoundingClientRect();
+                const bad = [];
+                if (${qa(".res .rc")}.length !== 4) bad.push("卡不是四张");
+                for (const n of ${qa(".res .rc, .res__acts, .recd, .pn__cta .sc-btn")}) {
+                    const r = n.getBoundingClientRect();
+                    if (r.bottom > res.bottom - 1 || r.right > res.right - 1) bad.push(n.className + " 超出结果面板");
+                    if (n.scrollHeight > n.clientHeight + 1) bad.push(n.className + " 内容溢出");
+                }
+                const cta = ${q(".res .pn__cta")}.getBoundingClientRect();
+                for (const c of ${qa(".res .rc")}) if (c.getBoundingClientRect().bottom > cta.top + 1) bad.push("卡压到了按钮");
+                return bad;
+            })()`),
+            [],
+            `${lang}：位置结果页的卡、动作、推荐距离与按钮都在面板内，不互相压住`,
+        );
+        // 准备页（重测）：同一条推荐距离
+        await page.eval(`${M}.mutate((s) => { s.steps.position.status = "idle"; })`);
+        await page.waitFor(`!!${q('[data-part="prep"]')}`, { label: "位置步变回准备页" });
+        run.check(
+            (await text('[data-part="prep"] [data-part="rec-dist"]')).includes("15 cm"),
+            `${lang}：位置步的准备页写推荐距离`,
+        );
+        run.eq(
+            await page.eval(`(() => {
+                const p = ${q('[data-part="prep"]')}.getBoundingClientRect();
+                return [...${qa('[data-part="prep"] .pn__cta .sc-btn, [data-part="prep"] .recd')}]
+                    .filter((n) => n.getBoundingClientRect().bottom > p.bottom - 1)
+                    .map((n) => n.className);
+            })()`),
+            [],
+            `${lang}：位置步的准备页加了推荐距离后，按钮与推荐距离仍在面板内`,
+        );
+    }
+    // 各种情形下报告里的卡都不溢出（第二行加了参考行，第一行只剩更少的位置）
+    for (const lang of ["zh", "en"]) {
+        for (const scene of [
+            "ready",
+            "t20longDrlow",
+            "tooClose",
+            "conflict",
+            "lowConfidence",
+            "staleGain",
+            "stalePosition",
+            "staleRoom",
+            "retestedQuiet",
+            "evidence",
+            "overReference",
+            "overReferenceHeadset",
+        ]) {
+            await load(lang === "en" ? "?lang=en" : "", scene);
+            run.eq(await fitReport(), [], `${lang} 场景 ${scene}：报告里的卡片不溢出`);
+        }
+    }
+    // 动圈：约一段，没有范围句；耳机麦：不显示，卡片提示不涉及距离
+    await load("", "overReference");
+    await page.eval(
+        `${M}.mutate((s) => { s.micType = "dynamic"; s.recommendedDistance = { aroundLowCm: 5, aroundHighCm: 10, minCm: 5, maxCm: 10 }; })`,
+    );
+    await goPos("result");
+    run.eq((await text('[data-part="rec-dist"] b')).replace(/\s/g, ""), "推荐距离约5–10cm", "动圈：推荐约 5–10 cm");
+    await load("", "overReferenceHeadset");
+    await goPos("result");
+    const headActs = await page.eval(`[...${qa(".res__acts li")}].map((li) => li.textContent)`);
+    run.check(
+        headActs.length === 3 && headActs[0].includes("防喷罩") && !headActs[0].includes("退后"),
+        "耳机麦：喷麦提示只说防喷罩，不说退后",
+    );
+    run.check(headActs[2].includes("喝点水") && !headActs[2].includes("退后"), "耳机麦：口水音提示不说退后");
+    run.eq(await exists('[data-part="rec-dist"]'), false, "耳机麦：位置结果页不显示推荐距离");
+    await load("", "overReference");
+    await page.eval(
+        `${M}.mutate((s) => { s.steps.position.status = "idle"; s.micType = "headset"; s.recommendedDistance = null; })`,
+    );
+    await goPos("prep");
+    run.eq(await exists('[data-part="rec-dist"]'), false, "耳机麦：位置步的准备页不显示推荐距离");
     void settle;
 } finally {
     await browser.close();

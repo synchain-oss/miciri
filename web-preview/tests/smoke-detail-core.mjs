@@ -191,6 +191,71 @@ function buildMissingRoom() {
     run.eq([humNone.expl.key, humNone.rows.length], ["detail.hum.none", 0], "没检出电流声：一句话，没有表");
     const lower = detailOf("dr", withSection(measured(), "directRatio", { lowerBoundOnly: true }));
     run.check(lower.rows[0].abs.text.startsWith("≥"), "D/R 只报下限：数字前写“≥”");
+    run.check(
+        lower.notes.some((n) => n.key === "detail.n.ungraded"),
+        "D/R 不分档：写明数值主要用来对比前后两次",
+    );
+}
+
+// ---- ③b 参考值与轻提示：详情里写全 ----
+{
+    const keys = (d) => d.notes.map((n) => n.key);
+    const over = SCENES.overReference();
+    run.eq(
+        keys(detailOf("plosive", over)),
+        ["flow.ref.plosive", "flow.tip.pop-filter-or-back-off", "flow.rd.r", "detail.n.ungraded.ref"],
+        "喷麦超过参考值：参考行、完整提示、推荐距离（提示里说“推荐距离范围”）、不分档说明",
+    );
+    run.eq(
+        keys(detailOf("sib", over)),
+        ["flow.ref.sib", "flow.tip.angle-soften-de-ess", "detail.n.ungraded.ref"],
+        "齿音超过参考值：不说退后，所以不带推荐距离",
+    );
+    run.eq(
+        keys(detailOf("mouth", over)),
+        ["flow.ref.mouth", "flow.tip.back-off-a-little", "flow.rd.r", "detail.n.ungraded.ref"],
+        "口水音超过参考值（参考值有了之后）：退后一点，带推荐距离",
+    );
+    const head = SCENES.overReferenceHeadset();
+    run.eq(
+        [keys(detailOf("plosive", head)), keys(detailOf("mouth", head))],
+        [
+            ["flow.ref.plosive", "flow.tip.pop-filter", "detail.n.ungraded.ref"],
+            ["flow.ref.mouth", "flow.tip.back-off-a-little.nodist", "detail.n.ungraded.ref"],
+        ],
+        "耳机麦：提示不涉及距离，也不写推荐距离",
+    );
+    run.eq(
+        keys(detailOf("plosive", measured())),
+        ["flow.ref.plosive", "detail.n.ungraded.ref"],
+        "没超过参考值：只有参考行，没有提示",
+    );
+    run.eq(keys(detailOf("mouth", measured())), ["detail.n.ungraded"], "口水音参考值为 null：没有参考行，也没有提示");
+    const vow = detailOf("sib", over).rows.find((r) => r.label.key === "detail.r.vowel");
+    run.eq([vow.abs.text, vow.label.vars.b], ["−1.5", "6–12 kHz"], "齿音详情：表里写 6-12 kHz 对元音的比值");
+    const off = detailOf("sib", withSection(over, "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 }));
+    run.eq(
+        off.rows.some((r) => r.label.key === "detail.r.vowel"),
+        false,
+        "高频项关闭：不写对元音的比值",
+    );
+    const tipKeys = [
+        "pop-filter-or-back-off",
+        "pop-filter",
+        "angle-soften-de-ess",
+        "back-off-a-little",
+        "back-off-a-little.nodist",
+        "drink-water",
+    ];
+    run.check(
+        tipKeys.every((k) => `flow.tip.${k}` in flowDict.zh && `flow.tip.${k}` in flowDict.en),
+        "每个提示 id 都有中英文词条",
+    );
+    run.check(
+        !/再测对比|退后/.test(flowDict.zh["flow.tip.angle-soften-de-ess"]) &&
+            !/compare|step back/i.test(flowDict.en["flow.tip.angle-soften-de-ess"]),
+        "齿音提示不说退后，也不说再测对比",
+    );
 }
 
 // ---- ④ 首次测量 ----

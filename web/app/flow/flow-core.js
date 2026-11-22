@@ -148,10 +148,6 @@ const REVERB_WORD = {
     boomy: "flow.w.mixed",
     "very-boomy": "flow.w.verymixed",
 };
-const DR_WORD = { low: "flow.w.room.many", mid: "flow.w.mid", high: "flow.w.room.few" };
-const PLOSIVE_WORD = { light: "flow.w.p.light", moderate: "flow.w.p.mod", heavy: "flow.w.p.heavy" };
-const SIB_WORD = { light: "flow.w.s.ok", moderate: "flow.w.s.hi", heavy: "flow.w.s.harsh" };
-const CLICK_WORD = { light: "flow.w.m.few", moderate: "flow.w.m.some", heavy: "flow.w.m.many" };
 const DIR_WORD = {
     best: "flow.w.d.ok",
     "maybe-reversed": "flow.w.d.flipped",
@@ -170,10 +166,8 @@ export const humWord = (h) =>
           ? "flow.w.hum.weak"
           : HUM_WORD[h.kind] || "flow.w.none";
 export const reverbWord = (r) => (r.gated ? "flow.w.unk" : REVERB_WORD[r.band] || "flow.w.untested");
-export const drWord = (d) => DR_WORD[d.band] || "flow.w.untested";
-export const plosiveWord = (p) => PLOSIVE_WORD[p.severity] || "flow.w.untested";
-export const sibWord = (s) => (ungraded(s) ? "flow.w.ungraded" : SIB_WORD[s.severity] || "flow.w.untested");
-export const clickWord = (c) => (ungraded(c) ? "flow.w.ungraded" : CLICK_WORD[c.severity] || "flow.w.untested");
+/** D/R、喷麦、齿音、口水音都不分档：没有“多、少、轻、重”一类的词，卡上的词一律是“未分档”，内容是数字和参考值。 */
+export const UNGRADED_WORD = "flow.w.ungraded";
 export const dirWord = (d) => DIR_WORD[d.kind] || "flow.w.untested";
 
 /** 被分析的那一路：单声道取 L。 */
@@ -231,12 +225,13 @@ export function peekSegments(state, id) {
                     : { key: "flow.w.unk" },
             ];
         if (id === "position" && r.directRatio) {
-            const kv = (k, w) => ({ key: "flow.sum.kv", vars: { k: { word: k }, w: { word: w } } });
+            // 四项都不分档，摘要里只写读数；齿音高频项关闭时取 3-6 kHz 那一格
+            const sb = r.sibilance;
             return [
-                { key: "flow.sum.dr", vars: { w: { word: drWord(r.directRatio) }, n: signed(r.directRatio.drDb) } },
-                r.plosive && kv("flow.card.plosive", plosiveWord(r.plosive)),
-                r.sibilance && kv("flow.card.sib", sibWord(r.sibilance)),
-                r.click && kv("flow.card.mouth", clickWord(r.click)),
+                { key: "flow.sum.dr", vars: { n: signed(r.directRatio.drDb) } },
+                r.plosive && { key: "flow.sum.plosive", vars: { n: signed(r.plosive.worstRatioDb) } },
+                sb && { key: "flow.sum.sib", vars: { n: signed(sb.highBandDisabled ? sb.midHighDb : sb.highDb) } },
+                r.click && { key: "flow.sum.mouth", vars: { n: String(Math.round(r.click.perMinute)) } },
             ].filter(Boolean);
         }
         if (id === "direction" && r.direction)
@@ -394,6 +389,8 @@ export function prepModel(state, id) {
         // 要用 bands 里的数才写得出来的条目：旧的原生端没有 bands 时整条不显示，不留“undefined”
         items: def.items.filter((key) => state.bands || !NEEDS_BANDS.has(key)),
         how,
+        // 位置步写“推荐距离”（静态建议）；耳机麦没有，其余步骤也没有
+        rec: id === "position" ? recDistance(state) : null,
         sec: Math.round(step.durationSec || 0),
         vars: {
             sec: Math.round(step.durationSec || 0),
@@ -568,8 +565,86 @@ export const hzRange = (b) => `${kHz(b[0])}–${kHz(b[1])} kHz`;
 /** 口水音检测前的高通频率（Hz），与 thresholds.json 的 click.highpass_hz 同值（冒烟核对）；“最响一次”是它之后的峰值。 */
 export const CLICK_HIGHPASS_HZ = 2000;
 
-/** 齿音与口水音现在不分档：tone 为 none、severity 停在 light 只表示未分档，不能当成“正常”或“少”来写。 */
-const ungraded = (r) => r.tone === "none" && r.severity === "light" && r.reliability !== "retest";
+// ---------------------------------------------------------------------------------------------------------------------
+// 参考值、轻提示与推荐距离
+
+const cm = (v) => `${+v.toFixed(1)}`;
+const refNum = (v) => (v < 0 ? "−" : "") + +Math.abs(v).toFixed(1);
+
+/**
+ * 推荐距离：静态的常见做法，不是测量值。取自快照根上的 recommendedDistance，数值一律来自它，这里不写死。
+ * 耳机麦（null）或字段不全时返回 null，不显示。两端相等写一个数，不等写一段；范围与“约”的两端相同时不重复写范围。
+ */
+export function recDistance(state) {
+    const d = state && state.recommendedDistance;
+    if (!d || !["aroundLowCm", "aroundHighCm", "minCm", "maxCm"].every((k) => Number.isFinite(d[k]))) return null;
+    const a = d.aroundLowCm === d.aroundHighCm ? cm(d.aroundLowCm) : `${cm(d.aroundLowCm)}–${cm(d.aroundHighCm)}`;
+    return d.minCm === d.aroundLowCm && d.maxCm === d.aroundHighCm
+        ? { key: "flow.rd", vars: { a } }
+        : { key: "flow.rd.r", vars: { a, min: cm(d.minCm), max: cm(d.maxCm) } };
+}
+
+/**
+ * 参考值一行（经验值，不是档位）：数值取自 bands，没有（旧的原生端，或参考还没定的 null）就不显示。
+ * 齿音比的是 6-12 kHz 对元音的比值，所以那一行同时写出这个比值；高频项关闭或没有元音可比时不比，也不显示参考。
+ */
+const plosiveRef = (p, bands) =>
+    bands && Number.isFinite(bands.plosiveReferenceDb)
+        ? { key: "flow.ref.plosive", vars: { v: refNum(bands.plosiveReferenceDb) }, over: !!p.overReference }
+        : null;
+const sibRef = (sb, bands) =>
+    bands &&
+    Number.isFinite(bands.sibilanceReferenceDb) &&
+    !sb.highBandDisabled &&
+    sb.vowelEvents > 0 &&
+    Number.isFinite(sb.highOverVowelDb)
+        ? {
+              key: "flow.ref.sib",
+              vars: {
+                  b: hzRange(SIB_BANDS_HZ[1]),
+                  r: signed(sb.highOverVowelDb),
+                  v: refNum(bands.sibilanceReferenceDb),
+              },
+              over: !!sb.overReference,
+          }
+        : null;
+const clickRef = (c, bands) =>
+    bands && Number.isFinite(bands.clickReferencePerMin)
+        ? { key: "flow.ref.mouth", vars: { v: refNum(bands.clickReferencePerMin) }, over: !!c.overReference }
+        : null;
+
+/** 超过参考值的轻提示：建议键到词条后缀。没有推荐距离（耳机麦）时，带“退后一点”的建议只说不涉及距离的部分。 */
+const TIP_ID = {
+    "pop-filter-or-back-off": (noDist) => (noDist ? "pop-filter" : "pop-filter-or-back-off"),
+    "angle-soften-de-ess": () => "angle-soften-de-ess",
+    "back-off-a-little": (noDist) => (noDist ? "back-off-a-little.nodist" : "back-off-a-little"),
+    "drink-water": () => "drink-water",
+};
+
+/** 带“稍离远”的完整提示：详情里要把推荐距离范围一起写出来。 */
+const TIP_NEEDS_REC = new Set(["pop-filter-or-back-off", "back-off-a-little"]);
+
+/**
+ * 这一张卡的参考行与轻提示的来源：bands、各项建议（只有当前的结果才带，上次的不带）、有没有推荐距离。
+ * @param {boolean} [current] 画的是当前结果（不是 previous）
+ */
+export const cardExtras = (state, current = true) => ({
+    bands: state && state.bands,
+    advice: (current && state && state.advice) || {},
+    noDistance: !recDistance(state),
+});
+
+/** 参考行与轻提示：过期或要再测的结果不比、不提示（建议本来就只看当前、可信的结果，这里再挡一道）。 */
+function voiceExtras(r, ref, advice, x) {
+    const live = !r.stale && r.reliability !== "retest";
+    // advice 来自原生端：只认自己的键（不认 constructor、__proto__ 这类原型上的名字）
+    const mapTip = live && advice && Object.hasOwn(TIP_ID, advice) ? TIP_ID[advice] : null;
+    const id = mapTip ? mapTip(x.noDistance) : null;
+    return { ref: ref && { ...ref, over: live && ref.over }, tip: id ? { id, needsRec: TIP_NEEDS_REC.has(id) } : null };
+}
+
+/** 四张卡都不分档：卡片无色，不管原生给了什么色调。 */
+const plain = (r) => ({ ...sec(r), tone: "none" });
 
 /** 区间条：竖条从上到下，segs 是 [下界, 上界, 色, 词条键]，value 是当前值。 */
 function bandsViz(dom, segs, value, text, unit, titleKey) {
@@ -702,36 +777,41 @@ export const resultCards = {
     },
     dr: (dr) => ({
         id: "dr",
-        word: drWord(dr),
+        word: UNGRADED_WORD,
         nums: [num(signed(dr.drDb), "dB")],
         note: act(dr.lowerBoundOnly ? "flow.cd.dr.lower" : "flow.cd.dr.note"),
-        ...sec(dr),
+        ...plain(dr),
     }),
-    plosive: (p) => ({
+    plosive: (p, x = cardExtras()) => ({
         id: "plosive",
-        word: plosiveWord(p),
+        word: UNGRADED_WORD,
         nums: [num(signed(p.worstRatioDb), "dB")],
         note: null,
-        ...sec(p),
+        ...voiceExtras(p, plosiveRef(p, x.bands), x.advice.plosive, x),
+        ...plain(p),
     }),
-    sib: (sb) => ({
+    sib: (sb, x = cardExtras()) => ({
         id: "sib",
-        word: sibWord(sb),
+        word: UNGRADED_WORD,
         nums: [
             num(signed(sb.midHighDb), "dB", null),
             sb.highBandDisabled ? { na: "flow.w.s.part" } : num(signed(sb.highDb), "dB"),
         ],
         bandLabels: SIB_BANDS_HZ.map(hzRange),
+        // “上次 → 现在”比的读数：6-12 kHz；两次里有一次高频项关闭时都比 3-6 kHz（与距离标尺同一个取法）
+        cmp: { mid: signed(sb.midHighDb), high: sb.highBandDisabled ? null : signed(sb.highDb) },
         note: sb.highBandDisabled ? act("flow.cd.sib.bw", { bw: kHz(sb.effectiveBandwidthHz) }) : null,
-        ...sec(sb),
+        ...voiceExtras(sb, sibRef(sb, x.bands), x.advice.sibilance, x),
+        ...plain(sb),
     }),
     /** 0 次时“最响一次”的两项都不是测量值（留 0），不显示。 */
-    mouth: (c) => ({
+    mouth: (c, x = cardExtras()) => ({
         id: "mouth",
-        word: clickWord(c),
+        word: UNGRADED_WORD,
         nums: [num(String(Math.round(c.perMinute)), null, "flow.u.perMin")],
         note: c.count > 0 ? act("flow.cd.mouth.note", { v: fmtDb(c.loudestRelDb), f: kHz(CLICK_HIGHPASS_HZ) }) : null,
-        ...sec(c),
+        ...voiceExtras(c, clickRef(c, x.bands), x.advice.click, x),
+        ...plain(c),
     }),
     dir(d) {
         const advantage = directionAdvantage(d);
@@ -744,6 +824,9 @@ export const resultCards = {
         };
     },
 };
+
+/** 距离的几种情形（桥契约的 DistanceCase）：只有第一次的弱提示与重测后的前后对比。 */
+const DISTANCE_KINDS = ["unknown", "conflicting", "maybe-too-far", "closer", "farther", "no-change"];
 
 /**
  * 一页结果的数据。没有对应结果时返回 null（调用方回退到准备页）。
@@ -883,24 +966,32 @@ export function resultModel(state, id) {
     }
     if (id === "position" && r.directRatio) {
         const dr = r.directRatio;
-        const dist = r.distance ? r.distance.kind : "unknown";
+        // 距离只有前后对比与一条弱提示，不给绝对判断；不认识的 kind（旧的原生端）按“还不够判断”写
+        const kind = r.distance && DISTANCE_KINDS.includes(r.distance.kind) ? r.distance.kind : "unknown";
+        const x = cardExtras(state);
         const cards = [
             resultCards.dr(dr),
-            r.plosive && resultCards.plosive(r.plosive),
-            r.sibilance && resultCards.sib(r.sibilance),
-            r.click && resultCards.mouth(r.click),
+            r.plosive && resultCards.plosive(r.plosive, x),
+            r.sibilance && resultCards.sib(r.sibilance, x),
+            r.click && resultCards.mouth(r.click, x),
         ].filter(Boolean);
-        const actsBy = {
-            "too-far": "flow.pr.a.far",
-            "too-close": "flow.pr.a.near",
-            conflicting: "flow.pr.a.conflicting",
-        };
+        // 更近、更远的句子要写“几项读数指向它”：项数缺失、不是数或不到 1 项时按“还不够判断”写，
+        // 免得露出占位符，或写成“有迹象，但 0 项读数指向它”
+        const evidence = r.distance && (kind === "closer" ? r.distance.closeEvidence : r.distance.farEvidence);
+        const shown = (kind === "closer" || kind === "farther") && !(evidence >= 1) ? "unknown" : kind;
         return {
             cards,
             cols: 2,
             side: true,
-            expl: act(`flow.pr.e.${dist}`, { dr: signed(dr.drDb) }),
-            acts: actsBy[dist] ? [act(actsBy[dist])] : [],
+            expl: act(`flow.pr.e.${shown}`, { n: evidence }),
+            // 往哪边挪由原生侧的建议决定：只有“可能离远了”会给 move-closer；超过参考值的轻提示按卡的顺序接在后面
+            acts: [
+                ...(kind === "maybe-too-far" && (state.advice || {}).distance === "move-closer"
+                    ? [act("flow.pr.a.closer")]
+                    : []),
+                ...cards.filter((c) => c.tip).map((c) => act(`flow.tip.${c.tip.id}`)),
+            ],
+            rec: recDistance(state),
             viz: null,
             ctas: [{ ...goNext, primary: true }, retest("pos")],
         };

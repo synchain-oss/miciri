@@ -20,6 +20,7 @@ import {
     hzRange,
     kHz,
     laneOf,
+    recDistance,
     resultModel,
     signed,
     truePeak,
@@ -38,6 +39,21 @@ const hzText = (f) => (f >= 1000 ? `${+(f / 1000).toFixed(1)} kHz` : `${Math.rou
 const SIB_LABELS = SIB_BANDS_HZ.map(hzRange);
 
 const ABS = "detail.col.abs";
+
+/**
+ * 喷麦、齿音、口水音的说明句：参考行（经验值）；超过参考值时再写完整的提示，并在提示涉及“推荐距离范围”时写出推荐距离。
+ * 参考与提示都已在卡片里按“当前、可信”筛过（见 flow-core 的 cardExtras），这里照卡片给的写。
+ */
+function voiceNotes(state, card) {
+    const rec = recDistance(state);
+    const backOff = !!(card.tip && card.tip.needsRec);
+    return [
+        ...(card.ref ? [A(card.ref.key, card.ref.vars)] : []),
+        ...(card.tip ? [A(`flow.tip.${card.tip.id}`)] : []),
+        ...(backOff && rec ? [A(rec.key, rec.vars)] : []),
+        A(card.ref ? "detail.n.ungraded.ref" : "detail.n.ungraded"),
+    ];
+}
 const BODY = {
     level(state, r) {
         const g = r.gain;
@@ -123,10 +139,10 @@ const BODY = {
             expl: A("detail.dr.e", { v: signed(d.drDb) }),
             cols: ["detail.col.val"],
             rows: [row("detail.r.dr", cell((d.lowerBoundOnly ? "≥ " : "") + signed(d.drDb), "dB"), null, true)],
-            notes: [...(d.lowerBoundOnly ? [A("flow.cd.dr.lower")] : [])],
+            notes: [...(d.lowerBoundOnly ? [A("flow.cd.dr.lower")] : []), A("detail.n.ungraded")],
         };
     },
-    plosive(state, r) {
+    plosive(state, r, card) {
         const p = r.plosive;
         return {
             expl: A("detail.plosive.e", { v: fmtDb(p.worstRatioDb) }),
@@ -135,7 +151,7 @@ const BODY = {
                 row("detail.r.pmax", dB(p.worstRatioDb), null, true),
                 ...(fin(p.events) ? [row("detail.r.count", times(p.events))] : []),
             ],
-            notes: p.lowSensitivity ? [A("detail.n.sens")] : [],
+            notes: [...voiceNotes(state, card), ...(p.lowSensitivity ? [A("detail.n.sens")] : [])],
         };
     },
     sib(state, r, card) {
@@ -155,10 +171,13 @@ const BODY = {
                     rel: null,
                     hl: !s.highBandDisabled,
                 },
+                ...(!s.highBandDisabled && s.vowelEvents > 0 && fin(s.highOverVowelDb)
+                    ? [row("detail.r.vowel", dB(s.highOverVowelDb), null, false, { b: z })]
+                    : []),
                 row("detail.r.bw", cell(String(Math.round(s.effectiveBandwidthHz)), "Hz")),
                 ...(fin(s.events) ? [row("detail.r.count", times(s.events))] : []),
             ],
-            notes: card.word === "flow.w.ungraded" ? [A("detail.n.ungraded")] : [],
+            notes: voiceNotes(state, card),
         };
     },
     mouth(state, r, card) {
@@ -175,7 +194,7 @@ const BODY = {
                 row("detail.r.count", times(c.count)),
                 ...(hit ? [row("detail.r.loud", level(c.loudestDbfs), dB(c.loudestRelDb), false, { f })] : []),
             ],
-            notes: card.word === "flow.w.ungraded" ? [A("detail.n.ungraded")] : [],
+            notes: voiceNotes(state, card),
         };
     },
     dir(state, r) {
