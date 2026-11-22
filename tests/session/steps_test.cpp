@@ -536,7 +536,7 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     CHECK(root["bands"].keys() == names(bridge::kSnapshotBands));
     CHECK(root["bands"]["tpQuietDbfs"].number == Catch::Approx(thr::gain::tp_quiet_below_dbfs));
     CHECK(root["bands"]["plosiveReferenceDb"].number == Catch::Approx(thr::plosive::reference_max_db));
-    CHECK(root["bands"]["clickReferencePerMin"].kind == JsonNode::Kind::Null); // 还没定：界面不显示参考
+    CHECK(root["bands"]["clickReferencePerMin"].number == Catch::Approx(thr::click::reference_max_per_min));
     CHECK(root["live"].keys() == names(bridge::kSnapshotLive));
     CHECK(root["live"]["claps"].items.size() == 2);
     CHECK(root["live"]["claps"].items[1].text == "truncated");
@@ -735,6 +735,8 @@ TEST_CASE("over-reference hints for plosives, sibilance and clicks stay on their
     v.previous.click = core::ClickResult{};
     v.previous.click->verdict.overReference = true;
     CHECK(advice().click == core::ClickAdvice::DrinkWater);
+    const JsonNode water = JsonReader(session::snapshotJson(v)).parse();
+    CHECK(water["advice"]["click"].text == "drink-water");
     v.previous.click->confidence = core::retest(core::RetestReason::TooShort);
     CHECK(advice().click == core::ClickAdvice::BackOffALittle);
 

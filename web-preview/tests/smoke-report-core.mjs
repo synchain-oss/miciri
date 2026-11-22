@@ -239,7 +239,9 @@ run.eq(
         { key: "flow.ref.sib", vars: { b: "6–12 kHz", r: "−6.0", v: "−3" }, over: false },
         "齿音：写 6-12 kHz 对元音的比值与参考 −3 dB，取自 bands.sibilanceReferenceDb",
     );
-    run.eq(base.mouth.ref, null, "口水音：参考值是 null 时不显示参考");
+    // 假数据里已有口水音参考值，这里显式去掉，测 null 的分支
+    const noClickRef = { ...SCENES.ready(), bands: { ...SCENES.ready().bands, clickReferencePerMin: null } };
+    run.eq(by(noClickRef).mouth.ref, null, "口水音：参考值是 null 时不显示参考");
     const moved = { ...SCENES.ready(), bands: { ...SCENES.ready().bands, plosiveReferenceDb: 7.5 } };
     run.eq(by(moved).plosive.ref.vars.v, "7.5", "参考值不写在界面里：bands 变了，显示跟着变");
     const noBands = SCENES.ready();
