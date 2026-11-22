@@ -21,12 +21,13 @@ struct Analysis
 };
 
 // 擦音结束后紧随的元音的 200-4000 Hz 功率；帧不够时返回 0。
-// 时间从擦音结束（最后一帧 last 的末尾）算起：取起点不早于结束后 vowel_gap_ms、
-// 末尾不晚于结束后 vowel_window_ms 的帧
-double vowelPower(const std::vector<double>& vowel, const std::vector<double>& centroid, std::size_t last, double hopMs)
+// 时间从擦音结束（最后一帧 last 的末尾，与 SibilantEvent::endSec 同一基准）算起：
+// 取起点不早于结束后 vowel_gap_ms、末尾不晚于结束后 vowel_window_ms 的帧
+double vowelPower(const std::vector<double>& vowel, const std::vector<double>& centroid, std::size_t last, double hopMs,
+                  double frameMs)
 {
-    const auto lead = static_cast<std::size_t>(std::ceil((s::frame_ms + s::vowel_gap_ms) / hopMs));
-    const auto window = static_cast<std::size_t>(std::llround(s::vowel_window_ms / hopMs));
+    const auto lead = static_cast<std::size_t>(std::ceil((frameMs + s::vowel_gap_ms) / hopMs));
+    const auto window = static_cast<std::size_t>(std::floor(s::vowel_window_ms / hopMs));
     const std::size_t from = last + lead;
     const std::size_t to = std::min(last + window, vowel.size() - 1);
     if (from > to)
@@ -162,7 +163,7 @@ std::vector<SibilantEvent> events(const Analysis& a)
         e.endSec = static_cast<double>(last) * spec.hopSeconds + spec.frameSeconds;
         e.midHighDb = voice::bandLevelDb(mid / frames, spec);
         e.highDb = voice::bandLevelDb(high / frames, spec);
-        if (const double v = vowelPower(vowel, centroids, last, hopMs); v > 0.0)
+        if (const double v = vowelPower(vowel, centroids, last, hopMs, spec.frameSeconds * 1000.0); v > 0.0)
         {
             e.hasVowel = true;
             e.highOverVowelDb = e.highDb - voice::bandLevelDb(v, spec);

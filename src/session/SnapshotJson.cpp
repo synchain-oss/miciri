@@ -5,7 +5,6 @@
 // getEvidence 的回执载荷（证据波形）也在这里写，字段按 EVIDENCE_* 表。
 #include <cmath>
 #include <iomanip>
-#include <limits>
 #include <locale>
 #include <sstream>
 #include <string_view>
@@ -386,7 +385,7 @@ void putBands(Json& j)
     // 并在 Clicks.cpp 的 summariseClicks 里设置 overReference，两处一起改
     j.key("plosiveReferenceDb").num(thr::plosive::reference_max_db);
     j.key("sibilanceReferenceDb").num(thr::sibilance::reference_max_db);
-    j.key("clickReferencePerMin").num(std::numeric_limits<double>::quiet_NaN());
+    j.key("clickReferencePerMin").null();
     j.close();
 }
 
