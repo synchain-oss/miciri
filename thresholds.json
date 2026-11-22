@@ -809,11 +809,11 @@
     "cluster_gap_ms": { "value": 100.0, "state": "pending", "source": "规格起始值", "date": null },
     "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
     "reference_max_per_min": {
-      "value": null,
+      "value": 60.0,
       "state": "pending",
-      "source": "待定：要等第二位说话人的试听标签",
+      "source": "经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在约 15 cm 处每分钟的读数都低于它，刻意咂嘴时高于它；检出里仍有送气音的误报，只作参考",
       "date": null,
-      "note": "reference for clicks per minute; no value yet, so the card shows none"
+      "note": "reference for clicks per minute; above it the card gives a light hint, no grade"
     }
   },
   "direction": {

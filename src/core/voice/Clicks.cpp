@@ -311,6 +311,8 @@ ClickResult summariseClicks(const ClickScan& scan, double residualMultiple)
     }
     r.measures.count = static_cast<std::int64_t>(clusters.size());
     r.measures.perMinute = static_cast<double>(clusters.size()) / scan.seconds * 60.0;
+    // 参考值（经验值，不是档界）：超过时卡片给“退后一点”的轻提示，不分档
+    r.verdict.overReference = r.measures.perMinute > c::reference_max_per_min;
     if (clusters.empty())
         return r; // 没有口水音：最响一下的两项不是测量值，留默认的 0；上层先看 count
     double loudest = clusters.front().peakDbfs;
@@ -322,9 +324,7 @@ ClickResult summariseClicks(const ClickScan& scan, double residualMultiple)
     voice::keepStrongest(r.evidence.marks, static_cast<std::size_t>(c::evidence_max_marks));
     r.measures.loudestDbfs = loudest;
     r.measures.loudestRelDb = loudest - *scan.speechDb;
-    // 档界还没有实录依据：只给测量值，“可能有口水音”的提示由上层按 count 决定，severity 保持最低档。
-    // 参考值 click.reference_max_per_min 还是 null，overReference 恒为 false；定值后在这里按 perMinute
-    // 设置，并同时改 SnapshotJson.cpp 里写 clickReferencePerMin 的那一行
+    // 档界还没有实录依据：只给测量值，“可能有口水音”的提示由上层按 count 决定，severity 保持最低档
     return r;
 }
 

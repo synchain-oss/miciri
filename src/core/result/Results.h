@@ -259,7 +259,7 @@ struct ClickMeasures
 struct ClickVerdict
 {
     Severity severity = Severity::Light;
-    // 追加（参考值）：每分钟次数超过参考值。参考值还没定（click.reference_max_per_min 为 null），现在恒为 false
+    // 追加（参考值）：每分钟次数超过参考值 click.reference_max_per_min
     bool overReference = false;
 };
 using ClickResult = Result<ClickMeasures, ClickVerdict>;
