@@ -15,6 +15,7 @@
 | `state` 枚举 | `synthetic`、`pending` | 末尾追加 `calibrated`：在实录上核对过，`date` 是标定日期，`source` 写依据和还缺哪一侧。已有取值不动；生成器原有的规则不变：`pending` 以外都要带值与日期 |
 | 标成 `calibrated` 的项（2026-11-21，值不变） | `pending` 或 `synthetic` | `gain.flat_min_peak_dbfs`；`hum.f0_accept_hz`、`whistle_max_hz`、`whistle_min_dbfs`、`slight_below_over_floor_db`、`slight_below_dbfs` |
 | 仍待标定、`source` 写明缺什么 | `待实录标定` | `plosive.low_f0_sensitivity_below_hz`、`click.moderate_per_min`、`click.heavy_per_min`（值仍是 `null`） |
+| `source` 的措辞 | 限定为 `合成验证`、`规格起始值`、`待实录标定` | 写明一组固定的开头（含新增的 `实录标定（YYYY-MM）`、`待定`、`规格`，以及已在用的 `工程起始值`、`产品约定`、`经验值`），需要时在冒号后写依据或还缺什么 |
 | `sibilance.bandwidth_smoothing_hz` | 250 Hz：底噪谱的平滑宽度 | 删除 |
 | `sibilance.bandwidth_band_hz`、`bandwidth_step_hz`、`bandwidth_stop_points`、`bandwidth_noise_percentile` | 无 | 新增，均 `pending`：1000 Hz、500 Hz、2、2 |
 
@@ -23,7 +24,7 @@
 `SibilanceMeasures::effectiveBandwidthHz` 的含义不变，仍是“人声高出底噪至少 10 dB 的最高频率”，取法改为：
 
 - 从 `bandwidth_search_from_hz` 起，每 `bandwidth_step_hz` 一个频点，看以它为中心、`bandwidth_band_hz` 宽的频带；
-- 底噪：该频带逐帧功率在全部帧上的第 `bandwidth_noise_percentile` 百分位；
+- 底噪：该频带逐帧功率的第 `bandwidth_noise_percentile` 百分位，数字静音的帧（功率为零）不算在内；
 - 人声：活跃帧（宽带电平在第 95 百分位以下 15 dB 以内）的平均；
 - 高出 `bandwidth_over_noise_db` 的频点记为当前带宽；连续 `bandwidth_stop_points` 个频点不满足就停。一个窄谷不会让它提前停下。
 

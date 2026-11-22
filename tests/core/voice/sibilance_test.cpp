@@ -3,6 +3,7 @@
 // 齿音：擦音段的检出、两段绝对电平（只供固定增益下的 A/B），以及有效带宽“高出底噪 ≥10 dB 的最高频率”。
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
 #include <cmath>
 
 #include "config/Thresholds.h"
@@ -156,7 +157,8 @@ TEST_CASE("有效带宽：说话几乎不停时底噪不被人声抬高，一个
     addSineBand(x, fs, 100.0, 16000.0, 50.0, 0.05, 1.55, 3.0, 53);
     CHECK(core::effectiveBandwidthHz(x, fs) == within(16000.0, 500.0));
 
-    // 7-9 kHz 缺一段：只有 8 kHz 这一个频点的频带里没有人声，接着往上仍高出底噪，不停在这里
+    // 7-9 kHz 缺一段：7.5、8.5 kHz 两个频点的频带边上还落着两侧最近的正弦的主瓣（10 ms 帧，主瓣约 ±200 Hz），
+    // 只有 8 kHz 频点的频带离两侧都有 500 Hz，里面没有人声。只有这一个频点不满足，接着往上仍高出底噪，不停在这里
     std::vector<double> gap = whiteNoise(static_cast<std::size_t>(2.0 * fs), 3e-5, 61);
     for (const double start : {0.25, 1.25})
     {
@@ -164,6 +166,17 @@ TEST_CASE("有效带宽：说话几乎不停时底噪不被人声抬高，一个
         addSineBand(gap, fs, 9000.0, 16000.0, 50.0, 0.05, start, start + 0.5, 63);
     }
     CHECK(core::effectiveBandwidthHz(gap, fs) == within(16000.0, 500.0));
+}
+
+TEST_CASE("有效带宽：一段数字静音不把底噪拉到零", "[voice][sibilance][bandwidth]")
+{
+    const double fs = 48000.0;
+    // 7 kHz 以下的人声，开头 150 ms 是数字零（噪声门、录音开头的空白）。底噪若把这些帧也算进低百分位就是零，
+    // 每个频点都“高出底噪”，带宽一路报到最高，窄带话筒的高频项不再关闭
+    std::vector<double> x = bandLimitedSpeech(fs, 7000.0);
+    std::fill(x.begin(), x.begin() + static_cast<std::ptrdiff_t>(0.15 * fs), 0.0);
+    CHECK(core::effectiveBandwidthHz(x, fs) == within(7000.0, 500.0));
+    CHECK(core::analyseSibilance(x, fs).verdict.highBandDisabled);
 }
 
 TEST_CASE("齿音与有效带宽：各采样率结果一致", "[voice][sibilance]")

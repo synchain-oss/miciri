@@ -628,7 +628,7 @@
       "state": "pending",
       "source": "规格起始值",
       "date": null,
-      "note": "effective bandwidth: highest frequency the speech stays this far over the noise, searching up without a break"
+      "note": "effective bandwidth: highest point whose band the speech stays this far over the band noise floor; the search stops after bandwidth_stop_points failing points in a row"
     },
     "bandwidth_search_from_hz": { "value": 1000.0, "state": "pending", "source": "规格起始值", "date": null },
     "bandwidth_band_hz": {

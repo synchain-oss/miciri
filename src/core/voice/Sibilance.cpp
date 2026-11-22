@@ -164,7 +164,8 @@ double bandwidth(const Analysis& a)
     const double active = dsp::percentile(a.wideDb, s::bandwidth_active_percentile) - s::bandwidth_active_within_db;
     // 逐个频点看一段 bandwidth_band_hz 宽的频带：每帧的带内功率，说话取活跃帧的平均，底噪取所有帧的低百分位。
     // 底噪不用最安静那部分帧的平均：说话几乎不停时那部分帧里也有人声，底噪会被抬高、带宽被低估；
-    // 宽带内多个 bin 一起求和，噪声的帧间起伏小，低百分位离噪声的平均不远，谐波之间的谷也不影响
+    // 宽带内多个 bin 一起求和，噪声的帧间起伏小，低百分位离噪声的平均不远，谐波之间的谷也不影响。
+    // 数字静音的帧（噪声门、录音开头的空白）不进底噪：几十毫秒的零就会让低百分位落到零，带宽一路报到最高
     const double half = s::bandwidth_band_hz / 2.0;
     const double top = spec.binHz * static_cast<double>(spec.power.front().size() - 1);
     const auto stopAfter = static_cast<int>(s::bandwidth_stop_points);
@@ -172,20 +173,25 @@ double bandwidth(const Analysis& a)
     int misses = 0;
     for (double hz = s::bandwidth_search_from_hz; hz + half <= top; hz += s::bandwidth_step_hz)
     {
-        std::vector<double> band(spec.power.size());
+        std::vector<double> band;
+        band.reserve(spec.power.size());
         double speech = 0.0;
         int activeFrames = 0;
         for (std::size_t f = 0; f < spec.power.size(); ++f)
         {
-            band[f] = voice::bandSum(spec.power[f], spec.binHz, hz - half, hz + half);
+            const double p = voice::bandSum(spec.power[f], spec.binHz, hz - half, hz + half);
+            if (p > dsp::kPowerFloor)
+                band.push_back(p);
             if (a.wideDb[f] >= active)
             {
-                speech += band[f];
+                speech += p;
                 ++activeFrames;
             }
         }
         speech /= std::max(activeFrames, 1);
-        const double floor = dsp::percentile(std::move(band), s::bandwidth_noise_percentile);
+        // 带内全是数字静音时底噪按 kPowerFloor 算：人声也是零，这个频点不满足
+        const double floor =
+            band.empty() ? dsp::kPowerFloor : dsp::percentile(std::move(band), s::bandwidth_noise_percentile);
         if (dsp::powerToDb(speech) - dsp::powerToDb(floor) >= s::bandwidth_over_noise_db)
         {
             highest = hz;
