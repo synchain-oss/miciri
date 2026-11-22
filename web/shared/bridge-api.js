@@ -276,7 +276,7 @@ export const ENUM_CLAP_BAND_STATUS = [
     "outlier",
 ];
 export const ENUM_ROOM_ADVICE = ["unknown", "good", "change-room-and-move-closer", "move-closer-then-treat"];
-export const ENUM_DISTANCE_ADVICE = ["none", "back-off-a-little", "drink-water", "move-closer"];
+export const ENUM_DISTANCE_ADVICE = ["none", "move-closer"];
 export const ENUM_DIRECTION_PROMPT = ["none", "stale", "main-button", "action-with-button", "card-button"];
 export const ENUM_FIX_ITEM = ["no-signal", "digital-clip", "direction", "room", "hum", "gain", "noise"];
 

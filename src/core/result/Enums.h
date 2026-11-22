@@ -199,13 +199,8 @@ MICIRI_DEFINE_ENUM(ClapBandStatus, MICIRI_ENUM_ClapBandStatus)
     X(ChangeRoomAndMoveCloser, "change-room-and-move-closer") \
     X(MoveCloserThenTreat, "move-closer-then-treat")
 MICIRI_DEFINE_ENUM(RoomAdvice, MICIRI_ENUM_RoomAdvice)
-// 距离的建议。move-closer：第一次测试的弱提示“可能离远了”。back-off-a-little、drink-water 跟着口水音走
-// （口水音重时先退后一点，退后后仍重再喝点水，口干也会加重），口水音分档之前不产生
-#define MICIRI_ENUM_DistanceAdvice(X)      \
-    X(None, "none")                        \
-    X(BackOffALittle, "back-off-a-little") \
-    X(DrinkWater, "drink-water")           \
-    X(MoveCloser, "move-closer")
+// 距离的建议。move-closer：第一次测试的弱提示“可能离远了”。口水音的“退后一点”“喝点水”跟着口水音走，不在这里
+#define MICIRI_ENUM_DistanceAdvice(X) X(None, "none") X(MoveCloser, "move-closer")
 MICIRI_DEFINE_ENUM(DistanceAdvice, MICIRI_ENUM_DistanceAdvice)
 // 方向测试的提示放在哪。none：耳机麦，或测过且没过期；stale：挪过位置且测过；main-button：T20 干或正常 + 可能离远了；
 // action-with-button：动作里一条，加次要按钮；card-button：其余，方向卡上一个小按钮

@@ -23,7 +23,7 @@
 | `RoomAdvice` | 决策表的七种 | `unknown`、`good`（干、正常）、`change-room-and-move-closer`（很混：先换地方或加吸声，同时靠近）、`move-closer-then-treat`（偏混：靠近一点，还不行再加吸声）；删掉 `fine-not-priority`、`move-closer-check-direction`、`keep-close-dont-back-off` |
 | `DistanceCase` | `unknown`、`fine`、`too-close`、`too-far`、`conflicting` | `unknown`、`conflicting`、`maybe-too-far`、`closer`、`farther`、`no-change`；删掉三种绝对判断 |
 | `DistanceSign`（新） | — | 一项读数的“上次 → 现在”：`not-compared`、`closer`、`farther`、`no-change`、`gain-changed`、`room-changed` |
-| `DistanceAdvice` | 含 `fix-room-or-direction-first` | 删掉它（不再有“两边都有证据”的矛盾）；`move-closer` 只在可能离远了时给；`back-off-a-little`、`drink-water` 口水音分档前不产生 |
+| `DistanceAdvice` | `none`、`back-off-a-little`、`drink-water`、`fix-room-or-direction-first`、`move-closer` | 只剩 `none`、`move-closer`（只在可能离远了时给）。不再有“两边都有证据”的矛盾；口水音的“退后一点”“喝点水”跟着口水音走，以后作为口水音自己的建议追加，不占距离这一格 |
 | `DistanceMeasures` | `closeEvidence`、`farEvidence` 是太近、太远的证据数 | 改为重测后指向更近、更远的项数；追加 `drDeltaDb`、`plosiveDeltaDb`、`sibilanceDeltaDb`（现在减上次）与 `empiricalLimitM`（按 T20 估的经验距离上限，米） |
 | `DistanceVerdict` | `kind` | 追加 `drSign`、`plosiveSign`、`sibilanceSign`；置信度恒为可信 |
 | `FixItem` | 含 `distance`、`plosive` | 删掉这两项：距离与喷麦都不进“最该改” |

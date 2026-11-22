@@ -47,7 +47,7 @@ status: frozen
 - 三项一项都比不了时，回到第一次的规则：有弱提示就是 `maybe-too-far`，否则 `unknown`。
 - `empiricalLimitM` 是按 T20 估的经验距离上限：`limit_critical_frac × critical_distance_coef × √(source_directivity × room_volume_m3 / T20)`，
   房间体积与指向性取典型值，是经验值；没有当前、可信的 T20 时为 0。距离标尺不显示厘米，这个数只供提示的文案使用。
-- 距离的建议只由 `kind` 决定：`maybe-too-far` 给 `move-closer`，其余不给。口水音的“退后一点”“喝点水”跟着口水音走，口水音分档之前不产生。
+- 距离的建议只由 `kind` 决定：`maybe-too-far` 给 `move-closer`，其余不给。口水音的“退后一点”“喝点水”跟着口水音走，不占距离这一格。
 - 距离不进“最该改”：第一次只有弱提示，重测后的前后对比是报告，不当作要先改的问题。
 
 ## 色调
