@@ -10,7 +10,9 @@
 //       低基频时灵敏度下降的标记（lowSensitivity）要等低基频的界有实录依据，现在不设。
 // 齿音：按谱重心、平坦度与高频能量找擦音段，量 3-6 kHz 与 6-12 kHz 减去底噪后的绝对电平（dBFS）。
 //       只供同一增益下两次测试之间的 A/B 比较，不分档：对元音的比值受近讲效应影响，挪远时反而变大。
-// 有效带宽：从 bandwidth_search_from_hz 往上，说话的谱连续高出底噪 bandwidth_over_noise_db 的最高频率。
+// 有效带宽：从 bandwidth_search_from_hz 起每 bandwidth_step_hz 一个频点，说话高出底噪 bandwidth_over_noise_db 的
+//       最高频点；连续 bandwidth_stop_points
+//       个频点不满足才停。底噪是带内帧功率的低百分位（bandwidth_noise_percentile）。
 //       不按能量占比算：人声能量大多在低频，按占比会误关高频项。
 // 口水音：LPC 残差里超过局部尺度很多倍的尖峰；之后高频持续的（擦音）、之后低频和元音一起上来的（爆破）
 //       和高频背景本来就响的（齿音起头、送气）都不算。只作“可能有口水音”的提示，不作距离证据。

@@ -147,6 +147,25 @@ TEST_CASE("有效带宽：高出底噪 10 dB 的最高频率，不按能量占�
     CHECK_FALSE(r.verdict.highBandDisabled);
 }
 
+TEST_CASE("有效带宽：说话几乎不停时底噪不被人声抬高，一个窄谷不会误停", "[voice][sibilance][bandwidth]")
+{
+    const double fs = 48000.0;
+    // 3 s 里说话占 95%，只在中间留 150 ms 的空：最安静的 20% 帧里大半是人声，按它们的平均当底噪会把带宽判得很窄
+    std::vector<double> x = whiteNoise(static_cast<std::size_t>(3.0 * fs), 3e-5, 51);
+    addSineBand(x, fs, 100.0, 16000.0, 50.0, 0.05, 0.0, 1.4, 52);
+    addSineBand(x, fs, 100.0, 16000.0, 50.0, 0.05, 1.55, 3.0, 53);
+    CHECK(core::effectiveBandwidthHz(x, fs) == within(16000.0, 500.0));
+
+    // 7-9 kHz 缺一段：只有 8 kHz 这一个频点的频带里没有人声，接着往上仍高出底噪，不停在这里
+    std::vector<double> gap = whiteNoise(static_cast<std::size_t>(2.0 * fs), 3e-5, 61);
+    for (const double start : {0.25, 1.25})
+    {
+        addSineBand(gap, fs, 100.0, 7000.0, 50.0, 0.05, start, start + 0.5, 62);
+        addSineBand(gap, fs, 9000.0, 16000.0, 50.0, 0.05, start, start + 0.5, 63);
+    }
+    CHECK(core::effectiveBandwidthHz(gap, fs) == within(16000.0, 500.0));
+}
+
 TEST_CASE("齿音与有效带宽：各采样率结果一致", "[voice][sibilance]")
 {
     for (double fs : kRates)

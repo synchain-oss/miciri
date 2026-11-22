@@ -42,6 +42,16 @@ Values measure()
     v.emplace_back("sibilance.highDb", sib.measures.highDb);
     v.emplace_back("sibilance.effectiveBandwidthHz", sib.measures.effectiveBandwidthHz);
     v.emplace_back("sibilance.events", static_cast<double>(sib.measures.events));
+    // 擦音后面跟着元音：6-12 kHz 对元音的比值（参考值用）
+    std::vector<double> sv = whiteNoise(static_cast<std::size_t>(5.0 * fs), 3e-5, 95);
+    for (int i = 0; i < 4; ++i)
+    {
+        addNoiseBurst(sv, fs, 0.4 + 1.1 * i, 0.14, 0.03, 96 + static_cast<std::uint64_t>(i));
+        addVowel(sv, fs, 0.6 + 1.1 * i, 0.3, 130.0 + 10.0 * i, 0.04 * (i + 1));
+    }
+    const auto sibVowel = core::analyseSibilance(sv, fs);
+    v.emplace_back("sibilance.highOverVowelDb", sibVowel.measures.highOverVowelDb);
+    v.emplace_back("sibilance.vowelEvents", static_cast<double>(sibVowel.measures.vowelEvents));
 
     std::vector<double> c = whiteNoise(static_cast<std::size_t>(6.0 * fs), 1e-4, 91);
     for (int i = 0; i < 5; ++i)
@@ -63,8 +73,10 @@ const Values kGolden{
     {"plosive.events", 6.0},
     {"sibilance.midHighDb", -35.8026582897},
     {"sibilance.highDb", -32.5900046635},
-    {"sibilance.effectiveBandwidthHz", 24000.0},
+    {"sibilance.effectiveBandwidthHz", 23500.0},
     {"sibilance.events", 4.0},
+    {"sibilance.highOverVowelDb", -9.78982998136},
+    {"sibilance.vowelEvents", 4.0},
     {"click.count", 4.0},
     {"click.perMinute", 40.0},
     {"click.loudestDbfs", -21.4053231159},

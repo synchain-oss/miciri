@@ -4,3 +4,4 @@
 
 miciri_add_test(NAME room_reverb SOURCES room_test.cpp)
 miciri_add_test(NAME room_decide SOURCES decide_test.cpp)
+miciri_add_test(NAME room_golden SOURCES room_golden_test.cpp LABELS golden)

@@ -26,8 +26,8 @@ struct Analysis
 double vowelPower(const std::vector<double>& vowel, const std::vector<double>& centroid, std::size_t last, double hopMs,
                   double frameMs)
 {
-    const auto lead = static_cast<std::size_t>(std::ceil((frameMs + s::vowel_gap_ms) / hopMs));
-    const auto window = static_cast<std::size_t>(std::floor(s::vowel_window_ms / hopMs));
+    const auto lead = static_cast<std::size_t>(std::ceil((frameMs + s::vowel_gap_ms) / hopMs - 1e-9));
+    const auto window = static_cast<std::size_t>(std::floor(s::vowel_window_ms / hopMs + 1e-9));
     const std::size_t from = last + lead;
     const std::size_t to = std::min(last + window, vowel.size() - 1);
     if (from > to)
@@ -75,23 +75,6 @@ Analysis analyse(const std::vector<double>& samples, double sampleRate)
     for (auto& v : a.noise)
         v /= std::max(count, 1);
     return a;
-}
-
-std::vector<double> frameMean(const voice::Spectrogram& spec, const std::vector<bool>& use)
-{
-    std::vector<double> mean(spec.power.empty() ? 0 : spec.power.front().size(), 0.0);
-    int count = 0;
-    for (std::size_t f = 0; f < spec.power.size(); ++f)
-    {
-        if (!use[f])
-            continue;
-        for (std::size_t k = 0; k < mean.size(); ++k)
-            mean[k] += spec.power[f][k];
-        ++count;
-    }
-    for (auto& v : mean)
-        v /= std::max(count, 1);
-    return mean;
 }
 
 std::vector<SibilantEvent> events(const Analysis& a)
@@ -178,32 +161,40 @@ double bandwidth(const Analysis& a)
     const auto& spec = a.spec;
     if (spec.power.empty())
         return 0.0;
-    const double quiet = dsp::percentile(a.wideDb, s::noise_frame_percentile);
     const double active = dsp::percentile(a.wideDb, s::bandwidth_active_percentile) - s::bandwidth_active_within_db;
-    std::vector<bool> useQuiet(spec.power.size()), useActive(spec.power.size());
-    for (std::size_t f = 0; f < spec.power.size(); ++f)
+    // 逐个频点看一段 bandwidth_band_hz 宽的频带：每帧的带内功率，说话取活跃帧的平均，底噪取所有帧的低百分位。
+    // 底噪不用最安静那部分帧的平均：说话几乎不停时那部分帧里也有人声，底噪会被抬高、带宽被低估；
+    // 宽带内多个 bin 一起求和，噪声的帧间起伏小，低百分位离噪声的平均不远，谐波之间的谷也不影响
+    const double half = s::bandwidth_band_hz / 2.0;
+    const double top = spec.binHz * static_cast<double>(spec.power.front().size() - 1);
+    const auto stopAfter = static_cast<int>(s::bandwidth_stop_points);
+    double highest = 0.0;
+    int misses = 0;
+    for (double hz = s::bandwidth_search_from_hz; hz + half <= top; hz += s::bandwidth_step_hz)
     {
-        useQuiet[f] = a.wideDb[f] <= quiet;
-        useActive[f] = a.wideDb[f] >= active;
+        std::vector<double> band(spec.power.size());
+        double speech = 0.0;
+        int activeFrames = 0;
+        for (std::size_t f = 0; f < spec.power.size(); ++f)
+        {
+            band[f] = voice::bandSum(spec.power[f], spec.binHz, hz - half, hz + half);
+            if (a.wideDb[f] >= active)
+            {
+                speech += band[f];
+                ++activeFrames;
+            }
+        }
+        speech /= std::max(activeFrames, 1);
+        const double floor = dsp::percentile(std::move(band), s::bandwidth_noise_percentile);
+        if (dsp::powerToDb(speech) - dsp::powerToDb(floor) >= s::bandwidth_over_noise_db)
+        {
+            highest = hz;
+            misses = 0;
+        }
+        else if (++misses >= stopAfter) // 一个频点不够不停：谐波之间、个别窄带的谷会误停
+            break;
     }
-    const auto speech = frameMean(spec, useActive);
-    const auto noise = frameMean(spec, useQuiet);
-    const auto half = static_cast<long long>(std::llround(s::bandwidth_smoothing_hz / spec.binHz / 2.0));
-    const auto bins = static_cast<long long>(speech.size());
-    const auto smooth = [&](const std::vector<double>& v, long long k) {
-        double sum = 0.0;
-        long long used = 0;
-        for (long long o = std::max(0LL, k - half); o <= std::min(bins - 1, k + half); ++o, ++used)
-            sum += v[static_cast<std::size_t>(o)];
-        return sum / static_cast<double>(std::max(used, 1LL));
-    };
-    const auto start = static_cast<long long>(std::ceil(s::bandwidth_search_from_hz / spec.binHz));
-    auto k = start;
-    while (k < bins &&
-           dsp::powerToDb(smooth(speech, k)) - dsp::powerToDb(smooth(noise, k)) >= s::bandwidth_over_noise_db)
-        ++k;
-    // k 停在第一个不满足的 bin；起点就不满足时没有可报的带宽，给 0
-    return k == start ? 0.0 : static_cast<double>(k - 1) * spec.binHz;
+    return highest; // 一个频点都不满足时为 0
 }
 } // namespace
 
