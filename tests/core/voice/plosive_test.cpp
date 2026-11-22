@@ -17,6 +17,11 @@ using namespace miciri::testing;
 namespace
 {
 constexpr double kNone = -200.0; // 这个字不喷
+// 不喷的字比值接近 0：合成基线跨基频在 1 dB 以内，这里留 1 dB 余量
+constexpr double kCleanMaxDb = 2.0;
+// 一个喷的字：爆发比元音的低频高 kPopDb，比值要明显高出不喷的字（不要求等于 kPopDb，起音窗与元音参考都会摊薄一点）
+constexpr double kPopDb = 10.0;
+constexpr double kPoppedMinDb = 6.0;
 
 std::vector<double> listWithOnePop(double popDb)
 {
@@ -44,19 +49,19 @@ TEST_CASE("喷麦：每个音节一个事件，不喷的字比值接近 0", "[vo
     for (std::size_t i = 0; i < events.size(); ++i)
     {
         INFO("syllable " << i << " ratio " << events[i].ratioDb);
-        CHECK(std::fabs(events[i].ratioDb) < 2.0);
+        CHECK(std::fabs(events[i].ratioDb) < kCleanMaxDb);
         CHECK(events[i].startSec == within(0.5 + 1.1 * static_cast<double>(i), 0.05));
     }
     const auto r = core::analysePlosive(x, fs);
     CHECK(r.verdict.severity == core::Severity::Light);
     CHECK(r.confidence.level == core::Reliability::Trusted);
-    CHECK(r.measures.worstRatioDb < 2.0);
+    CHECK(r.measures.worstRatioDb < kCleanMaxDb);
 }
 
 TEST_CASE("喷麦：录音停在最后一个音节中间时，证据不越过录音结尾", "[voice][plosive]")
 {
     const double fs = 48000.0;
-    auto x = wordList(fs, listWithOnePop(10.0));
+    auto x = wordList(fs, listWithOnePop(kPopDb));
     x.resize(static_cast<std::size_t>((0.5 + 1.1 * 11.0 + 0.25) * fs));
     const double seconds = static_cast<double>(x.size()) / fs;
     const auto events = core::plosiveEvents(x, fs);
@@ -70,15 +75,15 @@ TEST_CASE("喷麦：录音停在最后一个音节中间时，证据不越过录
 TEST_CASE("喷麦：读数取一遍字表的最大值，一个喷的字就够", "[voice][plosive]")
 {
     const double fs = 48000.0;
-    const auto x = wordList(fs, listWithOnePop(10.0));
+    const auto x = wordList(fs, listWithOnePop(kPopDb));
     const auto events = core::plosiveEvents(x, fs);
     REQUIRE(events.size() == 12);
     const auto r = core::analysePlosive(x, fs);
     INFO("worst " << r.measures.worstRatioDb << " median " << medianRatio(events));
     // 只有第 8 个字喷：最大值落在它上面，中位数仍接近 0（取中位数就会漏掉）
     CHECK(r.measures.worstRatioDb == within(events[7].ratioDb, 1e-12));
-    CHECK(r.measures.worstRatioDb > 6.0);
-    CHECK(medianRatio(events) < 2.0);
+    CHECK(r.measures.worstRatioDb > kPoppedMinDb);
+    CHECK(medianRatio(events) < kCleanMaxDb);
     CHECK(r.verdict.severity == core::Severity::Light); // 不分档
     CHECK(r.measures.events == 12);
     REQUIRE_FALSE(r.evidence.marks.empty());
@@ -129,7 +134,7 @@ TEST_CASE("喷麦：没有起音时要求再测，NaN 与 Inf 不让分析失效
     CHECK(quiet.confidence.level == core::Reliability::Retest);
     CHECK(quiet.confidence.reason == core::RetestReason::TooShort);
 
-    auto x = wordList(fs, listWithOnePop(10.0));
+    auto x = wordList(fs, listWithOnePop(kPopDb));
     const auto clean = core::analysePlosive(x, fs);
     x[static_cast<std::size_t>(0.2 * fs)] = std::numeric_limits<double>::quiet_NaN();
     x[static_cast<std::size_t>(0.3 * fs)] = std::numeric_limits<double>::infinity();
@@ -141,7 +146,7 @@ TEST_CASE("喷麦：没有起音时要求再测，NaN 与 Inf 不让分析失效
 TEST_CASE("喷麦：22.05 kHz 也能切出音节", "[voice][plosive]")
 {
     const double fs = 22050.0;
-    const auto r = core::analysePlosive(wordList(fs, listWithOnePop(10.0)), fs);
+    const auto r = core::analysePlosive(wordList(fs, listWithOnePop(kPopDb)), fs);
     CHECK(r.measures.events == 12);
-    CHECK(r.measures.worstRatioDb > 6.0);
+    CHECK(r.measures.worstRatioDb > kPoppedMinDb);
 }

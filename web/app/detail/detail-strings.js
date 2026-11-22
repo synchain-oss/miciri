@@ -58,7 +58,6 @@ export default {
         "detail.n.noise": "信噪比高于 {hi} dB(A) 算好，低于 {lo} dB(A) 算差。",
         "detail.n.hum": "50 Hz 或 60 Hz（及整数倍）常见于电源干扰；房间里有稳定的音乐或机器声时也可能这样。",
         "detail.n.t20": "T20 取衰减曲线的前一段拟合，再外推到 60 dB。",
-        "detail.n.dr": "低于 {lo} dB 算房间声多，高于 {hi} dB 算房间声少。",
         "detail.n.sens": "低音调时灵敏度会下降，读数可能偏小。",
         "detail.n.ungraded": "这一项不分档，只给绝对电平，用来对比前后两次，不表示好坏。",
         "detail.ev.title": "证据波形",
@@ -128,7 +127,6 @@ export default {
         "detail.n.hum":
             "50 Hz or 60 Hz (and multiples) is common with mains interference; steady music or machine noise in the room can look the same.",
         "detail.n.t20": "T20 is fitted on the early part of the decay curve and extrapolated to 60 dB.",
-        "detail.n.dr": "Below {lo} dB there is a lot of room sound, above {hi} dB there is little.",
         "detail.n.sens": "Sensitivity drops for low-pitched voices, so the reading may be low.",
         "detail.n.ungraded":
             "This item is not graded. It gives absolute levels to compare one take with the next, and does not say good or bad.",
