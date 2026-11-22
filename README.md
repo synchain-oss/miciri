@@ -95,7 +95,7 @@ you can check the result yourself.
 - [User guide](docs/USER_GUIDE.md) ([简体中文](docs/USER_GUIDE.zh-CN.md)): install, every step, glossary, FAQ
 - [Known issues](docs/KNOWN_ISSUES.md), [Privacy](docs/PRIVACY.md)
 - [Changelog](CHANGELOG.md), [Third-party notices](THIRD-PARTY-NOTICES.md), [Security policy](SECURITY.md)
-- [Architecture](docs/ARCHITECTURE.md), [Contracts](docs/contracts/), [Contributing](CONTRIBUTING.md)
+- [Architecture](docs/ARCHITECTURE.md), [Algorithms and thresholds](docs/ALGORITHMS.md) (Chinese), [Contracts](docs/contracts/), [Contributing](CONTRIBUTING.md)
 
 ## Related projects
 
