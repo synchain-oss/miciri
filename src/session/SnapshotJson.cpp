@@ -380,12 +380,10 @@ void putBands(Json& j)
     namespace d = thr::distance;
     j.key("drResolutionDb").num(d::dr_resolution_db).key("plosiveResolutionDb").num(d::plosive_resolution_db);
     j.key("sibilanceResolutionDb").num(d::sibilance_resolution_db);
-    // 参考值（经验值）。口水音的还没定（thresholds.json 里是 null），写 null：界面不显示参考。
-    // 生成器不为 null 阈值生成符号；定值后这里改读 thr::click::reference_max_per_min，
-    // 并在 Clicks.cpp 的 summariseClicks 里设置 overReference，两处一起改
+    // 参考值（经验值，不是档界）。以后新加的参考值还没定时写 null，界面不显示参考
     j.key("plosiveReferenceDb").num(thr::plosive::reference_max_db);
     j.key("sibilanceReferenceDb").num(thr::sibilance::reference_max_db);
-    j.key("clickReferencePerMin").null();
+    j.key("clickReferencePerMin").num(thr::click::reference_max_per_min);
     j.close();
 }
 

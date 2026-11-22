@@ -119,7 +119,7 @@ status: frozen
   文案由界面按这些名字取词条。
 - 参考值（追加）：`results.plosive`、`results.sibilance`、`results.click` 各追加 `overReference`；`results.sibilance` 另追加
   `highOverVowelDb`（dB）与 `vowelEvents`（为 0 时 `highOverVowelDb` 不是测量值）。`bands` 末尾追加 `plosiveReferenceDb`、
-  `sibilanceReferenceDb`、`clickReferencePerMin`，参考值还没定时为 `null`，界面这时不显示参考。
+  `sibilanceReferenceDb`、`clickReferencePerMin`，三项现在都有值；参考值还没定时为 `null`，界面这时不显示参考。
 - `recommendedDistance`（`SNAPSHOT_RECOMMENDED_DISTANCE`，根上追加）：`aroundLowCm`、`aroundHighCm` 是“约 …”（两端相等时是一个数，
   不等时是一段），`minCm`、`maxCm` 是范围。按 `micType` 给，耳机麦为 `null`。不是测量值，位置步与距离卡显示它。
 - `previous`：形状与 `results` 相同，每个区段是被最近一次新结果换下来的那一次（“上次→现在”），没有上次的区段不出现。只在内存里，

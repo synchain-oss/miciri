@@ -4,9 +4,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cmath>
+#include <optional>
 
 #include "config/Thresholds.h"
 #include "core/voice/VoiceSynth.h"
+#include "decide/Decide.h"
 #include "level/Dsp.h"
 #include "voice/Voice.h"
 
@@ -71,6 +73,39 @@ TEST_CASE("口水音：停顿里的尖峰逐个计数，给每分钟次数与最
     CHECK(r.evidence.marks[5].startSec == within(6.05, 0.002));
     // 只作提示：档界还没有实录依据，不分档
     CHECK(r.verdict.severity == core::Severity::Light);
+}
+
+TEST_CASE("口水音：每分钟次数超过参考值才标出，退后之后还多才建议喝点水", "[voice][clicks][reference]")
+{
+    const double fs = 48000.0;
+    // 8.5 s 里 6 下：每分钟约 42 次，低于参考值
+    auto fewTake = speechTake(fs);
+    // 每个停顿两下、相隔 300 ms（远大于合并间隔）：12 下，每分钟约 85 次，高于参考值
+    auto manyTake = speechTake(fs);
+    for (int i = 0; i < 6; ++i)
+    {
+        addTick(fewTake, fs, 1.05 + 1.0 * i, kTick);
+        addTick(manyTake, fs, 1.0 + 1.0 * i, kTick);
+        addTick(manyTake, fs, 1.3 + 1.0 * i, kTick);
+    }
+    const auto few = core::analyseClicks(fewTake, fs);
+    const auto many = core::analyseClicks(manyTake, fs);
+    INFO("few " << few.measures.perMinute << "/min, many " << many.measures.perMinute << "/min");
+    REQUIRE(few.measures.count == 6);
+    REQUIRE(many.measures.count == 12);
+    CHECK(few.measures.perMinute < thr::click::reference_max_per_min);
+    CHECK_FALSE(few.verdict.overReference);
+    CHECK(many.measures.perMinute > thr::click::reference_max_per_min);
+    CHECK(many.verdict.overReference);
+    // 只作提示，不分档
+    CHECK(many.verdict.severity == core::Severity::Light);
+
+    // 建议：没超过不提示；第一次超过先退后一点；上一次也超过（退后之后还多）才建议喝点水
+    CHECK(core::clickAdviceOf(few, std::nullopt) == core::ClickAdvice::None);
+    CHECK(core::clickAdviceOf(many, std::nullopt) == core::ClickAdvice::BackOffALittle);
+    CHECK(core::clickAdviceOf(many, few) == core::ClickAdvice::BackOffALittle);
+    CHECK(core::clickAdviceOf(many, many) == core::ClickAdvice::DrinkWater);
+    CHECK(core::clickAdviceOf(few, many) == core::ClickAdvice::None);
 }
 
 TEST_CASE("口水音：之后高频持续的是擦音，不算", "[voice][clicks]")
