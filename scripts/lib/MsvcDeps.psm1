@@ -8,35 +8,48 @@
 # 增量构建还沿用旧目标（测试会假红或假绿）。
 # 办法：配置和构建时把控制台的输出代码页临时切回系统 OEM 代码页（Invoke-WithOemConsole），并把已经记成乱码的
 # 探测结果删掉让 CMake 重新探测（Repair-MsvcDepsPrefix，只删单个文件，不做递归删除）。
-# 装了 Visual Studio 英文语言包的机器上，VSLANG=1033 让 cl 直接输出英文，前缀只有 ASCII，不受代码页影响。
+# 英文等前缀只有 ASCII 的系统不受代码页影响，两个函数在那里都不改变什么。
 
-function Get-OemEncoding {
-    $cp = [Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage
-    return [Text.Encoding]::GetEncoding($cp)
+# 系统的 OEM 与 ANSI 代码页：读注册表里的系统设置，不随用户的格式区域变。取不到时返回 $null，调用方退化为空操作。
+function Get-SystemCodePages {
+    if (-not $IsWindows) { return $null }
+    try {
+        [Text.Encoding]::RegisterProvider([Text.CodePagesEncodingProvider]::Instance)
+        $nls = Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Nls\CodePage' -ErrorAction Stop
+        return [pscustomobject]@{
+            Oem  = [Text.Encoding]::GetEncoding([int]$nls.OEMCP)
+            Ansi = [Text.Encoding]::GetEncoding([int]$nls.ACP)
+        }
+    } catch { return $null }
 }
 
-# 乱码的特征：把前缀按系统代码页编回字节，正好是一段合法的、含非 ASCII 的 UTF-8（UTF-8 字节被当成系统代码页解码过）。
-# 正确的本地化前缀编回系统代码页后不是合法 UTF-8（中文的 GBK 字节就不是）。
-function Test-MojibakePrefix([string]$Prefix, [Text.Encoding]$Oem) {
+# 乱码的特征：UTF-8 字节被当成系统代码页解码过。所以把前缀按这些代码页之一编回字节，正好是一段合法的 UTF-8，
+# 解出来还含非 ASCII 字符。正确的本地化前缀编回去不是合法 UTF-8（中文的 GBK 字节就不是）；纯 ASCII 的前缀永远不算。
+function Test-MojibakePrefix([string]$Prefix, [Text.Encoding[]]$Encodings) {
     if ($Prefix -notmatch '[^\x00-\x7F]') { return $false }
     $strict = [Text.UTF8Encoding]::new($false, $true)
-    try { $null = $strict.GetString($Oem.GetBytes($Prefix)); return $true } catch { return $false }
+    foreach ($enc in $Encodings) {
+        try {
+            if ($strict.GetString($enc.GetBytes($Prefix)) -match '[^\x00-\x7F]') { return $true }
+        } catch { $null = $_ }
+    }
+    return $false
 }
 
 function Repair-MsvcDepsPrefix {
     param([Parameter(Mandatory)][string]$BuildDir)
     if (-not $IsWindows) { return }
-    $env:VSLANG = '1033'
     $cmakeFiles = Join-Path $BuildDir 'CMakeFiles'
     if (-not (Test-Path -LiteralPath $cmakeFiles)) { return }
-    $oem = Get-OemEncoding
+    $cp = Get-SystemCodePages
+    if (-not $cp) { Write-Warning '取不到系统代码页，跳过 /showIncludes 前缀检查'; return }
     foreach ($dir in Get-ChildItem -LiteralPath $cmakeFiles -Directory) {
         foreach ($name in 'CMakeCCompiler.cmake', 'CMakeCXXCompiler.cmake') {
             $file = Join-Path $dir.FullName $name
             if (-not (Test-Path -LiteralPath $file)) { continue }
             $hit = Select-String -LiteralPath $file -Encoding utf8 -Pattern '^set\(CMAKE_\w+_CL_SHOWINCLUDES_PREFIX "(.*)"\)' |
                 Select-Object -First 1
-            if ($hit -and (Test-MojibakePrefix $hit.Matches[0].Groups[1].Value $oem)) {
+            if ($hit -and (Test-MojibakePrefix $hit.Matches[0].Groups[1].Value @($cp.Oem, $cp.Ansi))) {
                 Write-Host "$file 里的 /showIncludes 前缀是乱码，删掉让 CMake 重新探测"
                 Remove-Item -LiteralPath $file -Force
             }
@@ -46,11 +59,18 @@ function Repair-MsvcDepsPrefix {
 
 function Invoke-WithOemConsole {
     param([Parameter(Mandatory)][scriptblock]$Body)
-    if (-not $IsWindows) { & $Body; return }
     $saved = $null
-    try { $saved = [Console]::OutputEncoding; [Console]::OutputEncoding = Get-OemEncoding } catch { $saved = $null }
+    $cp = Get-SystemCodePages
+    if ($cp) {
+        $current = $null
+        try { $current = [Console]::OutputEncoding } catch { $current = $null }
+        if ($current -and $current.CodePage -ne $cp.Oem.CodePage) {
+            try { [Console]::OutputEncoding = $cp.Oem; $saved = $current }
+            catch { Write-Warning "没能把控制台切到系统代码页 $($cp.Oem.CodePage)（$($_.Exception.Message)），ninja 可能记不到头文件依赖" }
+        }
+    }
     try { & $Body }
     finally { if ($saved) { try { [Console]::OutputEncoding = $saved } catch { $null = $_ } } }
 }
 
-Export-ModuleMember -Function Repair-MsvcDepsPrefix, Invoke-WithOemConsole
+Export-ModuleMember -Function Repair-MsvcDepsPrefix, Invoke-WithOemConsole, Test-MojibakePrefix
