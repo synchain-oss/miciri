@@ -43,6 +43,8 @@ component and follows Microsoft's own terms.
   counters to a path named in an environment variable. It is off by default, and the released binaries do not contain that code.
   The counters hold block counts and flags, never audio.
 - The command-line tool `miciri-analyze` reads a WAV file that you give it, prints numbers on your screen, and does not upload anything.
+  Every mode (`--mode level`, the default, and `room`, `dr`, `plosive`, `sibilance`, `clicks`, `direction`) prints only numbers:
+  levels, times, ratios and counts. It never prints samples.
 
 ## Reporting a problem
 
