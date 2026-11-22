@@ -108,6 +108,34 @@ TEST_CASE("口水音：每分钟次数超过参考值才标出，退后之后还
     CHECK(core::clickAdviceOf(few, many) == core::ClickAdvice::None);
 }
 
+TEST_CASE("口水音：恰好等于参考值不标出，多一次才标出", "[voice][clicks][reference]")
+{
+    // 直接构造 60 s 的扫描结果：每个候选都过三条门限，相隔 0.5 s（远大于合并间隔），各算一次。
+    // 60 s 里每分钟次数就等于个数
+    const auto scanWith = [](int n) {
+        core::ClickScan scan;
+        scan.seconds = 60.0;
+        scan.speechDb = -20.0;
+        for (int i = 0; i < n; ++i)
+        {
+            core::ClickCandidate c;
+            c.timeSec = 0.5 * i;
+            c.residualMultiple = 2.0 * thr::click::residual_median_multiple;
+            c.relSpeechDb = thr::click::min_rel_speech_db + 10.0;
+            c.contextRelDb = thr::click::context_max_rel_db - 10.0;
+            scan.candidates.push_back(c);
+        }
+        return scan;
+    };
+    const auto n = static_cast<int>(thr::click::reference_max_per_min);
+    const auto at = core::summariseClicks(scanWith(n), thr::click::residual_median_multiple);
+    const auto above = core::summariseClicks(scanWith(n + 1), thr::click::residual_median_multiple);
+    CHECK(at.measures.perMinute == thr::click::reference_max_per_min);
+    CHECK_FALSE(at.verdict.overReference);
+    CHECK(above.measures.perMinute > thr::click::reference_max_per_min);
+    CHECK(above.verdict.overReference);
+}
+
 TEST_CASE("口水音：之后高频持续的是擦音，不算", "[voice][clicks]")
 {
     const double fs = 48000.0;
