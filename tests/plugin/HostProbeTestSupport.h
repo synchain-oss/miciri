@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -69,25 +70,44 @@ private:
     fs::path path_;
 };
 
-inline void setEnv(const fs::path& value)
+// 探针认的三个环境变量：计数 JSON、自动操作脚本、输出目录
+inline constexpr const char* kJsonEnv = "MICIRI_HOST_PROBE_JSON";
+inline constexpr const char* kScriptEnv = "MICIRI_HOST_PROBE_SCRIPT";
+inline constexpr const char* kOutEnv = "MICIRI_HOST_PROBE_OUT";
+
+inline void setEnvVar(const char* name, const fs::path& value)
 {
 #if defined(_WIN32)
-    _wputenv_s(L"MICIRI_HOST_PROBE_JSON", value.c_str());
+    std::wstring wide; // 变量名都是 ASCII
+    for (const char* c = name; *c != '\0'; ++c)
+        wide.push_back(static_cast<wchar_t>(static_cast<unsigned char>(*c)));
+    _wputenv_s(wide.c_str(), value.c_str());
 #else
-    setenv("MICIRI_HOST_PROBE_JSON", value.c_str(), 1);
+    setenv(name, value.c_str(), 1);
 #endif
+}
+
+inline void unsetEnvVar(const char* name)
+{
+#if defined(_WIN32)
+    _putenv_s(name, ""); // Windows 上把值设成空串即删除该变量
+#else
+    unsetenv(name);
+#endif
+}
+
+inline void setEnv(const fs::path& value)
+{
+    setEnvVar(kJsonEnv, value);
 }
 
 inline void unsetEnv()
 {
-#if defined(_WIN32)
-    _putenv_s("MICIRI_HOST_PROBE_JSON", ""); // Windows 上把值设成空串即删除该变量
-#else
-    unsetenv("MICIRI_HOST_PROBE_JSON");
-#endif
+    for (const char* name : {kJsonEnv, kScriptEnv, kOutEnv})
+        unsetEnvVar(name);
 }
 
-// 用例开始和结束（含失败）时都把环境变量清掉：不被外部已设的变量影响，也不影响后面的用例。
+// 用例开始和结束（含失败）时都把三个环境变量清掉：不被外部已设的变量影响，也不影响后面的用例。
 struct EnvCleanup
 {
     EnvCleanup() { unsetEnv(); }

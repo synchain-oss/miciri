@@ -8,41 +8,12 @@
 #include "BridgeApi.h"
 #include "HostProbe.h"
 #include "config/Thresholds.h"
+#ifdef MICIRI_HOST_PROBE
+#include "HostProbeRunner.h"
+#endif
 
 namespace miciri
 {
-#ifdef MICIRI_HOST_PROBE
-// 测试构建专用：环境变量给了路径才存在。消息线程上每隔一个节拍写一次（内容没变不写），销毁时再写最后一次。
-class ProbeRunner final : private juce::Timer
-{
-public:
-    static std::unique_ptr<ProbeRunner> create()
-    {
-        auto reporter = probe::Reporter::fromEnvironment(probe::counters());
-        if (reporter == nullptr)
-            return nullptr;
-        return std::unique_ptr<ProbeRunner>(new ProbeRunner(std::move(reporter)));
-    }
-
-    ~ProbeRunner() override
-    {
-        stopTimer();
-        reporter_->flush();
-    }
-
-    void flush() noexcept { reporter_->flush(); }
-
-private:
-    explicit ProbeRunner(std::unique_ptr<probe::Reporter> reporter) : reporter_(std::move(reporter))
-    {
-        startTimer(probe::kWriteIntervalMs);
-    }
-
-    void timerCallback() override { reporter_->tick(); }
-
-    std::unique_ptr<probe::Reporter> reporter_;
-};
-#endif
 
 MiciriProcessor::MiciriProcessor()
     : juce::AudioProcessor(BusesProperties()
@@ -55,7 +26,7 @@ MiciriProcessor::MiciriProcessor()
     session_.setHostTraits({host.isPluginval(), host.isFruityLoops() || host.isReaper()});
 #ifdef MICIRI_HOST_PROBE
     (void)probe::counters(); // 先把计数器建好，音频线程不会是第一个碰它的
-    probe_ = ProbeRunner::create();
+    probe_ = ProbeRunner::create(*this, probeSamples_);
 #endif
 }
 
@@ -72,7 +43,7 @@ void MiciriProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     probe::counters().notePrepare(sampleRate, samplesPerBlock, getMainBusNumInputChannels(),
                                   getMainBusNumOutputChannels());
     if (probe_ != nullptr)
-        probe_->flush();
+        probe_->prepared();
 #endif
 }
 
@@ -80,7 +51,7 @@ void MiciriProcessor::releaseResources()
 {
 #ifdef MICIRI_HOST_PROBE
     if (probe_ != nullptr)
-        probe_->flush();
+        probe_->released();
 #endif
 }
 
@@ -109,6 +80,7 @@ void MiciriProcessor::observe(juce::AudioBuffer<Sample>& buffer) noexcept
 #ifdef MICIRI_HOST_PROBE
     probe::counters().noteBlock(offline,
                                 probe::isAllZero(buffer.getArrayOfReadPointers(), buffer.getNumChannels(), samples));
+    probeSamples_.fetch_add(static_cast<std::uint64_t>(samples), std::memory_order_relaxed);
 #endif
     session_.tap().process(buffer.getArrayOfReadPointers(), buffer.getNumChannels(), samples, offline);
     const int channels = std::min(buffer.getNumChannels(), kMeterChannels);

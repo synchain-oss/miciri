@@ -17,7 +17,7 @@
 namespace miciri
 {
 #ifdef MICIRI_HOST_PROBE
-class ProbeRunner; // 测试构建专用：定时把计数写成 JSON（见 HostProbe.h），定义在 MiciriProcessor.cpp
+class ProbeRunner; // 测试构建专用：计数 JSON 与自动操作（见 HostProbeRunner.h）
 #endif
 
 class MiciriProcessor final : public juce::AudioProcessor
@@ -102,6 +102,7 @@ private:
     session::Session session_;
 
 #ifdef MICIRI_HOST_PROBE
+    std::atomic<std::uint64_t> probeSamples_{0}; // 本实例处理过的样本数：探针脚本的时钟，音频线程只做 relaxed 加法
     std::unique_ptr<ProbeRunner> probe_; // 最后声明、最先销毁；环境变量没设时为空
 #endif
 

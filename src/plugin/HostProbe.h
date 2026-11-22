@@ -185,6 +185,12 @@ long long currentPid() noexcept;
 // 把 content 写到 target：先写同目录的临时文件，再原子改名覆盖。读的一方永远看不到半截文件。
 // 任何失败（目录不存在、没权限、被读者占着）都只返回 false，不抛异常、不留临时文件。
 bool writeFileAtomic(const std::filesystem::path& target, const std::string& content) noexcept;
+// 同上，但先拿进程内写文件的那把锁：探针的各个写者（计数 JSON、自动操作的输出）不会同时占用同一个临时文件。
+bool writeFileSerialized(const std::filesystem::path& target, const std::string& content) noexcept;
+
+// 自动操作（见 HostProbeScript.h、HostProbeRunner.h）的两个环境变量：脚本文件与输出目录。没设或为空返回空。
+std::optional<std::filesystem::path> scriptPathFromEnvironment();
+std::optional<std::filesystem::path> outputDirFromEnvironment();
 
 // 把计数写进 JSON 文件。tick 给定时器用（内容没变就不写），flush 给 prepare、release 和析构用（无条件写一次）。
 // 写失败不记录为“已写”，下一次 tick 会重试。

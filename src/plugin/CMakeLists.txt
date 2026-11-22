@@ -70,7 +70,8 @@ target_link_libraries(Miciri PRIVATE
 target_compile_definitions(Miciri PUBLIC ${MICIRI_PLUGIN_DEFINITIONS})
 if(MICIRI_HOST_PROBE)
   message(STATUS "MICIRI_HOST_PROBE=ON：这是宿主测试构建，不要发布")
-  target_sources(Miciri PRIVATE "${CMAKE_CURRENT_LIST_DIR}/HostProbe.cpp")
+  target_sources(Miciri PRIVATE "${CMAKE_CURRENT_LIST_DIR}/HostProbe.cpp" "${CMAKE_CURRENT_LIST_DIR}/HostProbeScript.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/HostProbeRunner.cpp")
   target_compile_definitions(Miciri PRIVATE MICIRI_HOST_PROBE=1)
 endif()
 
