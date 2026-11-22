@@ -44,6 +44,7 @@ status: frozen
   值越大越近；不超过算没有明显变化。D/R 只知道下限的一边真值只会更高：上次是下限时“更近”说不出，这次是下限时“更远”说不出，
   定不了的记 `not-compared`。
 - 两次位置步之间（含其中一次进行中）报过调增益或声道布局变了：齿音记 `gain-changed`，不比；报过换房间：三项都记 `room-changed`。
+  这两种只记在两次都有读数的项上；缺上次或这次读数的项仍是 `not-compared`（比如第一次位置步没有上次，换没换房间都谈不上作废）。
 - 三项一项都比不了时，回到第一次的规则：有弱提示就是 `maybe-too-far`，否则 `unknown`。
 - `empiricalLimitM` 是按 T20 估的经验距离上限：`limit_critical_frac × critical_distance_coef × √(source_directivity × room_volume_m3 / T20)`，
   房间体积与指向性取典型值，是经验值；没有当前、可信的 T20 时为 0。距离标尺不显示厘米，这个数只供提示的文案使用。

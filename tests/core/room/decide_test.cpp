@@ -262,6 +262,8 @@ TEST_CASE("distance ruler: a retest compares D/R, plosives and sibilance with la
         r = core::decideDistance(e);
         CHECK(r.verdict.drSign == DistanceSign::RoomChanged);
         CHECK(r.verdict.sibilanceSign == DistanceSign::RoomChanged);
+        // 缺读数的项仍是 not-compared：没有可比的两次，谈不上被换房间作废（比如第一次位置步没有上次）
+        CHECK(r.verdict.plosiveSign == DistanceSign::NotCompared);
         CHECK(r.measures.drDeltaDb == 0.0);
         CHECK(r.verdict.kind == DistanceCase::MaybeTooFar); // 比不了，回到第一次的弱提示
     }
