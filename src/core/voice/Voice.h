@@ -42,6 +42,11 @@ struct SibilantEvent
     double endSec = 0.0;
     double midHighDb = 0.0; // 3-6 kHz，减底噪后的均方电平，dBFS
     double highDb = 0.0; // 6-12 kHz
+    // 6-12 kHz 对紧随其后的元音：擦音结束后 vowel_gap_ms 到 vowel_window_ms 之间，谱重心低于 vowel_centroid_max_hz、
+    // 且离窗内最响一帧不超过 vowel_within_db 的帧，取最响的 vowel_loudest_frac（至少 vowel_min_frames 帧）的
+    // 200-4000 Hz 平均功率。帧不够时没有元音参考，hasVowel 为 false
+    bool hasVowel = false;
+    double highOverVowelDb = 0.0;
 };
 std::vector<SibilantEvent> sibilantEvents(const std::vector<double>& samples, double sampleRate);
 // 从搜索起点就没有高出底噪时为 0（没有可报的带宽）

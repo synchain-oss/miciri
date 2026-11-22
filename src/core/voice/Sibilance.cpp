@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 #include "config/Thresholds.h"
 #include "voice/Voice.h"
@@ -18,6 +19,34 @@ struct Analysis
     std::vector<double> wideDb; // 每帧宽带电平
     std::vector<double> noise; // 底噪谱：最安静那部分帧的平均
 };
+
+// 擦音结束后紧随的元音的 200-4000 Hz 功率；帧不够时返回 0
+double vowelPower(const std::vector<double>& vowel, const std::vector<double>& centroid, std::size_t last, double hopMs)
+{
+    const auto gap = static_cast<std::size_t>(std::llround(s::vowel_gap_ms / hopMs));
+    const auto window = static_cast<std::size_t>(std::llround(s::vowel_window_ms / hopMs));
+    const std::size_t from = last + 1 + gap;
+    const std::size_t to = std::min(last + window, vowel.size() - 1);
+    if (from > to)
+        return 0.0;
+    const double loudest = *std::max_element(vowel.begin() + static_cast<std::ptrdiff_t>(from),
+                                             vowel.begin() + static_cast<std::ptrdiff_t>(to) + 1);
+    const double floor = loudest * dsp::dbToPower(-s::vowel_within_db);
+    std::vector<double> kept;
+    for (std::size_t f = from; f <= to; ++f)
+        if (centroid[f] < s::vowel_centroid_max_hz && vowel[f] >= floor)
+            kept.push_back(vowel[f]);
+    const auto minFrames = static_cast<std::size_t>(s::vowel_min_frames);
+    if (kept.size() < minFrames)
+        return 0.0;
+    const auto use =
+        std::max(minFrames, static_cast<std::size_t>(static_cast<double>(kept.size()) * s::vowel_loudest_frac));
+    std::sort(kept.begin(), kept.end(), std::greater<>());
+    double sum = 0.0;
+    for (std::size_t i = 0; i < use; ++i)
+        sum += kept[i];
+    return sum / static_cast<double>(use);
+}
 
 Analysis analyse(const std::vector<double>& samples, double sampleRate)
 {
@@ -69,6 +98,7 @@ std::vector<SibilantEvent> events(const Analysis& a)
     const double hi = s::high_band_hz[1];
     const double noiseHf = voice::bandSum(a.noise, spec.binHz, lo, hi);
     std::vector<std::size_t> on;
+    std::vector<double> centroids(spec.power.size()), vowel(spec.power.size());
     for (std::size_t f = 0; f < spec.power.size(); ++f)
     {
         const auto& p = spec.power[f];
@@ -90,6 +120,8 @@ std::vector<SibilantEvent> events(const Analysis& a)
             }
         }
         const double centroid = weighted / std::max(total, dsp::kPowerFloor);
+        centroids[f] = centroid;
+        vowel[f] = voice::bandSum(p, spec.binHz, s::reference_band_hz[0], s::reference_band_hz[1]);
         const double flatness = bins > 0 ? std::exp(logSum / bins) / std::max(linSum / bins, dsp::kPowerFloor) : 0.0;
         const double hf = voice::bandSum(p, spec.binHz, lo, hi);
         const double voiced = voice::bandSum(p, spec.binHz, s::unvoiced_band_hz[0], s::unvoiced_band_hz[1]);
@@ -128,6 +160,11 @@ std::vector<SibilantEvent> events(const Analysis& a)
         e.endSec = static_cast<double>(last) * spec.hopSeconds + spec.frameSeconds;
         e.midHighDb = voice::bandLevelDb(mid / frames, spec);
         e.highDb = voice::bandLevelDb(high / frames, spec);
+        if (const double v = vowelPower(vowel, centroids, last, hopMs); v > 0.0)
+        {
+            e.hasVowel = true;
+            e.highOverVowelDb = e.highDb - voice::bandLevelDb(v, spec);
+        }
         out.push_back(e);
     }
     return out;
@@ -190,11 +227,13 @@ SibilanceResult analyseSibilance(const std::vector<double>& samples, double samp
         r.confidence = retest(RetestReason::TooShort);
         return r;
     }
-    std::vector<double> mid, high;
+    std::vector<double> mid, high, overVowel;
     for (const auto& e : found)
     {
         mid.push_back(e.midHighDb);
         high.push_back(e.highDb);
+        if (e.hasVowel)
+            overVowel.push_back(e.highOverVowelDb);
         r.evidence.marks.push_back(
             {EvidenceKind::Sibilant, e.startSec, e.endSec, r.verdict.highBandDisabled ? e.midHighDb : e.highDb, -1});
     }
@@ -202,6 +241,12 @@ SibilanceResult analyseSibilance(const std::vector<double>& samples, double samp
     // 绝对电平只用于同一增益下的 A/B 比较；不分档，severity 保持最低档
     r.measures.midHighDb = dsp::median(mid);
     r.measures.highDb = dsp::median(high);
+    // 对元音的比值只作参考：高频项关闭时不比（6-12 kHz 本来就测不到）
+    r.measures.vowelEvents = static_cast<std::int64_t>(overVowel.size());
+    if (!overVowel.empty())
+        r.measures.highOverVowelDb = dsp::median(overVowel);
+    r.verdict.overReference =
+        !r.verdict.highBandDisabled && !overVowel.empty() && r.measures.highOverVowelDb > s::reference_max_db;
     return r;
 }
 } // namespace miciri::core

@@ -129,4 +129,40 @@ DirectionPrompt decideDirectionPrompt(const DirectionPromptInput& in)
         return DirectionPrompt::ActionWithButton;
     return DirectionPrompt::CardButton;
 }
+PlosiveAdvice plosiveAdviceOf(const PlosiveResult& plosive)
+{
+    return plosive.verdict.overReference ? PlosiveAdvice::PopFilterOrBackOff : PlosiveAdvice::None;
+}
+
+SibilanceAdvice sibilanceAdviceOf(const SibilanceResult& sibilance)
+{
+    return sibilance.verdict.overReference ? SibilanceAdvice::AngleSoftenDeEss : SibilanceAdvice::None;
+}
+
+ClickAdvice clickAdviceOf(const ClickResult& now, const std::optional<ClickResult>& before)
+{
+    if (!now.verdict.overReference)
+        return ClickAdvice::None;
+    const bool stillMany = before && before->confidence.level == Reliability::Trusted && before->verdict.overReference;
+    return stillMany ? ClickAdvice::DrinkWater : ClickAdvice::BackOffALittle;
+}
+
+std::optional<RecommendedDistance> recommendedDistanceOf(MicType mic)
+{
+    namespace r = thr::recommended_distance;
+    switch (mic)
+    {
+    case MicType::Headset:
+        return std::nullopt;
+    case MicType::Dynamic:
+        return RecommendedDistance{r::dynamic_range_cm[0], r::dynamic_range_cm[1], r::dynamic_range_cm[0],
+                                   r::dynamic_range_cm[1]};
+    case MicType::Unknown:
+    case MicType::Condenser:
+    case MicType::Usb:
+        break;
+    }
+    return RecommendedDistance{r::condenser_around_cm, r::condenser_around_cm, r::condenser_range_cm[0],
+                               r::condenser_range_cm[1]};
+}
 } // namespace miciri::core

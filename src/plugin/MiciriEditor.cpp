@@ -105,6 +105,7 @@ juce::var MiciriEditor::buildSnapshot()
     const auto view = processor_.session().view();
     const auto json = session::snapshotJson(view, static_cast<core::MicType>(processor_.micType()));
     const auto parsed = juce::JSON::parse(juce::String::fromUTF8(json.data(), static_cast<int>(json.size())));
+    // 推荐距离在耳机麦时是 null，原样转发，不用 part（它把非对象换成空对象）
     auto part = [&parsed](const char* key) {
         const auto v = parsed.getProperty(key, {});
         return v.isObject() ? v : makeObject({});
@@ -149,7 +150,8 @@ juce::var MiciriEditor::buildSnapshot()
                        {"live", part("live")},
                        {"fixes", fixes},
                        {"advice", part("advice")},
-                       {"previous", part("previous")}});
+                       {"previous", part("previous")},
+                       {"recommendedDistance", parsed.getProperty("recommendedDistance", {})}});
 }
 
 juce::var MiciriEditor::buildMeters()

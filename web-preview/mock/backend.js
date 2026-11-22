@@ -25,7 +25,7 @@ import { DESIGN } from "../../web/shared/design-box.js";
 import { LANGS } from "../../web/shared/i18n.js";
 import { synthEvidence } from "./evidence.js";
 import { createFlowSim } from "./flow-sim.js";
-import { buildSnapshot } from "./snapshot.js";
+import { buildSnapshot, recommendedDistanceOf } from "./snapshot.js";
 import { STALE_SECTIONS, STEP_SECTIONS } from "./results.js";
 
 const floorMeters = () => ({
@@ -100,6 +100,7 @@ export function createMockBackend(o = {}) {
         setMicType(type) {
             if (!ENUM_MIC_TYPE.includes(type)) return fail("bad-arg");
             snap.micType = type;
+            snap.recommendedDistance = recommendedDistanceOf(type);
             pushState();
             return OK;
         },

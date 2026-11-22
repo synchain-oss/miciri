@@ -221,6 +221,8 @@ struct PlosiveVerdict
 {
     Severity severity = Severity::Light;
     bool lowSensitivity = false; // 低基频下检出率下降；低基频的界没有实录依据，现在不设
+    // 追加（参考值）：最大值超过 plosive.reference_max_db（经验值）。只给轻提示，不分档、不作距离证据
+    bool overReference = false;
 };
 using PlosiveResult = Result<PlosiveMeasures, PlosiveVerdict>;
 
@@ -230,11 +232,17 @@ struct SibilanceMeasures
     double highDb = 0.0; // 6-12 kHz
     double effectiveBandwidthHz = 0.0;
     std::int64_t events = 0;
+    // 追加（参考值）：6-12 kHz 对紧随其后的元音（200-4000 Hz）的比值，取有元音参考的擦音的中位数。
+    // 只作参考：近讲效应让它随距离的方向不稳，不作距离证据。vowelEvents 为 0 时不是测量值
+    double highOverVowelDb = 0.0;
+    std::int64_t vowelEvents = 0;
 };
 struct SibilanceVerdict
 {
     Severity severity = Severity::Light;
     bool highBandDisabled = false; // 有效带宽不足，高频项关闭
+    // 追加（参考值）：比值超过 sibilance.reference_max_db（经验值）；高频项关闭或没有元音参考时为 false
+    bool overReference = false;
 };
 using SibilanceResult = Result<SibilanceMeasures, SibilanceVerdict>;
 
@@ -251,6 +259,8 @@ struct ClickMeasures
 struct ClickVerdict
 {
     Severity severity = Severity::Light;
+    // 追加（参考值）：每分钟次数超过参考值。参考值还没定（click.reference_max_per_min 为 null），现在恒为 false
+    bool overReference = false;
 };
 using ClickResult = Result<ClickMeasures, ClickVerdict>;
 

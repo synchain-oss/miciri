@@ -221,5 +221,15 @@ MICIRI_DEFINE_ENUM(DirectionPrompt, MICIRI_ENUM_DirectionPrompt)
     X(Gain, "gain")                \
     X(Noise, "noise")
 MICIRI_DEFINE_ENUM(FixItem, MICIRI_ENUM_FixItem)
+// 追加（参考值）：喷麦、齿音、口水音超过参考值时的轻提示，只在各自的卡上，不进“最该改”。
+// pop-filter-or-back-off：加防喷罩，或在推荐距离范围内退后一点再测
+#define MICIRI_ENUM_PlosiveAdvice(X) X(None, "none") X(PopFilterOrBackOff, "pop-filter-or-back-off")
+MICIRI_DEFINE_ENUM(PlosiveAdvice, MICIRI_ENUM_PlosiveAdvice)
+// angle-soften-de-ess：话筒偏开嘴的正前方 15-30°，s 念轻一点，录完用齿音消除；不建议退后，也不说再测对比
+#define MICIRI_ENUM_SibilanceAdvice(X) X(None, "none") X(AngleSoftenDeEss, "angle-soften-de-ess")
+MICIRI_DEFINE_ENUM(SibilanceAdvice, MICIRI_ENUM_SibilanceAdvice)
+// back-off-a-little：在推荐距离范围内退后一点；drink-water：上一次位置步也超过、这次仍超过，喝点水（口干也会加重）
+#define MICIRI_ENUM_ClickAdvice(X) X(None, "none") X(BackOffALittle, "back-off-a-little") X(DrinkWater, "drink-water")
+MICIRI_DEFINE_ENUM(ClickAdvice, MICIRI_ENUM_ClickAdvice)
 // clang-format on
 } // namespace miciri::core

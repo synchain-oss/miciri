@@ -44,6 +44,9 @@ const WANT = {
     drResolutionDb: T("distance", "dr_resolution_db"),
     plosiveResolutionDb: T("distance", "plosive_resolution_db"),
     sibilanceResolutionDb: T("distance", "sibilance_resolution_db"),
+    plosiveReferenceDb: T("plosive", "reference_max_db"),
+    sibilanceReferenceDb: T("sibilance", "reference_max_db"),
+    clickReferencePerMin: T("click", "reference_max_per_min"),
 };
 const sorted = (o) =>
     Object.fromEntries(

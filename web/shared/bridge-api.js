@@ -61,6 +61,7 @@ export const SNAPSHOT_ROOT = [
     "fixes",
     "advice",
     "previous",
+    "recommendedDistance",
 ];
 export const SNAPSHOT_DEVICE = ["sampleRate", "bufferSize", "layout", "hostName", "offlineRender"];
 export const SNAPSHOT_CONNECT = [
@@ -138,7 +139,7 @@ export const RESULT_HUM = [
 export const RESULT_DEVICE_PROCESSING = ["longestZeroMs", "zeroRuns", "detected"];
 export const RESULT_REVERB = ["t20Sec", "tMidSec", "bandPnrDb", "bandR2", "repeatMaxOverMin", "band", "gated"];
 export const RESULT_DIRECT_RATIO = ["drDb", "lowerBoundOnly"];
-export const RESULT_PLOSIVE = ["worstRatioDb", "events", "severity", "lowSensitivity"];
+export const RESULT_PLOSIVE = ["worstRatioDb", "events", "severity", "lowSensitivity", "overReference"];
 export const RESULT_SIBILANCE = [
     "midHighDb",
     "highDb",
@@ -146,8 +147,19 @@ export const RESULT_SIBILANCE = [
     "events",
     "severity",
     "highBandDisabled",
+    "highOverVowelDb",
+    "vowelEvents",
+    "overReference",
 ];
-export const RESULT_CLICK = ["perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity"];
+export const RESULT_CLICK = [
+    "perMinute",
+    "loudestRelDb",
+    "loudestDbfs",
+    "analysedSeconds",
+    "count",
+    "severity",
+    "overReference",
+];
 export const RESULT_DIRECTION = [
     "levelDb",
     "brightnessDb",
@@ -243,6 +255,9 @@ export const SNAPSHOT_BANDS = [
     "drResolutionDb",
     "plosiveResolutionDb",
     "sibilanceResolutionDb",
+    "plosiveReferenceDb",
+    "sibilanceReferenceDb",
+    "clickReferencePerMin",
 ];
 // 追加（流程页用）：正在进行的那一步的实时信息，同一时刻只有一步在跑，所以不按步骤分键
 export const SNAPSHOT_LIVE = [
@@ -265,7 +280,7 @@ export const ENUM_FLOW_NOTICE = ["none", "success", "spoiled", "clap-clipped", "
 
 // 追加（建议与“最该改”）：房间步每一下拍手的明细、建议、“最该改”的候选项
 export const SNAPSHOT_CLAP_DETAIL = ["timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec"];
-export const SNAPSHOT_ADVICE = ["room", "distance", "directionPrompt"];
+export const SNAPSHOT_ADVICE = ["room", "distance", "directionPrompt", "plosive", "sibilance", "click"];
 export const ENUM_CLAP_BAND_STATUS = [
     "valid",
     "no-noise-reference",
@@ -285,3 +300,8 @@ export const EVIDENCE_PACK = ["stepId", "rev", "durationSec", "envelope", "event
 export const EVIDENCE_ENVELOPE = ["hopSec", "min", "max"];
 export const EVIDENCE_EVENT = ["kind", "timeSec", "durSec", "levelDb"];
 export const EVIDENCE_EVENT_KINDS = ["plosive", "sibilance", "mouth"];
+// 追加（参考值与推荐距离）：根上的 recommendedDistance（耳机麦为 null），喷麦、齿音、口水音超过参考值时的轻提示
+export const SNAPSHOT_RECOMMENDED_DISTANCE = ["aroundLowCm", "aroundHighCm", "minCm", "maxCm"];
+export const ENUM_PLOSIVE_ADVICE = ["none", "pop-filter-or-back-off"];
+export const ENUM_SIBILANCE_ADVICE = ["none", "angle-soften-de-ess"];
+export const ENUM_CLICK_ADVICE = ["none", "back-off-a-little", "drink-water"];

@@ -42,6 +42,9 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 `clap`：拍手的检测、分段、噪声窗、削波与截断，房间与位置共用，值来自合成验证。
 `reverb`、`direct_ratio`、`direction`：规格里的档界与判据是起始值，标 `pending`；实现用的窗长与块长来自合成验证。
 `plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；口水音的残差倍数、高频背景门限是按实录调整过的起始值，仍未标定；齿音、口水音的档界和喷麦的低基频界还没有值（`null`）。喷麦不分档，没有档界。
+三项各有一个参考值（经验值，不是档界）：`plosive.reference_max_db`、`sibilance.reference_max_db`（6-12 kHz 对元音的比值）、
+`click.reference_max_per_min`（还没有值，要等更多的试听标签）；齿音对元音比值的取法（`sibilance.vowel_*`）与实录分析用的同一种。
+`recommended_distance`：推荐距离，静态的常见做法（电容、USB、不确定一组，动圈一组，耳机麦不给），全部 `pending`。
 `direct_ratio`：只有测量用的窗、频带与判据，没有档界（D/R 不分档）。
 `distance`：距离标尺的前后对比与弱提示。三个分辨力（`dr_resolution_db`、`plosive_resolution_db`、`sibilance_resolution_db`）是“现在减上次”要超过多少才算一个方向的迹象，
 依据实录的同一位置散布与 A/B 能分辨的差（来源里写了数和还缺什么）；经验距离上限的临界距离系数、典型房间体积、声源指向性与比例是工程起始值。全部 `pending`。

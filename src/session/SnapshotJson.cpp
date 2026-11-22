@@ -5,6 +5,7 @@
 // getEvidence 的回执载荷（证据波形）也在这里写，字段按 EVIDENCE_* 表。
 #include <cmath>
 #include <iomanip>
+#include <limits>
 #include <locale>
 #include <sstream>
 #include <string_view>
@@ -68,6 +69,13 @@ public:
             out_ << v;
         else
             out_ << "null";
+        comma_ = true;
+        return *this;
+    }
+    Json& null()
+    {
+        sep();
+        out_ << "null";
         comma_ = true;
         return *this;
     }
@@ -232,6 +240,7 @@ void put(Json& j, const PlosiveResult& r, bool stale)
     j.open();
     j.key("worstRatioDb").num(r.measures.worstRatioDb).key("events").integer(r.measures.events);
     j.key("severity").wire(r.verdict.severity).key("lowSensitivity").boolean(r.verdict.lowSensitivity);
+    j.key("overReference").boolean(r.verdict.overReference);
     common(j, r, severityTone(r.verdict.severity, kSeverityGraded.plosive), stale);
     j.close();
 }
@@ -243,6 +252,8 @@ void put(Json& j, const SibilanceResult& r, bool stale)
     j.key("midHighDb").num(m.midHighDb).key("highDb").num(m.highDb);
     j.key("effectiveBandwidthHz").num(m.effectiveBandwidthHz).key("events").integer(m.events);
     j.key("severity").wire(r.verdict.severity).key("highBandDisabled").boolean(r.verdict.highBandDisabled);
+    j.key("highOverVowelDb").num(m.highOverVowelDb).key("vowelEvents").integer(m.vowelEvents);
+    j.key("overReference").boolean(r.verdict.overReference);
     common(j, r, severityTone(r.verdict.severity, kSeverityGraded.sibilance), stale);
     j.close();
 }
@@ -254,6 +265,7 @@ void put(Json& j, const ClickResult& r, bool stale)
     j.key("perMinute").num(m.perMinute).key("loudestRelDb").num(m.loudestRelDb);
     j.key("loudestDbfs").num(m.loudestDbfs).key("analysedSeconds").num(m.analysedSeconds);
     j.key("count").integer(m.count).key("severity").wire(r.verdict.severity);
+    j.key("overReference").boolean(r.verdict.overReference);
     common(j, r, severityTone(r.verdict.severity, kSeverityGraded.click), stale);
     j.close();
 }
@@ -369,6 +381,10 @@ void putBands(Json& j)
     namespace d = thr::distance;
     j.key("drResolutionDb").num(d::dr_resolution_db).key("plosiveResolutionDb").num(d::plosive_resolution_db);
     j.key("sibilanceResolutionDb").num(d::sibilance_resolution_db);
+    // 参考值（经验值）。口水音的还没定（thresholds.json 里是 null），写 null：界面不显示参考
+    j.key("plosiveReferenceDb").num(thr::plosive::reference_max_db);
+    j.key("sibilanceReferenceDb").num(thr::sibilance::reference_max_db);
+    j.key("clickReferencePerMin").num(std::numeric_limits<double>::quiet_NaN());
     j.close();
 }
 
@@ -429,6 +445,7 @@ void putAdvice(Json& j, const Advice& a)
 {
     j.open();
     j.key("room").wire(a.room).key("distance").wire(a.distance).key("directionPrompt").wire(a.directionPrompt);
+    j.key("plosive").wire(a.plosive).key("sibilance").wire(a.sibilance).key("click").wire(a.click);
     j.close();
 }
 } // namespace
@@ -463,6 +480,16 @@ std::string snapshotJson(const SessionView& v, core::MicType mic)
     j.closeArray();
     putAdvice(j.key("advice"), advice);
     putResults(j.key("previous"), v.previous, SectionSet{}, nullptr);
+    // 推荐距离：按接通步选的话筒类型，静态的常见做法；耳机麦为 null
+    if (const auto rd = core::recommendedDistanceOf(mic))
+    {
+        j.key("recommendedDistance").open();
+        j.key("aroundLowCm").num(rd->aroundLowCm).key("aroundHighCm").num(rd->aroundHighCm);
+        j.key("minCm").num(rd->minCm).key("maxCm").num(rd->maxCm);
+        j.close();
+    }
+    else
+        j.key("recommendedDistance").null();
     j.close();
     return j.str();
 }
