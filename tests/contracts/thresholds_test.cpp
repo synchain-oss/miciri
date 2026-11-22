@@ -21,7 +21,6 @@ TEST_CASE("thresholds keep their bands in order")
     CHECK(thr::reverb::dry_below_s < thr::reverb::normal_below_s);
     CHECK(thr::reverb::normal_below_s < thr::reverb::boomy_below_s);
     CHECK(thr::reverb::fit_end_db < thr::reverb::fit_start_db);
-    CHECK(thr::direct_ratio::low_below_db < thr::direct_ratio::high_above_db);
     CHECK(thr::direct_ratio::direct_window_start_ms < thr::direct_ratio::direct_window_end_ms);
 
     CHECK(thr::no_signal::abs_dbfs < 0.0);

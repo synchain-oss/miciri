@@ -198,18 +198,20 @@ struct ReverbVerdict
 };
 using ReverbResult = Result<ReverbMeasures, ReverbVerdict>;
 
+// D/R 不分档：实录里拍手相对扫频的偏移随房间与位置变化，绝对档位判不准。
+// 只用于重测位置之后的“上次 → 现在”（见距离标尺），所以 verdict 是空的
 struct DirectRatioMeasures
 {
     double drDb = 0.0;
-    bool lowerBoundOnly = false; // 尾部测不到时只报下限
+    bool lowerBoundOnly = false; // 尾部测不到时只报下限：真值只会更高
 };
 struct DirectRatioVerdict
 {
-    DrBand band = DrBand::Mid;
 };
 using DirectRatioResult = Result<DirectRatioMeasures, DirectRatioVerdict>;
 
-// ---- 算法未实现的几项：只定字段 ----
+// ---- 人声三项：都不分档，severity 停在最低档只表示“未分档” ----
+// 喷麦只显示数值与“上次 → 现在”：两个人里只有一个能用同一个阈值分开近与远
 struct PlosiveMeasures
 {
     double worstRatioDb = 0.0; // 取最大值，不取中位数
@@ -218,7 +220,7 @@ struct PlosiveMeasures
 struct PlosiveVerdict
 {
     Severity severity = Severity::Light;
-    bool lowSensitivity = false; // 低基频下检出率下降
+    bool lowSensitivity = false; // 低基频下检出率下降；低基频的界没有实录依据，现在不设
 };
 using PlosiveResult = Result<PlosiveMeasures, PlosiveVerdict>;
 
@@ -266,15 +268,26 @@ struct DirectionVerdict
 };
 using DirectionResult = Result<DirectionMeasures, DirectionVerdict>;
 
-// ---- 距离标尺：由喷麦、齿音、口水音与 D/R、SNR 的证据合成 ----
+// ---- 距离标尺：不给绝对判断 ----
+// 第一次测试只有“可能离远了”这条弱提示（SNR 差，且有 T20）；重测位置之后看 D/R、喷麦、齿音的“上次 → 现在”，
+// 变化超过各自的分辨力才算一个方向的迹象。口水音只作提示，不进标尺。
 struct DistanceMeasures
 {
-    int closeEvidence = 0; // 指向太近的独立证据数：喷麦、齿音、口水音
-    int farEvidence = 0; // 指向太远的独立证据数：D/R 低；SNR 低只作次要
+    int closeEvidence = 0; // 指向“更近”的项数：D/R、喷麦、齿音
+    int farEvidence = 0; // 指向“更远”的项数
+    // 各项“现在减上次”，dB；对应的 *Sign 是 not-compared、gain-changed、room-changed 时不是测量值，留 0
+    double drDeltaDb = 0.0;
+    double plosiveDeltaDb = 0.0;
+    double sibilanceDeltaDb = 0.0; // 6-12 kHz；有一次关了高频项时两次都用 3-6 kHz
+    // 按 T20 估的经验距离上限（米）：临界距离公式，房间体积与指向性取典型值，是经验值；没有可用的 T20 时为 0
+    double empiricalLimitM = 0.0;
 };
 struct DistanceVerdict
 {
     DistanceCase kind = DistanceCase::Unknown;
+    DistanceSign drSign = DistanceSign::NotCompared;
+    DistanceSign plosiveSign = DistanceSign::NotCompared;
+    DistanceSign sibilanceSign = DistanceSign::NotCompared;
 };
 using DistanceResult = Result<DistanceMeasures, DistanceVerdict>;
 

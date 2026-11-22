@@ -117,8 +117,6 @@ MICIRI_DEFINE_ENUM(NoiseBand, MICIRI_ENUM_NoiseBand)
 MICIRI_DEFINE_ENUM(HumKind, MICIRI_ENUM_HumKind)
 #define MICIRI_ENUM_ReverbBand(X) X(Dry, "dry") X(Normal, "normal") X(Boomy, "boomy") X(VeryBoomy, "very-boomy")
 MICIRI_DEFINE_ENUM(ReverbBand, MICIRI_ENUM_ReverbBand)
-#define MICIRI_ENUM_DrBand(X) X(Low, "low") X(Mid, "mid") X(High, "high")
-MICIRI_DEFINE_ENUM(DrBand, MICIRI_ENUM_DrBand)
 // 喷麦、齿音、口水音共用的轻重三档
 #define MICIRI_ENUM_Severity(X) X(Light, "light") X(Moderate, "moderate") X(Heavy, "heavy")
 MICIRI_DEFINE_ENUM(Severity, MICIRI_ENUM_Severity)
@@ -128,9 +126,26 @@ MICIRI_DEFINE_ENUM(Severity, MICIRI_ENUM_Severity)
     X(SmallDifference, "small-difference")     \
     X(Uncertain, "uncertain")
 MICIRI_DEFINE_ENUM(DirectionCase, MICIRI_ENUM_DirectionCase)
+// 距离标尺。第一次测试只有一条弱提示 maybe-too-far；重测位置之后按 D/R、喷麦、齿音的“上次 → 现在”
+// 给 closer、farther、no-change，几项方向不一致时是 conflicting；什么都说不出时是 unknown
 #define MICIRI_ENUM_DistanceCase(X) \
-    X(Unknown, "unknown") X(Fine, "fine") X(TooClose, "too-close") X(TooFar, "too-far") X(Conflicting, "conflicting")
+    X(Unknown, "unknown")           \
+    X(Conflicting, "conflicting")   \
+    X(MaybeTooFar, "maybe-too-far") \
+    X(Closer, "closer")             \
+    X(Farther, "farther")           \
+    X(NoChange, "no-change")
 MICIRI_DEFINE_ENUM(DistanceCase, MICIRI_ENUM_DistanceCase)
+// 距离标尺里一项读数的“上次 → 现在”。not-compared：没有上次、有一边要再测，或只知道下限、定不了方向；
+// gain-changed：两次之间调过增益或声道布局变了，齿音的绝对电平不能比；room-changed：两次之间换了房间，三项都不比
+#define MICIRI_ENUM_DistanceSign(X) \
+    X(NotCompared, "not-compared")  \
+    X(Closer, "closer")             \
+    X(Farther, "farther")           \
+    X(NoChange, "no-change")        \
+    X(GainChanged, "gain-changed")  \
+    X(RoomChanged, "room-changed")
+MICIRI_DEFINE_ENUM(DistanceSign, MICIRI_ENUM_DistanceSign)
 
 // 用户在界面上选的话筒类型（影响“增益偏低”要不要算问题、耳机麦要不要做方向测试）
 #define MICIRI_ENUM_MicType(X) \
@@ -163,7 +178,7 @@ MICIRI_DEFINE_ENUM(ClapState, MICIRI_ENUM_ClapState)
     X(Redo, "redo")
 MICIRI_DEFINE_ENUM(FlowNotice, MICIRI_ENUM_FlowNotice)
 
-// 追加（建议与“最该改”进桥）：原来定义在 room/Room.h 与 decide/Decide.h，取值与顺序不变
+// 建议与“最该改”（追加进桥）：原来定义在 room/Room.h 与 decide/Decide.h
 // 一下拍手在一个频带里的情况，按判断顺序：先看有没有噪声参考与可拟合的衰减，再看门限，再看峰噪比与 R²；
 // 有效的几下在汇总时还可能因偏离中位数被去掉。no-noise-reference：拍手前的噪声窗被录音开头截得短于 min_noise_ms；
 // short-decay：衰减太短或不到 -25 dB
@@ -176,28 +191,18 @@ MICIRI_DEFINE_ENUM(FlowNotice, MICIRI_ENUM_FlowNotice)
     X(PoorFit, "poor-fit")                    \
     X(Outlier, "outlier")
 MICIRI_DEFINE_ENUM(ClapBandStatus, MICIRI_ENUM_ClapBandStatus)
-// 决策表：T20（长 = 偏混或很混；干和正常都算正常）乘 D/R（低、中、高）。
-// unknown：T20 或 D/R 缺，或要再测；good：正常 + 高；fine-not-priority：正常 + 中，可以录，不进“最该改”；
-// move-closer-check-direction：正常 + 低，离太远或方向错；change-room-and-move-closer：长 + 低；
-// keep-close-dont-back-off：长 + 高，近距离压住了房间，别退后；move-closer-then-treat：长 + 中，先靠近再测，还不行再加吸声
-#define MICIRI_ENUM_RoomAdvice(X)                              \
-    X(Unknown, "unknown")                                      \
-    X(Good, "good")                                            \
-    X(FineNotPriority, "fine-not-priority")                    \
-    X(MoveCloserCheckDirection, "move-closer-check-direction") \
-    X(ChangeRoomAndMoveCloser, "change-room-and-move-closer")  \
-    X(KeepCloseDontBackOff, "keep-close-dont-back-off")        \
+// 房间建议只看 T20。unknown：没有 T20 或要再测；good：干或正常，不提房间；
+// change-room-and-move-closer：很混，先换地方或加吸声，同时靠近；move-closer-then-treat：偏混，录音时靠近一点，还不行再加吸声
+#define MICIRI_ENUM_RoomAdvice(X)                             \
+    X(Unknown, "unknown")                                     \
+    X(Good, "good")                                           \
+    X(ChangeRoomAndMoveCloser, "change-room-and-move-closer") \
     X(MoveCloserThenTreat, "move-closer-then-treat")
 MICIRI_DEFINE_ENUM(RoomAdvice, MICIRI_ENUM_RoomAdvice)
-// 距离标尺的建议。drink-water：退后后口水音仍重，口干也会加重；fix-room-or-direction-first：两边都有证据，矛盾
-#define MICIRI_ENUM_DistanceAdvice(X)                         \
-    X(None, "none")                                           \
-    X(BackOffALittle, "back-off-a-little")                    \
-    X(DrinkWater, "drink-water")                              \
-    X(MoveCloser, "move-closer")                              \
-    X(FixRoomOrDirectionFirst, "fix-room-or-direction-first")
+// 距离的建议。move-closer：第一次测试的弱提示“可能离远了”。口水音的“退后一点”“喝点水”跟着口水音走，不在这里
+#define MICIRI_ENUM_DistanceAdvice(X) X(None, "none") X(MoveCloser, "move-closer")
 MICIRI_DEFINE_ENUM(DistanceAdvice, MICIRI_ENUM_DistanceAdvice)
-// 方向测试的提示放在哪。none：耳机麦，或测过且没过期；stale：挪过位置且测过；main-button：T20 正常 + D/R 低；
+// 方向测试的提示放在哪。none：耳机麦，或测过且没过期；stale：挪过位置且测过；main-button：T20 干或正常 + 可能离远了；
 // action-with-button：动作里一条，加次要按钮；card-button：其余，方向卡上一个小按钮
 #define MICIRI_ENUM_DirectionPrompt(X)        \
     X(None, "none")                           \
@@ -212,11 +217,9 @@ MICIRI_DEFINE_ENUM(DirectionPrompt, MICIRI_ENUM_DirectionPrompt)
     X(DigitalClip, "digital-clip") \
     X(Direction, "direction")      \
     X(Room, "room")                \
-    X(Distance, "distance")        \
     X(Hum, "hum")                  \
     X(Gain, "gain")                \
-    X(Noise, "noise")              \
-    X(Plosive, "plosive")
+    X(Noise, "noise")
 MICIRI_DEFINE_ENUM(FixItem, MICIRI_ENUM_FixItem)
 // clang-format on
 } // namespace miciri::core

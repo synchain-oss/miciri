@@ -81,8 +81,7 @@ const BUILDERS = {
             },
             "amber",
         ),
-    directRatio: () =>
-        section("directRatio", RESULT_DIRECT_RATIO, { drDb: 3.8, lowerBoundOnly: false, band: "low" }, "red"),
+    directRatio: () => section("directRatio", RESULT_DIRECT_RATIO, { drDb: 3.8, lowerBoundOnly: false }, "none"),
     plosive: () =>
         section(
             "plosive",
@@ -118,7 +117,24 @@ const BUILDERS = {
             },
             "none",
         ),
-    distance: () => section("distance", RESULT_DISTANCE, { closeEvidence: 0, farEvidence: 1, kind: "too-far" }, "red"),
+    distance: () =>
+        section(
+            "distance",
+            RESULT_DISTANCE,
+            {
+                closeEvidence: 0,
+                farEvidence: 0,
+                drDeltaDb: 0,
+                plosiveDeltaDb: 0,
+                sibilanceDeltaDb: 0,
+                empiricalLimitM: 0.4,
+                kind: "maybe-too-far",
+                drSign: "not-compared",
+                plosiveSign: "not-compared",
+                sibilanceSign: "not-compared",
+            },
+            "none",
+        ),
     direction: () =>
         section(
             "direction",

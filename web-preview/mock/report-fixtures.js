@@ -68,8 +68,8 @@ const green = (s) => {
     });
     o = withSection(o, "hum", { kind: "none", slight: false, overFloorDb: 0, energySharePct: 0, tone: "green" });
     o = withSection(o, "reverb", { t20Sec: [0.4, 0.38, 0.35, 0.3], tMidSec: 0.38, band: "normal", tone: "green" });
-    o = withSection(o, "directRatio", { drDb: 14.2, band: "high", tone: "green" });
-    return withSection(o, "distance", { closeEvidence: 0, farEvidence: 0, kind: "fine", tone: "none" });
+    o = withSection(o, "directRatio", { drDb: 14.2, tone: "none" });
+    return withSection(o, "distance", { closeEvidence: 0, farEvidence: 0, empiricalLimitM: 0, kind: "unknown" });
 };
 
 /** 场景：名字对应报告里的情形。 */

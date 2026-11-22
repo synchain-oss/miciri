@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "decide/Decide.h"
 
-#include <algorithm>
-#include <initializer_list>
+#include <array>
+#include <cmath>
 
 #include "config/Thresholds.h"
 
@@ -10,95 +10,101 @@ namespace miciri::core
 {
 namespace
 {
-bool has(EvidenceLevel e)
+// 一项读数的“上次 → 现在”。只知道下限的一边真值只会更高：上次是下限时真实的变化只会更小，
+// 现在是下限时只会更大，所以只报不受它影响的那个方向。delta 只在给出方向（含“没有明显变化”）时填
+DistanceSign compare(const DistanceReading& before, const DistanceReading& now, double resolution, bool roomChanged,
+                     bool gainChanged, double& delta)
 {
-    return e == EvidenceLevel::Weak || e == EvidenceLevel::Strong;
+    delta = 0.0;
+    if (!before.available || !now.available)
+        return DistanceSign::NotCompared;
+    if (roomChanged)
+        return DistanceSign::RoomChanged;
+    if (gainChanged)
+        return DistanceSign::GainChanged;
+    const double d = now.value - before.value;
+    DistanceSign sign = DistanceSign::NotCompared;
+    if (d > resolution && !before.lowerBound)
+        sign = DistanceSign::Closer;
+    else if (d < -resolution && !now.lowerBound)
+        sign = DistanceSign::Farther;
+    else if (std::fabs(d) <= resolution && !before.lowerBound && !now.lowerBound)
+        sign = DistanceSign::NoChange;
+    if (sign != DistanceSign::NotCompared)
+        delta = d;
+    return sign;
 }
 } // namespace
 
-RoomDecision decideRoom(const std::optional<ReverbResult>& reverb, const std::optional<DirectRatioResult>& directRatio)
+RoomDecision decideRoom(const std::optional<ReverbResult>& reverb)
 {
     RoomDecision out;
-    if (!reverb || !directRatio || reverb->confidence.level != Reliability::Trusted ||
-        directRatio->confidence.level != Reliability::Trusted)
+    if (!reverb || reverb->confidence.level != Reliability::Trusted)
         return out;
-    const ReverbBand t = reverb->verdict.band;
-    const bool longDecay = t == ReverbBand::Boomy || t == ReverbBand::VeryBoomy;
-    switch (directRatio->verdict.band)
+    switch (reverb->verdict.band)
     {
-    case DrBand::Low:
-        out.advice = longDecay ? RoomAdvice::ChangeRoomAndMoveCloser : RoomAdvice::MoveCloserCheckDirection;
+    case ReverbBand::Dry:
+    case ReverbBand::Normal:
+        out.advice = RoomAdvice::Good;
         break;
-    case DrBand::Mid:
-        out.advice = longDecay ? RoomAdvice::MoveCloserThenTreat : RoomAdvice::FineNotPriority;
+    case ReverbBand::Boomy:
+        out.advice = RoomAdvice::MoveCloserThenTreat;
+        out.priority = true;
         break;
-    case DrBand::High:
-        out.advice = longDecay ? RoomAdvice::KeepCloseDontBackOff : RoomAdvice::Good;
+    case ReverbBand::VeryBoomy:
+        out.advice = RoomAdvice::ChangeRoomAndMoveCloser;
+        out.priority = true;
         break;
     }
-    out.priority = out.advice == RoomAdvice::ChangeRoomAndMoveCloser ||
-                   out.advice == RoomAdvice::MoveCloserCheckDirection || out.advice == RoomAdvice::MoveCloserThenTreat;
     return out;
 }
 
-EvidenceLevel evidenceOf(const std::optional<Severity>& severity)
+double empiricalDistanceLimitM(double tMidSec)
 {
-    if (!severity)
-        return EvidenceLevel::NotMeasured;
-    switch (*severity)
-    {
-    case Severity::Light:
-        return EvidenceLevel::None;
-    case Severity::Moderate:
-        return EvidenceLevel::Weak;
-    case Severity::Heavy:
-        return EvidenceLevel::Strong;
-    }
-    return EvidenceLevel::NotMeasured;
+    namespace d = thr::distance;
+    if (!(tMidSec > 0.0))
+        return 0.0;
+    // 临界距离（直达声与房间声相等处）乘一个比例：扩散声场近似，房间体积与声源指向性取典型值
+    return d::limit_critical_frac * d::critical_distance_coef *
+           std::sqrt(d::source_directivity * d::room_volume_m3 / tMidSec);
 }
 
-DistanceDecision decideDistance(const DistanceEvidence& e)
+DistanceResult decideDistance(const DistanceEvidence& e)
 {
-    DistanceDecision out;
-    DistanceMeasures& m = out.result.measures;
-    DistanceCase& kind = out.result.verdict.kind;
-    const std::initializer_list<EvidenceLevel> close{e.plosive, e.sibilance, e.click};
-    m.closeEvidence = static_cast<int>(std::count_if(close.begin(), close.end(), has));
-    m.farEvidence = (has(e.lowDirectRatio) ? 1 : 0) + (has(e.lowSnr) ? 1 : 0);
-    const bool closeStrong =
-        std::any_of(close.begin(), close.end(), [](EvidenceLevel l) { return l == EvidenceLevel::Strong; });
-    const bool far = has(e.lowDirectRatio);
-    // SNR 低不单独成立，但能把弱的 D/R 证据抬成可信
-    const bool farStrong = e.lowDirectRatio == EvidenceLevel::Strong || (far && has(e.lowSnr));
-    const bool measured =
-        std::any_of(close.begin(), close.end(), [](EvidenceLevel l) { return l != EvidenceLevel::NotMeasured; }) ||
-        e.lowDirectRatio != EvidenceLevel::NotMeasured;
+    namespace d = thr::distance;
+    DistanceResult out;
+    DistanceMeasures& m = out.measures;
+    DistanceVerdict& v = out.verdict;
+    m.empiricalLimitM = empiricalDistanceLimitM(e.tMidSec);
+    v.drSign = compare(e.drBefore, e.drNow, d::dr_resolution_db, e.roomChanged, false, m.drDeltaDb);
+    v.plosiveSign =
+        compare(e.plosiveBefore, e.plosiveNow, d::plosive_resolution_db, e.roomChanged, false, m.plosiveDeltaDb);
+    v.sibilanceSign = compare(e.sibilanceBefore, e.sibilanceNow, d::sibilance_resolution_db, e.roomChanged,
+                              e.gainChanged, m.sibilanceDeltaDb);
 
-    if (!measured)
-        kind = DistanceCase::Unknown;
-    else if (m.closeEvidence > 0 && far)
+    bool unchanged = false;
+    for (const DistanceSign s : std::array{v.drSign, v.plosiveSign, v.sibilanceSign})
     {
-        kind = DistanceCase::Conflicting;
-        out.advice = DistanceAdvice::FixRoomOrDirectionFirst;
+        m.closeEvidence += s == DistanceSign::Closer ? 1 : 0;
+        m.farEvidence += s == DistanceSign::Farther ? 1 : 0;
+        unchanged = unchanged || s == DistanceSign::NoChange;
     }
+    if (m.closeEvidence > 0 && m.farEvidence > 0)
+        v.kind = DistanceCase::Conflicting;
     else if (m.closeEvidence > 0)
-    {
-        kind = DistanceCase::TooClose;
-        const bool clickPersists = e.click == EvidenceLevel::Strong && e.clickStillHeavyAfterBackingOff;
-        out.advice = clickPersists ? DistanceAdvice::DrinkWater : DistanceAdvice::BackOffALittle;
-        if (!closeStrong)
-            out.result.confidence = retest(RetestReason::Ambiguous);
-    }
-    else if (far)
-    {
-        kind = DistanceCase::TooFar;
-        out.advice = DistanceAdvice::MoveCloser;
-        if (!farStrong)
-            out.result.confidence = retest(RetestReason::Ambiguous);
-    }
-    else
-        kind = DistanceCase::Fine;
+        v.kind = DistanceCase::Closer;
+    else if (m.farEvidence > 0)
+        v.kind = DistanceCase::Farther;
+    else if (unchanged)
+        v.kind = DistanceCase::NoChange;
+    else if (e.snrBad && m.empiricalLimitM > 0.0)
+        v.kind = DistanceCase::MaybeTooFar;
     return out;
+}
+
+DistanceAdvice distanceAdviceOf(const DistanceResult& distance)
+{
+    return distance.verdict.kind == DistanceCase::MaybeTooFar ? DistanceAdvice::MoveCloser : DistanceAdvice::None;
 }
 
 bool directionIsPriority(const DirectionAnalysis& direction)
@@ -113,7 +119,8 @@ DirectionPrompt decideDirectionPrompt(const DirectionPromptInput& in)
         return DirectionPrompt::None;
     if (in.directionTested)
         return in.directionStale ? DirectionPrompt::Stale : DirectionPrompt::None;
-    if (in.room == RoomAdvice::MoveCloserCheckDirection)
+    // T20 不长、SNR 差：房间不是原因，离远了或方向错的可能更大
+    if (in.room == RoomAdvice::Good && in.distance == DistanceCase::MaybeTooFar)
         return DirectionPrompt::MainButton;
     if (in.distance == DistanceCase::Conflicting)
         return DirectionPrompt::ActionWithButton;

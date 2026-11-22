@@ -223,8 +223,7 @@ void put(Json& j, const DirectRatioResult& r, bool stale)
 {
     j.open();
     j.key("drDb").num(r.measures.drDb).key("lowerBoundOnly").boolean(r.measures.lowerBoundOnly);
-    j.key("band").wire(r.verdict.band);
-    common(j, r, toneOf(r.verdict), stale);
+    common(j, r, toneOf(r.verdict), stale); // 不分档，无色
     j.close();
 }
 
@@ -279,9 +278,14 @@ void put(Json& j, const DirectionResult& r, bool stale, const core::DirectionAna
 // 距离没有色调
 void put(Json& j, const DistanceResult& r, bool stale)
 {
+    const auto& m = r.measures;
+    const auto& v = r.verdict;
     j.open();
-    j.key("closeEvidence").integer(r.measures.closeEvidence).key("farEvidence").integer(r.measures.farEvidence);
-    j.key("kind").wire(r.verdict.kind);
+    j.key("closeEvidence").integer(m.closeEvidence).key("farEvidence").integer(m.farEvidence);
+    j.key("drDeltaDb").num(m.drDeltaDb).key("plosiveDeltaDb").num(m.plosiveDeltaDb);
+    j.key("sibilanceDeltaDb").num(m.sibilanceDeltaDb).key("empiricalLimitM").num(m.empiricalLimitM);
+    j.key("kind").wire(v.kind).key("drSign").wire(v.drSign);
+    j.key("plosiveSign").wire(v.plosiveSign).key("sibilanceSign").wire(v.sibilanceSign);
     common(j, r, Tone::None, stale);
     j.close();
 }
@@ -361,9 +365,10 @@ void putBands(Json& j)
     j.key("snrBadBelowDb").num(thr::noise::snr_bad_below_db).key("snrGoodAboveDb").num(thr::noise::snr_good_above_db);
     j.key("t20DryBelowS").num(thr::reverb::dry_below_s).key("t20NormalBelowS").num(thr::reverb::normal_below_s);
     j.key("t20BoomyBelowS").num(thr::reverb::boomy_below_s);
-    j.key("drLowBelowDb").num(thr::direct_ratio::low_below_db);
-    j.key("drHighAboveDb").num(thr::direct_ratio::high_above_db);
     j.key("clipAdviceDropDb").num(g::clip_advice_drop_db).key("t20BandsHz").nums(thr::reverb::bands_hz);
+    namespace d = thr::distance;
+    j.key("drResolutionDb").num(d::dr_resolution_db).key("plosiveResolutionDb").num(d::plosive_resolution_db);
+    j.key("sibilanceResolutionDb").num(d::sibilance_resolution_db);
     j.close();
 }
 

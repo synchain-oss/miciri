@@ -252,15 +252,6 @@ ReverbBand reverbBandOf(double tMid)
     return ReverbBand::VeryBoomy;
 }
 
-DrBand drBandOf(double dr)
-{
-    if (dr < thr::direct_ratio::low_below_db)
-        return DrBand::Low;
-    if (dr > thr::direct_ratio::high_above_db)
-        return DrBand::High;
-    return DrBand::Mid;
-}
-
 void summariseReverb(ReverbAnalysis& out)
 {
     ReverbMeasures& m = out.result.measures;
@@ -332,7 +323,9 @@ DirectRatioClap measureDirectRatio(const Energy& en, const Segment& s, double ra
     const std::size_t window = std::max<std::size_t>(1, samplesFor(thr::direct_ratio::tail_snr_window_ms * 1e-3, rate));
     out.tailSnrDb = dsp::powerToDb(en.mean(b, std::min(en.size(), b + window))) - dsp::powerToDb(noise);
     out.lowerBound = out.tailSnrDb < thr::direct_ratio::tail_snr_min_db || tail <= 0.0;
-    // 尾部测不到：按测到的整段尾巴（至少一个尾窗）都最多高出噪声“截断余量”估尾部能量的上限，D/R 因此只是下限
+    // 尾部测不到：截断判据保证测到的整段尾巴（至少一个尾窗）里，含噪声的总功率不超过噪声的
+    // truncate_over_noise_db（4.77 dB，即 3 倍）。这里拿这个含噪声的总功率上限当尾部能量、不再扣噪声
+    // （扣掉后只剩 2 倍），按 3× 噪声有意放宽：尾部只会估大，D/R 只会估小，所以报的是下限
     if (out.lowerBound)
         tail = std::max(tail, noise * powerOfDb(thr::clap::truncate_over_noise_db) *
                                   static_cast<double>(std::max(end - b, window)));
@@ -425,11 +418,8 @@ DirectRatioAnalysis ClapAnalyser::finishDirectRatio() const
     }
     DirectRatioMeasures& m = out.result.measures;
     m.drDb = dsp::median(clean);
+    // 只知道下限的一下也算进中位数，结果就只当下限用：D/R 不分档，下限在前后对比里只排除一个方向（见 decide）
     m.lowerBoundOnly = lowerBound;
-    out.result.verdict.band = drBandOf(m.drDb);
-    // 只知道下限时，下限落在“高”以下说明真实档位可能更高，不当结论用
-    if (lowerBound && out.result.verdict.band != DrBand::High)
-        out.result.confidence = retest(RetestReason::LowPnr);
     return out;
 }
 

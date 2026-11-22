@@ -40,9 +40,10 @@ const WANT = {
     t20DryBelowS: T("reverb", "dry_below_s"),
     t20NormalBelowS: T("reverb", "normal_below_s"),
     t20BoomyBelowS: T("reverb", "boomy_below_s"),
-    drLowBelowDb: T("direct_ratio", "low_below_db"),
-    drHighAboveDb: T("direct_ratio", "high_above_db"),
     t20BandsHz: T("reverb", "bands_hz"),
+    drResolutionDb: T("distance", "dr_resolution_db"),
+    plosiveResolutionDb: T("distance", "plosive_resolution_db"),
+    sibilanceResolutionDb: T("distance", "sibilance_resolution_db"),
 };
 const sorted = (o) =>
     Object.fromEntries(

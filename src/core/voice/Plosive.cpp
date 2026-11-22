@@ -129,11 +129,8 @@ PlosiveResult analysePlosive(const std::vector<double>& samples, double sampleRa
         r.evidence.marks.push_back({EvidenceKind::Plosive, e.startSec, e.endSec, e.ratioDb, -1});
     }
     voice::keepStrongest(r.evidence.marks, static_cast<std::size_t>(p::evidence_max_marks));
+    // 不分档：只给数值与重测前后的对比，severity 保持最低档（未分档）
     r.measures.worstRatioDb = worst;
-    if (worst > p::heavy_above_db)
-        r.verdict.severity = Severity::Heavy;
-    else if (worst > p::moderate_above_db)
-        r.verdict.severity = Severity::Moderate;
     return r;
 }
 } // namespace miciri::core

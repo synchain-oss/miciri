@@ -15,7 +15,7 @@
 
 namespace miciri::bridge
 {
-inline constexpr int kApiVersion = 1;
+inline constexpr int kApiVersion = 2;
 
 template<class... S>
 constexpr std::array<std::string_view, sizeof...(S)> names(S... s)
@@ -59,7 +59,7 @@ inline constexpr auto kResultHum = names("fundamentalHz", "overFloorDb", "energy
 inline constexpr auto kResultDeviceProcessing = names("longestZeroMs", "zeroRuns", "detected");
 inline constexpr auto kResultReverb =
     names("t20Sec", "tMidSec", "bandPnrDb", "bandR2", "repeatMaxOverMin", "band", "gated");
-inline constexpr auto kResultDirectRatio = names("drDb", "lowerBoundOnly", "band");
+inline constexpr auto kResultDirectRatio = names("drDb", "lowerBoundOnly");
 inline constexpr auto kResultPlosive = names("worstRatioDb", "events", "severity", "lowSensitivity");
 inline constexpr auto kResultSibilance =
     names("midHighDb", "highDb", "effectiveBandwidthHz", "events", "severity", "highBandDisabled");
@@ -67,7 +67,9 @@ inline constexpr auto kResultClick =
     names("perMinute", "loudestRelDb", "loudestDbfs", "analysedSeconds", "count", "severity");
 inline constexpr auto kResultDirection = names("levelDb", "brightnessDb", "currentIndex", "bestOtherAdvantageDb",
                                                "kind", "repeatIndex", "confirmedAdvantageDb");
-inline constexpr auto kResultDistance = names("closeEvidence", "farEvidence", "kind");
+inline constexpr auto kResultDistance =
+    names("closeEvidence", "farEvidence", "drDeltaDb", "plosiveDeltaDb", "sibilanceDeltaDb", "empiricalLimitM", "kind",
+          "drSign", "plosiveSign", "sibilanceSign");
 
 inline constexpr auto kMeterFields =
     names("levelDbfsL", "levelDbfsR", "peakDbfsL", "peakDbfsR", "clipLatchL", "clipLatchR");
@@ -75,8 +77,8 @@ inline constexpr auto kMeterFields =
 // 追加（流程页用）：档位边界与正在进行的那一步的实时信息，字段含义见 docs/contracts/BRIDGE.md
 inline constexpr auto kSnapshotBands =
     names("tpTooQuietDbfs", "tpQuietDbfs", "tpLoudDbfs", "tpTooLoudDbfs", "targetPeakDbfs", "snrBadBelowDb",
-          "snrGoodAboveDb", "t20DryBelowS", "t20NormalBelowS", "t20BoomyBelowS", "drLowBelowDb", "drHighAboveDb",
-          "clipAdviceDropDb", "t20BandsHz");
+          "snrGoodAboveDb", "t20DryBelowS", "t20NormalBelowS", "t20BoomyBelowS", "clipAdviceDropDb", "t20BandsHz",
+          "drResolutionDb", "plosiveResolutionDb", "sibilanceResolutionDb");
 inline constexpr auto kSnapshotLive =
     names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps", "clapsNeeded", "clapsMax",
           "directionIndex", "notice", "noticeSec", "clapDetails");
@@ -145,10 +147,10 @@ inline std::vector<Table> contractTables()
         table("ENUM_NOISE_BAND", c::kNoiseBandNames),
         table("ENUM_HUM_KIND", c::kHumKindNames),
         table("ENUM_REVERB_BAND", c::kReverbBandNames),
-        table("ENUM_DR_BAND", c::kDrBandNames),
         table("ENUM_SEVERITY", c::kSeverityNames),
         table("ENUM_DIRECTION_CASE", c::kDirectionCaseNames),
         table("ENUM_DISTANCE_CASE", c::kDistanceCaseNames),
+        table("ENUM_DISTANCE_SIGN", c::kDistanceSignNames),
         table("ENUM_MIC_TYPE", c::kMicTypeNames),
         table("ENUM_CHANGE_KIND", c::kChangeKindNames),
         table("SNAPSHOT_BANDS", kSnapshotBands),

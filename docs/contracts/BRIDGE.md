@@ -8,7 +8,8 @@ status: frozen
 
 ## 版本与扩展
 
-- `BRIDGE_API_VERSION` 当前是 1，快照的 `apiVersion` 带同一个数。
+- `BRIDGE_API_VERSION` 当前是 2，快照的 `apiVersion` 带同一个数。版本 2 删掉了 D/R 的档位、决策表的几种房间建议和
+  距离的绝对判断，见 `docs/contract-changes/20261121-calibration-fallbacks.md`。
 - 同一版本内**只追加**：新函数、新事件、新字段、枚举新值只能加在表末尾，已有项不改名、不删除、不调换顺序。
   界面必须忽略不认识的字段与枚举值（当作 `unknown` 或不显示）。
 - 改名、删除、调换顺序、改字段含义：升版本号，并按 `CLAUDE.md` 的契约变更规则新增 `docs/contract-changes/<日期>-<名字>.md`。
@@ -72,11 +73,17 @@ status: frozen
   `tone` 是卡片的颜色：再测时一律 `none`；齿音与口水音不分档，`severity` 停在 `light` 只表示“未分档”，`tone` 也是 `none`，
   界面不能按 `light` 着成绿色；设备处理与距离没有色调。
   数组量（`t20Sec`、`bandPnrDb`、`bandR2`、`levelDb`、`brightnessDb`）是 JSON 数组。
+  `directRatio` 不分档，只有 `drDb` 与 `lowerBoundOnly`，`tone` 恒为 `none`；`plosive` 与齿音、口水音一样不分档。
+  `distance` 的字段：`closeEvidence`、`farEvidence` 是重测后指向更近、更远的项数；`drDeltaDb`、`plosiveDeltaDb`、`sibilanceDeltaDb`
+  是“现在减上次”（dB），对应的 `drSign`、`plosiveSign`、`sibilanceSign`（`ENUM_DISTANCE_SIGN`）是 `not-compared`、`gain-changed`、
+  `room-changed` 时不是测量值（为 0），界面不显示数值；`empiricalLimitM` 是按 T20 估的经验距离上限（米，经验值，没有 T20 时为 0）；
+  `kind` 取 `ENUM_DISTANCE_CASE`。规则见 `RESULT.md` 的“距离标尺的前后对比”。
 
 ## 流程页用的追加字段（`bands`、`live`）
 
 - `bands`（`SNAPSHOT_BANDS`）：档位边界，由 `thresholds.json` 换算（`gain.tp_*_dbfs`、`gain.target_peak_dbfs`、`noise.snr_*_db`、
-  `reverb.*_below_s`、`direct_ratio.*_db`、`gain.clip_advice_drop_db`、`reverb.bands_hz`），单位在键名后缀里。界面画区间条、目标区和文案里的数都从这里取，自己不写数字。
+  `reverb.*_below_s`、`gain.clip_advice_drop_db`、`reverb.bands_hz`、`distance.*_resolution_db`），单位在键名后缀里。界面画区间条、目标区和文案里的数都从这里取，自己不写数字。
+  `drResolutionDb`、`plosiveResolutionDb`、`sibilanceResolutionDb` 是距离标尺里“现在减上次”要超过多少才算一个方向的迹象。
   目标区（电平管上的绿区）是 `tpQuietDbfs` 到 `tpLoudDbfs`。
 - `live`（`SNAPSHOT_LIVE`）：正在进行的那一步的实时信息。同一时刻只有一步在跑（`startStep` 在忙时回 `busy`），所以不按步骤分键；
   没有步骤在跑时 `phase` 是 `none`，`claps` 是空数组，`clapsNeeded`、`clapsMax` 仍有值（准备页要写“凑够几下、最多几下”）。
@@ -103,9 +110,11 @@ status: frozen
   `digital-clip` 固定在前（有数字削波时 `gain` 不再单列，免得同一个原因说两次）；其余按 影响 × 置信度 ÷ 修改代价 排序，表在
   `thresholds.json` 的 `priority` 分组。要再测的、过期的结果不进候选。固定在前的两项只看是否过期、不看置信度：削波样本与接通状态都是直接数出来的，
   这一步即使因为太短等原因要再测，削波或没信号也已经发生，照样列出。候选条件见 `RESULT.md` 的“进最该改”一栏：轻微电流声、没确认的方向、
-  未分档的齿音与口水音都不进。
-- `advice`（`SNAPSHOT_ADVICE`）：`room` 取 `ENUM_ROOM_ADVICE`（T20 × D/R 的决策表，缺一项或要再测时 `unknown`），`distance` 取
-  `ENUM_DISTANCE_ADVICE`，`directionPrompt` 取 `ENUM_DIRECTION_PROMPT`（方向测试的提示放在哪；没测过方向不算问题）。文案由界面按这些名字取词条。
+  未分档的喷麦、齿音与口水音、距离都不进。
+- `advice`（`SNAPSHOT_ADVICE`）：`room` 取 `ENUM_ROOM_ADVICE`（只看 T20：干、正常 `good`，偏混 `move-closer-then-treat`，很混
+  `change-room-and-move-closer`；没有 T20、要再测或过期时 `unknown`），`distance` 取 `ENUM_DISTANCE_ADVICE`（可能离远了时 `move-closer`），
+  `directionPrompt` 取 `ENUM_DIRECTION_PROMPT`（方向测试的提示放在哪；没测过方向不算问题；T20 干或正常且可能离远了时 `main-button`）。
+  文案由界面按这些名字取词条。
 - `previous`：形状与 `results` 相同，每个区段是被最近一次新结果换下来的那一次（“上次→现在”），没有上次的区段不出现。只在内存里，
   卸载插件就没了，不进插件 state；`stale` 恒为 `false`，`direction` 的 `repeatIndex` 为 -1。
 - `results.direction` 追加 `repeatIndex`、`confirmedAdvantageDb`：那一对是当前方向与 `repeatIndex`，只在还要重唱这一对、
@@ -145,4 +154,4 @@ status: frozen
 ## 约束
 
 - 载荷只含数值与枚举名，不含音频、不含路径；界面文案全部走 i18n，不从原生拿句子。
-- 单位：电平 dBFS 或 dB，频率 Hz，时间秒（`Ms` 结尾的字段是毫秒），占比 `Pct` 结尾为百分数。
+- 单位：电平 dBFS 或 dB，频率 Hz，时间秒（`Ms` 结尾的字段是毫秒），距离米（`M` 结尾），占比 `Pct` 结尾为百分数。

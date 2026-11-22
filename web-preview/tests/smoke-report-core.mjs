@@ -249,7 +249,8 @@ run.eq(
         ["fresh", true, false, false, true],
         "喷麦重触发“太近”；齿音与口水音不作证据",
     );
-    run.eq(core.rulerModel(SCENES.t20longDrlow()).far[0].on, true, "D/R 低触发“太远”主证据");
+    // 桥版本 2 起 D/R 不分档（没有 band），这条证据不再触发；标尺按前后对比重做之前先钉住现状
+    run.eq(core.rulerModel(SCENES.t20longDrlow()).far[0].on, false, "D/R 不分档：不触发“太远”主证据");
     run.eq(core.rulerModel(SCENES.conflict()).conflict, true, "矛盾");
     run.eq(core.rulerModel(SCENES.stalePosition()).st, "stale", "位置过期：灰");
     run.eq(core.rulerModel(buildSnapshot()).st, "low", "没测位置：灰，没有标记");

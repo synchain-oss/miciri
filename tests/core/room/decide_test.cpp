@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 方向的测量与判断、决策表的每一格、距离标尺（用合成的证据）、方向测试的提示方式。
+// 方向的测量与判断、房间建议的每一档、距离标尺（用合成的读数）、方向测试的提示方式。
 #include <catch2/catch_test_macros.hpp>
 
 #include <cmath>
@@ -14,7 +14,6 @@
 using namespace miciri;
 using namespace miciri::testing;
 using core::DirectionCase;
-using core::EvidenceLevel;
 
 namespace
 {
@@ -34,13 +33,9 @@ core::ReverbResult reverbOf(core::ReverbBand band, bool trusted = true)
         r.confidence = core::retest(core::RetestReason::Unstable);
     return r;
 }
-core::DirectRatioResult drOf(core::DrBand band, bool trusted = true)
+core::DistanceReading at(double value, bool lowerBound = false)
 {
-    core::DirectRatioResult r;
-    r.verdict.band = band;
-    if (!trusted)
-        r.confidence = core::retest(core::RetestReason::Clipped);
-    return r;
+    return {true, value, lowerBound};
 }
 } // namespace
 
@@ -131,98 +126,165 @@ TEST_CASE("direction verdicts")
     }
 }
 
-TEST_CASE("decision table: every cell")
+TEST_CASE("room advice reads T20 only")
 {
-    using core::DrBand;
     using core::ReverbBand;
     using core::RoomAdvice;
-    struct Cell
+    struct Case
     {
         ReverbBand t20;
-        DrBand dr;
         RoomAdvice advice;
         bool priority;
     };
-    const Cell cells[] = {
-        {ReverbBand::Boomy, DrBand::Low, RoomAdvice::ChangeRoomAndMoveCloser, true},
-        {ReverbBand::Normal, DrBand::Low, RoomAdvice::MoveCloserCheckDirection, true},
-        {ReverbBand::VeryBoomy, DrBand::High, RoomAdvice::KeepCloseDontBackOff, false},
-        {ReverbBand::Normal, DrBand::High, RoomAdvice::Good, false},
-        {ReverbBand::Normal, DrBand::Mid, RoomAdvice::FineNotPriority, false},
-        {ReverbBand::Boomy, DrBand::Mid, RoomAdvice::MoveCloserThenTreat, true},
-        // 干也算正常
-        {ReverbBand::Dry, DrBand::Low, RoomAdvice::MoveCloserCheckDirection, true},
-        {ReverbBand::VeryBoomy, DrBand::Low, RoomAdvice::ChangeRoomAndMoveCloser, true},
+    const Case cases[] = {
+        {ReverbBand::Dry, RoomAdvice::Good, false},
+        {ReverbBand::Normal, RoomAdvice::Good, false},
+        {ReverbBand::Boomy, RoomAdvice::MoveCloserThenTreat, true},
+        {ReverbBand::VeryBoomy, RoomAdvice::ChangeRoomAndMoveCloser, true},
     };
-    for (const Cell& c : cells)
+    for (const Case& c : cases)
     {
-        INFO("T20 " << toString(c.t20) << " D/R " << toString(c.dr));
-        const core::RoomDecision d = core::decideRoom(reverbOf(c.t20), drOf(c.dr));
+        INFO("T20 " << toString(c.t20));
+        const core::RoomDecision d = core::decideRoom(reverbOf(c.t20));
         CHECK(d.advice == c.advice);
         CHECK(d.priority == c.priority);
     }
-    CHECK(core::decideRoom(std::nullopt, drOf(DrBand::Low)).advice == RoomAdvice::Unknown);
-    CHECK(core::decideRoom(reverbOf(ReverbBand::Normal), std::nullopt).advice == RoomAdvice::Unknown);
-    CHECK(core::decideRoom(reverbOf(ReverbBand::Normal, false), drOf(DrBand::Low)).advice == RoomAdvice::Unknown);
-    CHECK(core::decideRoom(reverbOf(ReverbBand::Normal), drOf(DrBand::Low, false)).advice == RoomAdvice::Unknown);
+    CHECK(core::decideRoom(std::nullopt).advice == RoomAdvice::Unknown);
+    const core::RoomDecision retest = core::decideRoom(reverbOf(ReverbBand::VeryBoomy, false));
+    CHECK(retest.advice == RoomAdvice::Unknown);
+    CHECK_FALSE(retest.priority);
 }
 
-TEST_CASE("distance ruler from synthetic evidence")
+TEST_CASE("distance ruler: the first test only says maybe too far")
 {
-    using core::DistanceAdvice;
     using core::DistanceCase;
-    const auto decide = [](core::DistanceEvidence e) { return core::decideDistance(e); };
-    core::DistanceEvidence none;
-    none.plosive = none.sibilance = none.click = none.lowDirectRatio = none.lowSnr = EvidenceLevel::None;
+    core::DistanceEvidence e;
+    CHECK(core::decideDistance(e).verdict.kind == DistanceCase::Unknown);
+    e.snrBad = true; // 没有 T20：不提示
+    CHECK(core::decideDistance(e).verdict.kind == DistanceCase::Unknown);
+    e.tMidSec = 0.3;
+    const core::DistanceResult hint = core::decideDistance(e);
+    CHECK(hint.verdict.kind == DistanceCase::MaybeTooFar);
+    CHECK(hint.confidence.level == core::Reliability::Trusted);
+    CHECK(core::distanceAdviceOf(hint) == core::DistanceAdvice::MoveCloser);
+    CHECK(hint.measures.empiricalLimitM == within(core::empiricalDistanceLimitM(0.3), 1e-12));
+    e.snrBad = false; // SNR 不差：只给经验上限，不提示
+    const core::DistanceResult quiet = core::decideDistance(e);
+    CHECK(quiet.verdict.kind == DistanceCase::Unknown);
+    CHECK(quiet.measures.empiricalLimitM > 0.0);
+    CHECK(core::distanceAdviceOf(quiet) == core::DistanceAdvice::None);
+    // 第一次测试没有上次：三项都是没比
+    CHECK(quiet.verdict.drSign == core::DistanceSign::NotCompared);
+    CHECK(quiet.verdict.plosiveSign == core::DistanceSign::NotCompared);
+    CHECK(quiet.verdict.sibilanceSign == core::DistanceSign::NotCompared);
+}
 
-    CHECK(decide({}).result.verdict.kind == DistanceCase::Unknown);
-    CHECK(decide(none).result.verdict.kind == DistanceCase::Fine);
+TEST_CASE("the empirical distance limit follows the critical distance and shrinks with T20")
+{
+    namespace d = thr::distance;
+    const double t = 0.4;
+    const double critical = d::critical_distance_coef * std::sqrt(d::source_directivity * d::room_volume_m3 / t);
+    CHECK(core::empiricalDistanceLimitM(t) == within(d::limit_critical_frac * critical, 1e-12));
+    // T20 变成四倍，上限减半
+    CHECK(core::empiricalDistanceLimitM(4.0 * t) == within(0.5 * core::empiricalDistanceLimitM(t), 1e-12));
+    CHECK(core::empiricalDistanceLimitM(0.0) == 0.0);
+    CHECK(core::empiricalDistanceLimitM(-1.0) == 0.0);
+}
 
-    auto closeStrong = none;
-    closeStrong.click = EvidenceLevel::Strong;
-    const core::DistanceDecision tooClose = decide(closeStrong);
-    CHECK(tooClose.result.verdict.kind == DistanceCase::TooClose);
-    CHECK(tooClose.advice == DistanceAdvice::BackOffALittle);
-    CHECK(tooClose.result.confidence.level == core::Reliability::Trusted);
-    CHECK(tooClose.result.measures.closeEvidence == 1);
+TEST_CASE("distance ruler: a retest compares D/R, plosives and sibilance with last time")
+{
+    using core::DistanceCase;
+    using core::DistanceSign;
+    namespace d = thr::distance;
+    const double dr = d::dr_resolution_db;
+    const double pl = d::plosive_resolution_db;
+    const double sb = d::sibilance_resolution_db;
+    core::DistanceEvidence e;
+    e.drBefore = at(10.0);
+    e.plosiveBefore = at(5.0);
+    e.sibilanceBefore = at(-40.0);
+    e.snrBad = true; // 有了前后对比，弱提示让位
+    e.tMidSec = 0.3;
 
-    closeStrong.clickStillHeavyAfterBackingOff = true;
-    CHECK(decide(closeStrong).advice == DistanceAdvice::DrinkWater);
+    SECTION("everything moved the same way")
+    {
+        e.drNow = at(10.0 + dr + 1.0);
+        e.plosiveNow = at(5.0 + pl + 1.0);
+        e.sibilanceNow = at(-40.0 + sb + 1.0);
+        const core::DistanceResult r = core::decideDistance(e);
+        CHECK(r.verdict.kind == DistanceCase::Closer);
+        CHECK(r.measures.closeEvidence == 3);
+        CHECK(r.measures.farEvidence == 0);
+        CHECK(r.measures.drDeltaDb == within(dr + 1.0, 1e-12));
+        CHECK(r.measures.sibilanceDeltaDb == within(sb + 1.0, 1e-12));
+        CHECK(core::distanceAdviceOf(r) == core::DistanceAdvice::None);
 
-    auto closeWeak = none;
-    closeWeak.plosive = EvidenceLevel::Weak;
-    closeWeak.clickStillHeavyAfterBackingOff = true; // 口水音不重时这条不起作用
-    const core::DistanceDecision weak = decide(closeWeak);
-    CHECK(weak.result.verdict.kind == DistanceCase::TooClose);
-    CHECK(weak.advice == DistanceAdvice::BackOffALittle);
-    CHECK(weak.result.confidence.level == core::Reliability::Retest);
-
-    auto far = none;
-    far.lowDirectRatio = EvidenceLevel::Strong;
-    CHECK(decide(far).result.verdict.kind == DistanceCase::TooFar);
-    CHECK(decide(far).advice == DistanceAdvice::MoveCloser);
-    far.lowDirectRatio = EvidenceLevel::Weak;
-    CHECK(decide(far).result.confidence.level == core::Reliability::Retest);
-    far.lowSnr = EvidenceLevel::Weak; // 次要证据把弱的 D/R 证据抬成可信
-    CHECK(decide(far).result.confidence.level == core::Reliability::Trusted);
-    CHECK(decide(far).result.measures.farEvidence == 2);
-
-    auto snrOnly = none;
-    snrOnly.lowSnr = EvidenceLevel::Strong; // SNR 低单独不算太远
-    CHECK(decide(snrOnly).result.verdict.kind == DistanceCase::Fine);
-    snrOnly.sibilance = EvidenceLevel::Strong;
-    CHECK(decide(snrOnly).result.verdict.kind == DistanceCase::TooClose);
-
-    auto both = none;
-    both.sibilance = EvidenceLevel::Weak;
-    both.lowDirectRatio = EvidenceLevel::Strong;
-    CHECK(decide(both).result.verdict.kind == DistanceCase::Conflicting);
-    CHECK(decide(both).advice == DistanceAdvice::FixRoomOrDirectionFirst);
-
-    CHECK(core::evidenceOf(std::nullopt) == EvidenceLevel::NotMeasured);
-    CHECK(core::evidenceOf(core::Severity::Light) == EvidenceLevel::None);
-    CHECK(core::evidenceOf(core::Severity::Moderate) == EvidenceLevel::Weak);
-    CHECK(core::evidenceOf(core::Severity::Heavy) == EvidenceLevel::Strong);
+        e.drNow = at(10.0 - dr - 1.0);
+        e.plosiveNow = at(5.0 - pl - 1.0);
+        e.sibilanceNow = at(-40.0 - sb - 1.0);
+        CHECK(core::decideDistance(e).verdict.kind == DistanceCase::Farther);
+        CHECK(core::decideDistance(e).measures.farEvidence == 3);
+    }
+    SECTION("changes within the resolution are no change; one sign is enough")
+    {
+        e.drNow = at(10.0 + 0.5 * dr);
+        e.plosiveNow = at(5.0 - 0.5 * pl);
+        e.sibilanceNow = at(-40.0 + 0.5 * sb);
+        const core::DistanceResult same = core::decideDistance(e);
+        CHECK(same.verdict.kind == DistanceCase::NoChange);
+        CHECK(same.verdict.drSign == DistanceSign::NoChange);
+        CHECK(same.measures.drDeltaDb == within(0.5 * dr, 1e-12));
+        e.drNow = at(10.0 + dr + 1.0);
+        CHECK(core::decideDistance(e).verdict.kind == DistanceCase::Closer);
+    }
+    SECTION("signs pointing both ways are conflicting")
+    {
+        e.drNow = at(10.0 - dr - 1.0);
+        e.sibilanceNow = at(-40.0 + sb + 1.0);
+        const core::DistanceResult r = core::decideDistance(e);
+        CHECK(r.verdict.kind == DistanceCase::Conflicting);
+        CHECK(r.measures.closeEvidence == 1);
+        CHECK(r.measures.farEvidence == 1);
+        CHECK(r.verdict.plosiveSign == DistanceSign::NotCompared); // 这次没有喷麦读数
+        CHECK(r.confidence.level == core::Reliability::Trusted);
+    }
+    SECTION("a gain change voids sibilance only; a room change voids all three")
+    {
+        e.drNow = at(10.0);
+        e.sibilanceNow = at(-40.0 + sb + 10.0);
+        e.gainChanged = true;
+        core::DistanceResult r = core::decideDistance(e);
+        CHECK(r.verdict.sibilanceSign == DistanceSign::GainChanged);
+        CHECK(r.measures.sibilanceDeltaDb == 0.0);
+        CHECK(r.verdict.drSign == DistanceSign::NoChange);
+        CHECK(r.verdict.kind == DistanceCase::NoChange);
+        e.roomChanged = true;
+        r = core::decideDistance(e);
+        CHECK(r.verdict.drSign == DistanceSign::RoomChanged);
+        CHECK(r.verdict.sibilanceSign == DistanceSign::RoomChanged);
+        // 缺读数的项仍是 not-compared：没有可比的两次，谈不上被换房间作废（比如第一次位置步没有上次）
+        CHECK(r.verdict.plosiveSign == DistanceSign::NotCompared);
+        CHECK(r.measures.drDeltaDb == 0.0);
+        CHECK(r.verdict.kind == DistanceCase::MaybeTooFar); // 比不了，回到第一次的弱提示
+    }
+    SECTION("a lower bound only rules out one direction")
+    {
+        // 上次只知道下限：真实的变化只会更小，“更近”说不出，“更远”照样成立
+        e.drBefore = at(10.0, true);
+        e.drNow = at(10.0 + dr + 1.0);
+        CHECK(core::decideDistance(e).verdict.drSign == DistanceSign::NotCompared);
+        CHECK(core::decideDistance(e).measures.drDeltaDb == 0.0);
+        e.drNow = at(10.0 - dr - 1.0);
+        CHECK(core::decideDistance(e).verdict.drSign == DistanceSign::Farther);
+        e.drNow = at(10.0);
+        CHECK(core::decideDistance(e).verdict.drSign == DistanceSign::NotCompared);
+        // 这次只知道下限：真实的变化只会更大
+        e.drBefore = at(10.0);
+        e.drNow = at(10.0 + dr + 1.0, true);
+        CHECK(core::decideDistance(e).verdict.drSign == DistanceSign::Closer);
+        e.drNow = at(10.0 - dr - 1.0, true);
+        CHECK(core::decideDistance(e).verdict.drSign == DistanceSign::NotCompared);
+    }
 }
 
 TEST_CASE("where the direction test is offered")
@@ -231,12 +293,18 @@ TEST_CASE("where the direction test is offered")
     using core::MicType;
     core::DirectionPromptInput in;
     CHECK(core::decideDirectionPrompt(in) == DirectionPrompt::CardButton);
-    in.room = core::RoomAdvice::MoveCloserCheckDirection;
+    // T20 干或正常 + 可能离远了：主按钮；房间偏混或没有 T20 时不是
+    in.room = core::RoomAdvice::Good;
+    in.distance = core::DistanceCase::MaybeTooFar;
     CHECK(core::decideDirectionPrompt(in) == DirectionPrompt::MainButton);
+    in.room = core::RoomAdvice::MoveCloserThenTreat;
+    CHECK(core::decideDirectionPrompt(in) == DirectionPrompt::CardButton);
+    in.room = core::RoomAdvice::Unknown;
+    CHECK(core::decideDirectionPrompt(in) == DirectionPrompt::CardButton);
     in.room = core::RoomAdvice::Good;
     in.distance = core::DistanceCase::Conflicting;
     CHECK(core::decideDirectionPrompt(in) == DirectionPrompt::ActionWithButton);
-    in.distance = core::DistanceCase::Fine;
+    in.distance = core::DistanceCase::Closer;
     in.gainLowOrNoiseBad = true;
     for (MicType m : {MicType::Usb, MicType::Condenser, MicType::Unknown})
     {
@@ -262,4 +330,8 @@ TEST_CASE("room thresholds keep their order")
     CHECK(thr::clap::onset_gap_ms < thr::clap::onset_lookback_ms); // 否则起音窗口为空，过滤悄悄失效
     CHECK(-thr::clap::noise_window_ms[0] <= thr::clap::segment_before_s * 1000.0);
     CHECK(thr::reverb::gate_search_from_ms >= thr::direct_ratio::direct_window_end_ms);
+    CHECK(thr::distance::dr_resolution_db > 0.0);
+    CHECK(thr::distance::plosive_resolution_db > 0.0);
+    CHECK(thr::distance::sibilance_resolution_db > 0.0);
+    CHECK((thr::distance::limit_critical_frac > 0.0 && thr::distance::limit_critical_frac <= 1.0));
 }
