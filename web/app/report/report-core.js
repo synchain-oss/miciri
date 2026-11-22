@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 报告页的纯逻辑：最该改的一件事、距离标尺、九张结果卡、方向提示放在哪。不碰 DOM，Node 里可以直接 import 做测试。
+// 报告页的纯逻辑：最该改的一件事、距离卡（前后对比）、九张结果卡、方向提示放在哪。不碰 DOM，Node 里可以直接 import 做测试。
 // 页面全部由快照推出：排序在原生侧（fixes、advice），这里只把名字翻成词条键和动作，不重新排序、不写阈值。
 //
 // 取舍顺序（从上到下第一个命中的就是顶部那张卡）：
@@ -9,9 +9,18 @@
 //   2. 有步骤过期：灰，写哪些过期、主按钮重测它们（过期的结果本来就不进 fixes）；
 //   3. 有读数要再测：灰，先重测它们（要再测的结果没有结论，也不进 fixes）；
 //   4. fixes 有第一项：照 fixes 与 advice 来；
-//   5. fixes 为空：近距离压住了房间声（advice.room）是琥珀的“别退后”，四步都做过是绿的“可以录”，否则灰的“还没测完”。
+//   5. fixes 为空：四步都做过是绿的“可以录”，否则灰的“还没测完”。
+// 距离与喷麦都不进 fixes：距离只有第一次的弱提示和重测后的前后对比，放在距离卡上。
 
-import { cardExtras, resultCards, STEP_IDS, visibleSteps } from "../flow/flow-core.js";
+import {
+    cardExtras,
+    distanceReading,
+    recDistance,
+    resultCards,
+    signed,
+    STEP_IDS,
+    visibleSteps,
+} from "../flow/flow-core.js";
 
 /** 九张卡的固定顺序，以及每张卡对应的结果区段与步骤。 */
 export const CARD_ORDER = ["level", "noise", "hum", "room", "dr", "plosive", "sib", "mouth", "dir"];
@@ -111,50 +120,60 @@ export function cardsOf(state) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// 距离标尺
+// 距离卡
 
 /**
- * 标尺上的位置是示意（0 到 1，左近右远），不是距离：中间 0.5，每多一条证据多走 POS_STEP；不显示任何距离数值。
- * 这些数只决定标记画在哪，判据在原生侧（distance.kind）。
+ * 标尺上的位置是示意（0 到 1，左近右远），不是距离：上次的位置固定在中间（虚影），现在的标记按指向更近或更远的项数
+ * 往左或往右挪一格（最多三格）；不显示任何距离数值。判据在原生侧（distance.kind 与各项的 sign）。
  */
 const POS_MID = 0.5;
-const POS_STEP = 0.1;
-const POS_NEAR = 0.3;
-const POS_FAR = 0.7;
-const POS_EDGE = 0.08;
-
-export function rulerPos(d) {
-    if (!d) return null;
-    if (d.kind === "too-close") return Math.max(POS_EDGE, POS_NEAR - POS_STEP * (Math.max(1, d.closeEvidence) - 1));
-    if (d.kind === "too-far") return Math.min(1 - POS_EDGE, POS_FAR + POS_STEP * (Math.max(1, d.farEvidence) - 1));
-    return d.kind === "fine" || d.kind === "conflicting" ? POS_MID : null;
-}
+const POS_STEP = 0.13;
+const POS_MAX_STEPS = 3;
+/** 做了前后对比的情形：有上次的位置可画。 */
+const COMPARED_KINDS = ["closer", "farther", "no-change", "conflicting"];
+const SIGN_KINDS = ["not-compared", "closer", "farther", "no-change", "gain-changed", "room-changed"];
+/** 前后对比用的三项读数：卡片 id、结果里的 sign 与 delta 字段。口水音只作提示，不进对比。 */
+const SIGN_FIELDS = [
+    ["dr", "drSign", "drDeltaDb"],
+    ["plosive", "plosiveSign", "plosiveDeltaDb"],
+    ["sib", "sibilanceSign", "sibilanceDeltaDb"],
+];
 
 /**
- * 标尺：证据是否触发，由别的结果推出（距离只给了条数）。齿音与口水音不分档，不作证据，标成“未参与”，不写成“没有”。
- * 状态：fresh；stale（位置挪过）；low（证据弱或要再测）。
+ * 距离卡：第一次只有“可能离远了”这条弱提示；重测位置之后，按 D/R、喷麦、齿音的变化说更近、更远、没有明显变化或说不准。
+ * 状态 st：none（位置还没测）、fresh、stale（位置挪过）、low（原生要再测）。read 是一句话，sign 的 delta 是现在减上次（dB）。
  */
-export function rulerModel(state) {
-    const r = results(state);
-    const d = r.distance;
-    const live = (s) => s && !s.stale && s.reliability === "trusted";
-    const stale = !!(d && d.stale);
-    const low = !d || d.reliability === "retest" || d.kind === "unknown";
-    const pd = state.previous && state.previous.distance;
+export function distanceModel(state) {
+    const d = results(state).distance;
+    const { shown, n } = distanceReading(d);
+    const st = !d ? "none" : d.stale ? "stale" : d.reliability === "retest" ? "low" : "fresh";
+    const fresh = st === "fresh";
+    const compared = fresh && COMPARED_KINDS.includes(shown);
+    const steps = Math.min(Math.max(1, n || 1), POS_MAX_STEPS);
+    const pos = !compared
+        ? null
+        : shown === "closer"
+          ? POS_MID - POS_STEP * steps
+          : shown === "farther"
+            ? POS_MID + POS_STEP * steps
+            : shown === "no-change"
+              ? POS_MID
+              : null;
+    const signs = SIGN_FIELDS.map(([key, sk, dk]) => {
+        const sign = d && SIGN_KINDS.includes(d[sk]) ? d[sk] : "not-compared";
+        const directional = sign === "closer" || sign === "farther" || sign === "no-change";
+        return { key, sign, delta: directional && Number.isFinite(d[dk]) ? signed(d[dk]) : null };
+    });
     return {
-        st: stale ? "stale" : low ? "low" : "fresh",
-        pos: d ? rulerPos(d) : null,
-        prev: pd ? rulerPos(pd) : null,
-        conflict: !!d && d.kind === "conflicting",
-        near: [
-            { key: "plosive", on: live(r.plosive) && r.plosive.severity !== "light" },
-            { key: "sib", on: false, off: true },
-            { key: "mouth", on: false, off: true },
-        ],
-        far: [
-            { key: "room", on: live(r.directRatio) && r.directRatio.band === "low" },
-            { key: "snr", on: live(r.noise) && r.noise.band === "bad", minor: true },
-        ],
+        st,
+        kind: shown,
+        read: d ? { key: `flow.pr.e.${shown}`, vars: { n } } : { key: "report.dist.none" },
+        hint: fresh && shown === "maybe-too-far",
+        ghost: compared ? POS_MID : null,
+        pos,
+        // 三项读数都没比过（第一次）时不列
+        signs: fresh && signs.some((x) => x.sign !== "not-compared") ? signs : [],
+        rec: recDistance(state),
     };
 }
 
@@ -184,11 +203,10 @@ function gainNumbers(state) {
     return { n: Math.round(Math.abs(b.targetPeakDbfs - peak)) };
 }
 
-/** fixes 的一项到顶部卡的内容。dirOff：方向提示不放在顶部（耳机麦，或方向测过且没过期）。 */
+/** fixes 的一项到顶部卡的内容；不认识的项返回 null。 */
 function fixFor(item, state, p) {
     const r = results(state);
     const advice = state.advice || { room: "unknown", distance: "none", directionPrompt: "none" };
-    const dirOff = p === "none" || p === "stale";
     const tone = (s, d = "amber") => (s && (s.tone === "red" || s.tone === "amber") ? s.tone : d);
     const close = act("report.fx.closer");
     if (item === "no-signal")
@@ -216,61 +234,23 @@ function fixFor(item, state, p) {
             cta: { key: "report.fx.dir.cta", kind: "go", to: "direction" },
         };
     if (item === "room") {
-        switch (advice.room) {
-            case "change-room-and-move-closer":
-                return {
-                    tone: "red",
-                    head: act("report.fx.room1.h"),
-                    acts: [act("flow.rr.a1"), close, act("report.fx.room1.a3")],
-                    cta: retestCta(["gain", "quiet", "room", "position"]),
-                };
-            case "move-closer-check-direction":
-                return p === "main-button"
-                    ? {
-                          tone: "red",
-                          head: act("report.fx.room2.h"),
-                          acts: [close, act("report.fx.room2.a2")],
-                          cta: { key: "report.dir.opt", kind: "go", to: "direction", prep: true },
-                      }
-                    : { tone: "red", head: act("report.fx.room2.hs"), acts: [close], cta: retestCta(["position"]) };
-            case "move-closer-then-treat":
-                return {
-                    tone: "amber",
-                    head: act("report.fx.room3.h"),
-                    acts: [close, act("report.fx.room3.a2")],
-                    cta: retestCta(["gain", "quiet", "position"]),
-                };
-            default:
-                return { tone: "amber", head: act("report.fx.room0.h"), acts: [close], cta: retestCta(["position"]) };
-        }
-    }
-    if (item === "distance") {
-        switch (advice.distance) {
-            case "back-off-a-little":
-                return {
-                    tone: "red",
-                    head: act("report.fx.near.h"),
-                    acts: [act("report.fx.near.a1"), act("report.fx.near.a2")],
-                    cta: retestCta(["position"]),
-                };
-            case "drink-water":
-                return {
-                    tone: "red",
-                    head: act("report.fx.water.h"),
-                    acts: [act("report.fx.water.a1"), act("report.fx.water.a2")],
-                    cta: retestCta(["position"]),
-                };
-            case "fix-room-or-direction-first":
-                return {
-                    tone: "red",
-                    head: act(dirOff ? "report.fx.conf.hs" : "report.fx.conf.h"),
-                    acts: [act("report.fx.conf.a1"), act("report.fx.conf.a3")],
-                    cta: retestCta(["room", "position"]),
-                    dirAct: "report.fx.conf.a4",
-                };
-            default:
-                return { tone: "red", head: act("report.fx.room2.hs"), acts: [close], cta: retestCta(["position"]) };
-        }
+        // 房间建议只看 T20：很混先换地方或加吸声，偏混先靠近。fixes 说要改房间、建议却不是这两种
+        // （旧的原生端）时，只说“房间声偏多”，不替原生写一条它没发的具体做法
+        if (advice.room === "change-room-and-move-closer")
+            return {
+                tone: "red",
+                head: act("report.fx.room1.h"),
+                acts: [act("flow.rr.a1"), close, act("report.fx.room1.a3")],
+                cta: retestCta(["gain", "quiet", "room", "position"]),
+            };
+        if (advice.room === "move-closer-then-treat")
+            return {
+                tone: "amber",
+                head: act("report.fx.room3.h"),
+                acts: [close, act("report.fx.room3.a2")],
+                cta: retestCta(["gain", "quiet", "position"]),
+            };
+        return { tone: "amber", head: act("report.fx.room0.h"), acts: [act("flow.rr.a2")], cta: retestCta(["room"]) };
     }
     if (item === "hum") {
         const by = {
@@ -293,6 +273,21 @@ function fixFor(item, state, p) {
     if (item === "noise") {
         const lowGain = r.gain && (r.gain.band === "quiet" || r.gain.band === "too-quiet");
         const num = gainNumbers(state);
+        // 底噪偏大又可能离远了（T20 不长，所以不是房间的事）：先靠近。方向检查没做过时放在主按钮上
+        if (advice.distance === "move-closer")
+            return p === "main-button"
+                ? {
+                      tone: tone(r.noise),
+                      head: act("report.fx.far.h"),
+                      acts: [close, act("report.fx.far.a2")],
+                      cta: { key: "report.dir.opt", kind: "go", to: "direction", prep: true },
+                  }
+                : {
+                      tone: tone(r.noise),
+                      head: act("report.fx.farnoise.h"),
+                      acts: [close, act("report.fx.farnoise.a2")],
+                      cta: retestCta(["position"]),
+                  };
         return lowGain
             ? {
                   tone: tone(r.noise),
@@ -308,13 +303,7 @@ function fixFor(item, state, p) {
                   cta: retestCta(["quiet"]),
               };
     }
-    // plosive
-    return {
-        tone: tone(r.plosive),
-        head: act("report.fx.near.h"),
-        acts: [act("report.fx.near.a1"), act("report.fx.near.a2")],
-        cta: retestCta(["position"]),
-    };
+    return null;
 }
 
 /** 过期的原因看哪些区段过期：换房间让房间声过期；挪位置让位置相关的过期；调增益只让增益、底噪、电流声、齿音过期。 */
@@ -331,8 +320,11 @@ const STALE_PRIMARY = {
     position: ["directRatio", "plosive", "click"],
 };
 
+/** 界面认识的“最该改”的项（桥契约的 FixItem）；别的（旧的原生端留下的 distance、plosive 之类）跳过，不照它写。 */
+const KNOWN_FIXES = ["no-signal", "digital-clip", "direction", "room", "hum", "gain", "noise"];
+
 export function fixModel(state) {
-    const fixes = state.fixes || [];
+    const fixes = (state.fixes || []).filter((f) => KNOWN_FIXES.includes(f));
     const advice = state.advice || {};
     const p = advice.directionPrompt || "none";
     const isStale = (sec) => !!(results(state)[sec] && results(state)[sec].stale);
@@ -379,22 +371,18 @@ export function fixModel(state) {
             acts: [act("report.fx.part.a1", { steps: miss })],
             cta: { key: "report.fx.part.cta", kind: "go", to: miss[0] },
         });
-    if (advice.room === "keep-close-dont-back-off")
-        return out({
-            tone: "amber",
-            head: act("report.fx.keep.h"),
-            acts: [act("report.fx.keep.a1"), act("report.fx.keep.a2")],
-            cta: COPY,
-        });
     const dirDone = results(state).direction && statusOf(state, "direction") === "done";
+    const dirOpen = !dirDone && visibleSteps(state).includes("direction");
     return out({
         tone: "green",
         head: act("report.fx.ok.h"),
-        acts: [
-            act("report.fx.ok.a1"),
-            ...(dirDone || !visibleSteps(state).includes("direction") ? [] : [act("report.fx.ok.a2")]),
-        ],
+        acts: [act("report.fx.ok.a1"), ...(dirOpen ? [act("report.fx.ok.a2")] : [])],
         cta: COPY,
+        // 几项读数指向不同的方向（说不准）时，方向提示是“动作加按钮”：绿的结论下面给一个次要按钮，不改结论
+        sec:
+            dirOpen && p === "action-with-button"
+                ? { key: "report.dir.go", kind: "go", to: "direction", prep: true }
+                : null,
     });
 }
 
@@ -405,7 +393,7 @@ export function fixModel(state) {
 const ACTS_WITH_DIR = 3;
 function withDirection(m, state, p) {
     if (p !== "action-with-button") return m;
-    const key = m.dirAct || "report.fx.conf.a4";
+    const key = m.dirAct || "report.fx.dirhint";
     return {
         ...m,
         acts: [...m.acts.slice(0, ACTS_WITH_DIR - 1), { key, dir: true }],

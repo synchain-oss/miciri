@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 报告页的组件：最该改的一件事、距离标尺、九张结果卡加一个“做了改动？”格。
+// 报告页的组件：最该改的一件事、距离卡（前后对比）、九张结果卡加一个“做了改动？”格。
 // 只把 report-core 算出的数据画成 DOM；不读桥，动作经 ctx 回调交给 flow-main。全程只用 DOM API，文字走词条。
 //
 // ctx：{ t, go(view), openPrep(step), retestSteps(steps), reportChange(kind), copy(text), openDetail(cardId) }
 
 import { el } from "../../shared/dom.js";
-import { ctaBtn, ghostBtn, resultCard } from "../flow/flow-ui.js";
+import { ctaBtn, ghostBtn, recDistLine, resultCard } from "../flow/flow-ui.js";
 import { STEP_KEY } from "../flow/flow-core.js";
 import { ic } from "../flow/icons.js";
-import { CHANGE_KINDS, cardsOf, copyParts, directionSlot, fixModel, rulerModel } from "./report-core.js";
+import { CHANGE_KINDS, cardsOf, copyParts, directionSlot, distanceModel, fixModel } from "./report-core.js";
 
 const TONE_ICON = { red: "alert", amber: "info", green: "circle-check", gray: "stale" };
-/** 标尺底色的五段：太近（红）到太远（红），中间是合适。 */
-const RULER_SEGS = ["red", "amber", "green", "amber", "red"];
 
 /** 词条变量里的步骤列表（steps）换成当前语言的步骤名。 */
 function say(t, a) {
@@ -71,71 +69,78 @@ function fixCard(m, state, ctx) {
     );
 }
 
-function chip(ctx, c) {
+/** 前后对比的一项读数：更近、更远、没有明显变化，没比的写原因；比得出来时带上“现在减上次”的 dB。 */
+function signChip(ctx, c) {
     const { t } = ctx;
+    const on = c.sign === "closer" || c.sign === "farther";
     return el(
         "div",
-        { class: "ev", role: "listitem", data: { has: c.on ? "1" : "0", k: c.key } },
-        el("i", { class: "sc-dot" }),
-        el("span", { text: t(`report.ev.${c.key}`) }),
-        c.minor ? el("span", { class: "ev__minor", text: t("report.ev.minor") }) : null,
-        el("span", { class: "sr-only", text: t(c.on ? "report.ev.has" : c.off ? "report.ev.off" : "report.ev.none") }),
+        { class: "ev", role: "listitem", data: { has: on ? "1" : "0", k: c.key, sign: c.sign } },
+        el("span", { class: "ev__k" }, el("i", { class: "sc-dot" }), el("span", { text: t(`report.ev.${c.key}`) })),
+        el("b", { class: "ev__sign", text: t(`report.sign.${c.sign}`) }),
+        c.delta ? el("i", { class: "ev__d sc-num", text: t("report.sign.db", { v: c.delta }) }) : null,
     );
 }
 
-function ruler(m, ctx) {
+/**
+ * 距离卡：第一次只有“可能离远了”的弱提示；重测位置之后，一句话读法、一条示意的前后标尺（虚线是上次的位置，
+ * 实线是现在，只示意方向，不是距离）、三项读数各自的变化，最后是推荐距离。
+ */
+function distanceCard(m, ctx) {
     const { t } = ctx;
     const fresh = m.st === "fresh";
-    const group = (label, chips) =>
-        el(
-            "div",
-            { class: "ruler__grp" },
-            el("span", { class: "ruler__gl", text: t(label) }),
-            el(
-                "div",
-                { class: "ruler__list", role: "list" },
-                chips.map((c) => chip(ctx, c)),
-            ),
-        );
     return el(
         "div",
         {
-            class: "ruler ruler--card sc-glass",
+            class: "dist sc-glass",
             role: "group",
-            aria: { label: t("report.ruler.aria") },
-            data: { part: "ruler", st: m.st, tone: fresh ? "amber" : "gray" },
+            aria: { label: t("report.dist.aria") },
+            data: { part: "distance", st: m.st, kind: m.kind, tone: fresh && m.hint ? "amber" : "gray" },
         },
         el(
             "div",
-            { class: "ruler__eb" },
-            el("span", { class: "sc-eyebrow", text: t("report.ruler.t") }),
-            fresh
-                ? m.conflict
-                    ? el(
-                          "span",
-                          { class: "sc-pill", data: { tone: "amber" } },
-                          el("i", { class: "sc-dot" }),
-                          el("span", { text: t("report.ruler.conf") }),
-                      )
-                    : null
-                : el("span", { class: "rc__stale", text: t(m.st === "stale" ? "flow.cf.stale" : "flow.cf.retry") }),
+            { class: "dist__eb" },
+            el("span", { class: "sc-eyebrow", text: t("report.dist.t") }),
+            m.hint
+                ? el(
+                      "span",
+                      { class: "sc-pill", data: { tone: "amber", part: "hint" } },
+                      el("i", { class: "sc-dot" }),
+                      el("span", { text: t("report.dist.hint") }),
+                  )
+                : null,
+            m.st === "stale" || m.st === "low"
+                ? el("span", { class: "rc__stale", text: t(m.st === "stale" ? "flow.cf.stale" : "flow.cf.retry") })
+                : null,
         ),
-        el(
-            "div",
-            { class: "ruler__ax" },
-            el("span", { text: t("report.ruler.near") }),
-            el("span", { text: t("report.ruler.ok") }),
-            el("span", { text: t("report.ruler.far") }),
-        ),
-        el(
-            "div",
-            { class: "ruler__track", data: { decor: "1" } },
-            RULER_SEGS.map((tone) => el("i", { class: "ruler__seg", data: { tone } })),
-            m.prev !== null ? el("i", { class: "ruler__ghost", style: { "--p": String(m.prev) } }) : null,
-            m.pos !== null ? el("i", { class: "ruler__mk", style: { "--p": String(m.pos) } }) : null,
-        ),
-        m.pos === null ? el("span", { class: "sr-only", text: t("report.ruler.none") }) : null,
-        el("div", { class: "ruler__ev" }, group("report.ruler.near.ev", m.near), group("report.ruler.far.ev", m.far)),
+        el("p", { class: "dist__read", data: { part: "read" }, text: say(t, m.read) }),
+        m.ghost !== null
+            ? el(
+                  "div",
+                  { class: "dist__cmp", data: { part: "compare" } },
+                  el(
+                      "div",
+                      { class: "dist__ax" },
+                      el("span", { text: t("report.dist.near") }),
+                      el("span", { text: t("report.dist.legend") }),
+                      el("span", { text: t("report.dist.far") }),
+                  ),
+                  el(
+                      "div",
+                      { class: "dist__track", data: { decor: "1" } },
+                      el("i", { class: "dist__ghost", style: { "--p": String(m.ghost) } }),
+                      m.pos !== null ? el("i", { class: "dist__mk", style: { "--p": String(m.pos) } }) : null,
+                  ),
+              )
+            : null,
+        m.signs.length
+            ? el(
+                  "div",
+                  { class: "dist__list", role: "list" },
+                  m.signs.map((c) => signChip(ctx, c)),
+              )
+            : null,
+        recDistLine(m.rec, ctx),
     );
 }
 
@@ -208,7 +213,7 @@ export function renderReport(state, ctx) {
             aria: { label: ctx.t("report.aria") },
             data: { part: "report-page", step: "report" },
         },
-        el("div", { class: "rp__top" }, fixCard(fixModel(state), state, ctx), ruler(rulerModel(state), ctx)),
+        el("div", { class: "rp__top" }, fixCard(fixModel(state), state, ctx), distanceCard(distanceModel(state), ctx)),
         el(
             "div",
             { class: "rp__grid", data: { n: String(cards.length) } },

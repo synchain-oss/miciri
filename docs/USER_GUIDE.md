@@ -127,7 +127,13 @@ Go back to the place where you sing, at the distance you normally use.
 
 You do not need to memorize the lists and Miciri does not judge whether you said them correctly. It measures how much of what the
 microphone hears is the direct voice versus the room (D/R), plosives (the puffs of air on p, t, k), sibilance (the hiss on s and sh),
-and mouth clicks. These feed a too-close / too-far scale. If a pass is much quieter than your gain test, Miciri asks you to read it again.
+and mouth clicks. None of these is graded as good or bad. Plosives, sibilance and mouth clicks each show a reference value (a rule
+of thumb, not a standard); when yours goes over it, that card gives one short tip. Miciri also shows a suggested distance for your
+microphone type: about 15 cm for condenser and USB microphones, about 5–10 cm for dynamic ones, and none for a headset. It is common
+practice, not a measurement.
+After you move and measure the position again, Miciri compares D/R, plosives and sibilance with last time and says whether you
+seem closer, seem farther, or have not changed noticeably. The first time it can only hint that you may be too far.
+If a pass is much quieter than your gain test, Miciri asks you to read it again.
 
 ### 6. Direction (optional, about 25 seconds)
 
@@ -146,6 +152,8 @@ result cards. Each shows one word and one main number; click a card to open its 
   *I changed the room*. They mark the affected cards stale, and one click retests only those.
 - **Last time → now.** Each card keeps the previous value so you can see whether the change helped. When one problem is solved,
   the next one moves up, and at the end the report says you can start recording.
+- **Distance has no good or bad range.** The first test can only say "maybe too far". After you move and retest the position,
+  the distance card compares the readings with last time. It never becomes the one thing to change first.
 - **Copy results** puts a one-line summary on the clipboard to paste into a message or a forum post.
 - A stale card means its measurement no longer applies, for example after the sample rate changed or you moved the microphone.
 
@@ -174,10 +182,14 @@ Some of these cannot be told apart from a very quiet room with nobody speaking, 
 - **Hum**: a steady low tone (and its harmonics) at the mains frequency, 50 or 60 Hz, usually from wiring or power supplies.
 - **T20 (reverberation time)**: an estimate of how long a sound takes to die away in the room, taken from the first 20 dB of the
   fade after a clap. Longer means a livelier, more echoey room.
-- **D/R (direct-to-room ratio)**: how loud the direct voice is compared with the room's reflections at your position. Low means a lot of room in the recording.
-- **Plosive**: the puff of air on p, t and k that overloads the microphone with a low thump.
-- **Sibilance**: the sharp hiss on s and sh. Too much sounds piercing.
-- **Mouth noise**: small clicks and wet sounds from the mouth. They are usually worse when you are very close.
+- **D/R (direct-to-room ratio)**: how loud the direct voice is compared with the room's reflections at your position. It falls as you
+  move away, so Miciri only uses it to compare before and after you move; it has no good or bad range.
+- **Plosive**: the puff of air on p, t and k that overloads the microphone with a low thump. The reference is 9 dB (a rule of thumb);
+  over it, add a pop filter or step back within the suggested distance.
+- **Sibilance**: the sharp hiss on s and sh. Too much sounds piercing. The reference is −3 dB (a rule of thumb); over it, angle the
+  microphone slightly off the front of your mouth, say the s a little softer, and de-ess after recording.
+- **Mouth noise**: small clicks and wet sounds from the mouth. They are usually worse when you are very close. There is no reference
+  value yet, so no tip; drinking some water helps.
 - **Dynamic / condenser microphone**: a dynamic microphone is rugged and needs more gain; a condenser is more sensitive and needs
   phantom power from the interface. USB microphones have the interface built in.
 - **Phase**: the timing of a wave. Two channels in opposite phase cancel each other when they are added into mono.
