@@ -26,6 +26,7 @@ CI 与 gates 从同组织另一个仓的做法派生而来，那个仓有四十�
 | upstream | 复制来的文件必须登记来源 |
 | path-case、offline、recursive-delete | Windows 与 macOS 大小写冲突；插件不联网；递归删除只许删自己建的目录 |
 | wav-size | 公开仓只放合成夹具：单个 ≤ 200 KB，合计 < 5 MB，只在 `tests/fixtures/` 与 `tests/golden/` |
+| algorithms-doc | `docs/ALGORITHMS.md` 里的阈值表由 `thresholds.json` 生成；改了阈值而没重新生成就判红，文档不会悄悄落后于数据 |
 | pr-merge（v0，只读） | 合并前核对 bot 尾注、pr-agent、thread、required checks，并列出全部评论 |
 
 ## 砍掉的内容

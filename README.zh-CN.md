@@ -86,7 +86,7 @@ cmake --build build
 - [使用指南](docs/USER_GUIDE.zh-CN.md)（[English](docs/USER_GUIDE.md)）：安装、每一步怎么做、词汇表、常见问题
 - [已知问题](docs/KNOWN_ISSUES.md)、[隐私](docs/PRIVACY.zh-CN.md)
 - [更新记录](CHANGELOG.md)、[第三方声明](THIRD-PARTY-NOTICES.md)、[安全政策](SECURITY.md)
-- [架构](docs/ARCHITECTURE.md)、[契约](docs/contracts/)、[参与贡献](CONTRIBUTING.md)
+- [架构](docs/ARCHITECTURE.md)、[算法与阈值](docs/ALGORITHMS.md)、[契约](docs/contracts/)、[参与贡献](CONTRIBUTING.md)
 
 ## 相关项目
 
