@@ -46,7 +46,7 @@ const ABS = "detail.col.abs";
  */
 function voiceNotes(state, card) {
     const rec = recDistance(state);
-    const backOff = card.tip && /back-off/.test(card.tip.id) && !/nodist/.test(card.tip.id);
+    const backOff = !!(card.tip && card.tip.needsRec);
     return [
         ...(card.ref ? [A(card.ref.key, card.ref.vars)] : []),
         ...(card.tip ? [A(`flow.tip.${card.tip.id}`)] : []),

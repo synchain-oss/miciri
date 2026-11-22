@@ -266,11 +266,11 @@ run.eq(
         [over.plosive.ref.over, over.plosive.tip, over.sib.ref.over, over.sib.tip, over.mouth.ref.over, over.mouth.tip],
         [
             true,
-            { id: "pop-filter-or-back-off" },
+            { id: "pop-filter-or-back-off", needsRec: true },
             true,
-            { id: "angle-soften-de-ess" },
+            { id: "angle-soften-de-ess", needsRec: false },
             true,
-            { id: "back-off-a-little" },
+            { id: "back-off-a-little", needsRec: true },
         ],
         "超过参考值：各自的卡上有提示，建议键取自 advice",
     );
@@ -282,7 +282,7 @@ run.eq(
         "耳机麦没有推荐距离：带“退后一点”的提示只说不涉及距离的部分",
     );
     const water = { ...SCENES.overReference(), advice: { ...SCENES.overReference().advice, click: "drink-water" } };
-    run.eq(by(water).mouth.tip, { id: "drink-water" }, "口水音：喝点水");
+    run.eq(by(water).mouth.tip, { id: "drink-water", needsRec: false }, "口水音：喝点水");
     const stale = by(staled(SCENES.overReference(), "position"));
     run.eq(
         [stale.plosive.tip, stale.plosive.ref.over, stale.sib.tip],

@@ -289,6 +289,20 @@ run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
         "可能离远了：动作跟着原生侧的 move-closer",
     );
     run.eq(dist("maybe-too-far").acts, [], "不给 move-closer 时界面不自己加动作");
+    run.eq(
+        ["closer", "farther", "no-change"].map((k) => dist(k, {}, { distance: "move-closer" }).acts.length),
+        [0, 0, 0],
+        "move-closer 只在“可能离远了”时出现：别的情形即使收到也不加动作",
+    );
+    run.eq(
+        [
+            dist("closer", { closeEvidence: undefined }).expl.key,
+            dist("farther", { farEvidence: Number.NaN }).expl.key,
+            dist("farther", { farEvidence: 0 }).expl.key,
+        ],
+        ["flow.pr.e.unknown", "flow.pr.e.unknown", "flow.pr.e.farther"],
+        "更近、更远的项数缺失或不是数：按“还不够判断”写，不露出占位符；0 是有限数，照写",
+    );
     // 超过参考值的轻提示按卡的顺序列在动作里；各项建议只来自 advice，不影响距离那一格
     const tips = R("position", ["position"], (s) => {
         s.results.plosive = { ...s.results.plosive, overReference: true };

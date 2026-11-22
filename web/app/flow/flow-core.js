@@ -621,6 +621,9 @@ const TIP_ID = {
     "drink-water": () => "drink-water",
 };
 
+/** 带“稍离远”的完整提示：详情里要把推荐距离范围一起写出来。 */
+const TIP_NEEDS_REC = new Set(["pop-filter-or-back-off", "back-off-a-little"]);
+
 /**
  * 这一张卡的参考行与轻提示的来源：bands、各项建议（只有当前的结果才带，上次的不带）、有没有推荐距离。
  * @param {boolean} [current] 画的是当前结果（不是 previous）
@@ -635,7 +638,7 @@ export const cardExtras = (state, current = true) => ({
 function voiceExtras(r, ref, advice, x) {
     const live = !r.stale && r.reliability !== "retest";
     const id = live && advice && TIP_ID[advice] ? TIP_ID[advice](x.noDistance) : null;
-    return { ref: ref && { ...ref, over: live && ref.over }, tip: id ? { id } : null };
+    return { ref: ref && { ...ref, over: live && ref.over }, tip: id ? { id, needsRec: TIP_NEEDS_REC.has(id) } : null };
 }
 
 /** 四张卡都不分档：卡片无色，不管原生给了什么色调。 */
@@ -970,15 +973,19 @@ export function resultModel(state, id) {
             r.sibilance && resultCards.sib(r.sibilance, x),
             r.click && resultCards.mouth(r.click, x),
         ].filter(Boolean);
+        // 更近、更远的句子要写“几项读数”；原生端漏发数时按“还不够判断”写，不让页面露出 {n}
         const evidence = r.distance && (kind === "closer" ? r.distance.closeEvidence : r.distance.farEvidence);
+        const shown = (kind === "closer" || kind === "farther") && !Number.isFinite(evidence) ? "unknown" : kind;
         return {
             cards,
             cols: 2,
             side: true,
-            expl: act(`flow.pr.e.${kind}`, { n: evidence }),
+            expl: act(`flow.pr.e.${shown}`, { n: evidence }),
             // 往哪边挪由原生侧的建议决定：只有“可能离远了”会给 move-closer；超过参考值的轻提示按卡的顺序接在后面
             acts: [
-                ...((state.advice || {}).distance === "move-closer" ? [act("flow.pr.a.closer")] : []),
+                ...(kind === "maybe-too-far" && (state.advice || {}).distance === "move-closer"
+                    ? [act("flow.pr.a.closer")]
+                    : []),
                 ...cards.filter((c) => c.tip).map((c) => act(`flow.tip.${c.tip.id}`)),
             ],
             rec: recDistance(state),
