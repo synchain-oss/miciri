@@ -20,12 +20,14 @@ struct Analysis
     std::vector<double> noise; // 底噪谱：最安静那部分帧的平均
 };
 
-// 擦音结束后紧随的元音的 200-4000 Hz 功率；帧不够时返回 0
+// 擦音结束后紧随的元音的 200-4000 Hz 功率；帧不够时返回 0。
+// 时间从擦音结束（最后一帧 last 的末尾）算起：取起点不早于结束后 vowel_gap_ms、
+// 末尾不晚于结束后 vowel_window_ms 的帧
 double vowelPower(const std::vector<double>& vowel, const std::vector<double>& centroid, std::size_t last, double hopMs)
 {
-    const auto gap = static_cast<std::size_t>(std::llround(s::vowel_gap_ms / hopMs));
+    const auto lead = static_cast<std::size_t>(std::ceil((s::frame_ms + s::vowel_gap_ms) / hopMs));
     const auto window = static_cast<std::size_t>(std::llround(s::vowel_window_ms / hopMs));
-    const std::size_t from = last + 1 + gap;
+    const std::size_t from = last + lead;
     const std::size_t to = std::min(last + window, vowel.size() - 1);
     if (from > to)
         return 0.0;

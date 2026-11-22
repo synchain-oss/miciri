@@ -107,6 +107,19 @@ TEST_CASE("齿音：擦音后面没有元音时没有元音参考，不标超过
     CHECK_FALSE(r.verdict.overReference);
 }
 
+TEST_CASE("齿音：有效带宽不到 10 kHz 时高频项关闭，比值超过参考值也不标出", "[voice][sibilance][reference]")
+{
+    // 16 kHz 采样：有效带宽到不了 10 kHz。擦音照样检得出、元音很轻，比值本来超过参考值
+    const double fs = 16000.0;
+    const auto r = core::analyseSibilance(sibilantTake(fs, 0.03), fs);
+    INFO("bandwidth " << r.measures.effectiveBandwidthHz << " Hz, over vowel " << r.measures.highOverVowelDb << " dB");
+    CHECK(r.measures.events == 6);
+    CHECK(r.measures.vowelEvents == 6);
+    CHECK(r.measures.highOverVowelDb > thr::sibilance::reference_max_db + 3.0);
+    CHECK(r.verdict.highBandDisabled);
+    CHECK_FALSE(r.verdict.overReference);
+}
+
 TEST_CASE("齿音：只有元音时没有事件，要求再测", "[voice][sibilance]")
 {
     const double fs = 48000.0;
