@@ -4,6 +4,7 @@
 #include "HostProbeRunner.h"
 
 #include <array>
+#include <exception>
 #include <initializer_list>
 #include <string_view>
 
@@ -155,10 +156,20 @@ void ProbeRunner::timerCallback()
         scheduler_.advance(processedSec(), [this](const probe::Action& a) { return execute(a); });
         flushPending();
     }
+    catch (const std::exception& e)
+    {
+        noteError(e.what()); // 探针出错不影响插件：记下来，下一拍照常再来
+    }
     catch (...)
     {
-        // 探针出错不影响插件：下一拍照常再来
+        noteError("unknown exception");
     }
+}
+
+void ProbeRunner::noteError(const char* what)
+{
+    ++errors_;
+    lastError_ = what != nullptr ? what : "";
 }
 
 std::optional<double> ProbeRunner::processedSec() const
@@ -180,7 +191,11 @@ probe::Reply ProbeRunner::execute(const probe::Action& a)
         const int index = wireIndex(a.arg, core::kStepIdNames);
         if (index < 0)
             return {false, kBadStep};
-        pollStep(); // 上一步若刚结束，先把它的文件记下，免得被新的一步顶掉
+        // 先收已经结束的那一步。最近一眼还有一步在跑就回 busy（桥此刻也会这么回），下一拍再试：
+        // 这样新的一步开始时，上一步的 step 文件一定已经写了，不会在动作执行到一半时补写
+        pollStep();
+        if (watch_)
+            return {false, kBusy};
         const auto id = static_cast<core::StepId>(index);
         const auto runsBefore = s.view().runs[static_cast<std::size_t>(index)];
         switch (s.startStep(id, processor_.offlineRendering()))
@@ -193,8 +208,6 @@ probe::Reply ProbeRunner::execute(const probe::Action& a)
         case session::Session::Start::Ok:
             break;
         }
-        if (watch_) // 能开始新的一步，说明上一步已经收尾，只是还没轮到 pollStep 看见
-            finishStep(s.view());
         watch_ = Watch{id, runsBefore, false};
         return {};
     }
@@ -266,13 +279,18 @@ juce::var ProbeRunner::snapshot() const
     return buildBridgeSnapshot(processor_, hostName_, nullptr, std::nullopt);
 }
 
-// 与桥的 getEvidence 回执相同
+// 与桥的 getEvidence 回执相同，只是去掉包络的逐格采样（min、max）：那是录音的波形，只留在内存里，不写盘。
+// 包络只留格宽与格数；事件（时刻、时长、电平）是分析给出的数值，照写
 juce::var ProbeRunner::evidenceReply(core::StepId id) const
 {
     const auto pack = processor_.session().evidence(id);
     if (pack == nullptr)
         return probe::toVar(probe::Reply{false, kNoEvidence});
-    return makeObject({{"ok", true}, {"evidence", parseJson(session::evidenceJson(*pack))}});
+    const auto evidence = parseJson(session::evidenceJson(*pack));
+    if (auto* o = evidence.getDynamicObject())
+        o->setProperty("envelope",
+                       makeObject({{"hopSec", pack->hopSec}, {"cells", static_cast<int>(pack->min.size())}}));
+    return makeObject({{"ok", true}, {"evidence", evidence}});
 }
 
 juce::var ProbeRunner::scriptVar() const
@@ -293,7 +311,10 @@ juce::var ProbeRunner::header(const char* kind) const
                        {"kind", kind},
                        {"pid", static_cast<juce::int64>(probe::currentPid())},
                        {"processedSec", orNull(processedSec())},
-                       {"script", scriptVar()}});
+                       {"script", scriptVar()},
+                       {"errors", errors_},
+                       {"lastError", errors_ > 0 ? juce::var(juce::String(lastError_)) : juce::var()},
+                       {"pendingWrites", static_cast<int>(pending_.size())}});
 }
 
 void ProbeRunner::finalReport(const char* reason)
@@ -313,8 +334,13 @@ void ProbeRunner::finalReport(const char* reason)
         enqueue("final" + pidSuffix().toStdString(), content);
         flushPending();
     }
+    catch (const std::exception& e)
+    {
+        noteError(e.what());
+    }
     catch (...)
     {
+        noteError("unknown exception");
     }
 }
 

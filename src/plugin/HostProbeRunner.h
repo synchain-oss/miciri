@@ -70,6 +70,7 @@ private:
     void finalReport(const char* reason);
     void enqueue(const std::string& fileName, const juce::var& content);
     void flushPending();
+    void noteError(const char* what);
 
     MiciriProcessor& processor_;
     const std::atomic<std::uint64_t>& samples_;
@@ -81,6 +82,8 @@ private:
     probe::Scheduler scheduler_;
     std::optional<Watch> watch_; // 正在进行、结束时要写 step 文件的那一步
     int stepFiles_ = 0; // step 文件的序号
+    int errors_ = 0; // 定时器与写 final 时吞下的异常次数（探针出错不影响插件，但要在输出里看得见）
+    std::string lastError_;
     std::vector<std::pair<std::filesystem::path, std::string>> pending_; // 写失败、下一拍再试的文件
     juce::String hostName_;
     int intervalMs_ = probe::kWriteIntervalMs;

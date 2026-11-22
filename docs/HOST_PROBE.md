@@ -95,7 +95,8 @@
   墙钟会被宿主启动、打开工程带偏。还没收到有样本的块时时钟没开始，`at` 为 0 的动作也要等第一块。`at` 不得小于前一个动作的 `at`。
 - `do`：只认桥上已有的函数 `setMicType`、`startStep`、`cancelStep`、`reportChange`、`dismissChannelPrompt`。带参数的三个
   （`setMicType`、`startStep`、`reportChange`）必须给字符串 `arg`，取值同桥契约的枚举；`cancelStep`、`dismissChannelPrompt` 不带 `arg`。
-- 动作按顺序执行。到了 `at` 时若回执是 `busy`（上一步还在跑或还在收尾，比如阶段自动重来拖长了），这个动作每一拍重试，
+- 动作按顺序执行。到了 `at` 时若回执是 `busy`（上一步还在跑或还在收尾，比如阶段自动重来拖长了；探针最近一眼还看到有一步在跑时也直接回 `busy`，
+  保证上一步的 step 文件先写），这个动作每一拍重试，
   直到不是 `busy`；它后面的动作都等它。其余回执（`bad-step`、`bad-arg`、`disabled`）原样记下，接着往下走。
 - 回执与桥相同（`{ok: true}` 或 `{ok: false, reason}`，原因取 `BRIDGE_REASONS`）。
 - 脚本读不到、不是合法 JSON、`schema` 不是 1、任何一个动作不合规（未知的 `do`、缺参数、`at` 倒退等）：**一个动作也不执行**，
@@ -119,10 +120,12 @@
 | `pid` | ✓ | ✓ | 宿主进程号 |
 | `processedSec` | ✓ | ✓ | 写文件时插件已处理的样本秒；还没有样本时为 `null` |
 | `script` | ✓ | ✓ | `state`（`none` 没给脚本、`ok`、`error`）、`error`（只在 `error` 时有）、`actions`（脚本里的动作数）、`remaining`（还没执行完的） |
+| `errors`、`lastError` | ✓ | ✓ | 探针自己出错（异常被吞下、不影响插件）的次数与最近一次的说明，没出过错时 `lastError` 为 `null` |
+| `pendingWrites` | ✓ | ✓ | 写失败、排队等下一拍重写的文件数 |
 | `seq`、`step`、`outcome` | ✓ | | 序号、步骤名、结局：`done` 做完，`invalid` 作废（原因看快照里这一步的 `invalidReason`），`cancelled` 取消 |
 | `reason`、`stepFiles` | | ✓ | `release` 或 `destroy`；本实例写过几个 step 文件 |
 | `snapshot` | ✓ | ✓ | 此刻的快照，见下 |
-| `evidence` | ✓ | | 这一步的证据，与桥 `getEvidence` 的回执相同（`{ok: true, evidence}` 或 `{ok: false, reason: "no-evidence"}`）。作废、取消时是这一步上一次做完的那份（`evidence.rev` 不变），从没做完过就是 `no-evidence` |
+| `evidence` | ✓ | | 这一步的证据，形状同桥 `getEvidence` 的回执（`{ok: true, evidence}` 或 `{ok: false, reason: "no-evidence"}`），但包络只有 `hopSec` 与 `cells`（格数），没有逐格的 `min`、`max`。作废、取消时是这一步上一次做完的那份（`evidence.rev` 不变），从没做完过就是 `no-evidence` |
 | `waiting` | ✓ | ✓ | 到期了但回了 `busy`、正在等的那个动作（字段同下），没有为 `null` |
 | `actions` | ✓ | ✓ | 已执行完的动作日志：`index`、`at`、`do`、`arg`、`firstTriedSec`（第一次尝试时的样本秒）、`doneSec`（拿到非 `busy` 回执时）、`busyReplies`、`reply` |
 
@@ -130,7 +133,8 @@
 `micType`、`device`、`recommendedDistance` 等非界面字段都在，键序相同。区别只有三处：没有编辑器才有的界面字段
 `lang`、`uiScale`、`guideSeen`；`connect.callbackAgeSec` 是会话的占位值（编辑器用墙钟覆盖它）；`fixes` 里没有只有墙钟才看得出的“没有回调”。
 
-证据里的包络是分析用的那一路的电平包络（派生数据），不是音频；输出文件只在宿主测试构建里写，写到测试者自己指定的目录。
+音频与它的波形只存在于内存：包络的逐格采样就是录音的波形，所以不写进文件；写出去的只有分析给出的数值（结果、事件的时刻与电平）。
+输出文件只在宿主测试构建里写，写到测试者自己指定的仓库外目录。
 
 ## 拼时间轴：计划时长从哪里读
 

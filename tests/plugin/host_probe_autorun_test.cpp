@@ -153,6 +153,15 @@ TEST_CASE("without an editor, the script runs the steps by processed time and ea
         // 证据：与 getEvidence 的回执相同
         CHECK(static_cast<bool>(at(connect, {"evidence", "ok"})));
         CHECK(str(connect, {"evidence", "evidence", "stepId"}) == "connect");
+        // 包络的逐格采样是录音的波形，不写盘：只留格宽与格数
+        const auto envelope = at(connect, {"evidence", "evidence", "envelope"});
+        CHECK(static_cast<int>(envelope.getProperty("cells", 0)) > 0);
+        CHECK(static_cast<double>(envelope.getProperty("hopSec", 0)) > 0.0);
+        CHECK_FALSE(envelope.getDynamicObject()->hasProperty("min"));
+        CHECK_FALSE(envelope.getDynamicObject()->hasProperty("max"));
+        CHECK(intField(connect, "errors") == 0);
+        CHECK(at(connect, {"lastError"}).isVoid());
+        CHECK(intField(connect, "pendingWrites") == 0);
         // 动作日志：前两个执行完；gain 在等，已经回过 busy
         const auto* actions = at(connect, {"actions"}).getArray();
         REQUIRE(actions != nullptr);
