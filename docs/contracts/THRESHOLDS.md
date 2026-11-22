@@ -14,8 +14,8 @@ status: frozen
 | 字段 | 含义 |
 |---|---|
 | `value` | 数字、布尔、数字数组，或 `null`（还没有值） |
-| `state` | `synthetic`（合成验证）：在合成信号上核对过，`date` 是核对日期；`pending`（待标定）：规格里的起始值，或还没有值，等实录标定，`date` 为 `null` |
-| `source` | 公开措辞：`合成验证`、`规格起始值`、`待实录标定`；数值取自规格、仍待标定时写 `规格起始值，待实录标定` |
+| `state` | `synthetic`（合成验证）：在合成信号上核对过，`date` 是核对日期；`pending`（待标定）：规格里的起始值，或还没有值，等实录标定，`date` 为 `null`；`calibrated`（实录标定）：在实录上核对过，`date` 是标定日期，`source` 写依据和还缺什么 |
+| `source` | 公开措辞：以一个固定的开头起句，需要时在中文冒号后写依据或还缺什么。开头有：`合成验证`；`规格起始值`、`工程起始值`、`产品约定`、`经验值`；`规格`（取法按实录改过，值仍待标定）；`待实录标定`、`待定`（还没有值或依据，冒号后写缺什么）；`实录标定（YYYY-MM）`（只用于 `calibrated`）。只写中性描述：房间、说话人、话筒的数目与观测到的数值，不写录音文件名、人名与私有目录 |
 | `date` | 标定日期 `YYYY-MM-DD`；`pending` 必须是 `null` |
 | `note` | 可选，一句话说明单位以外的口径 |
 
@@ -39,11 +39,14 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 ## 分组
 
 `no_signal`、`channel_check`、`gain`、`noise`、`hum`、`device_processing`：值来自合成验证，少数起始值标 `pending`。
+其中 `gain.flat_min_peak_dbfs` 与电流声的 `f0_accept_hz`、`whistle_max_hz`、`whistle_min_dbfs`、`slight_below_over_floor_db`、
+`slight_below_dbfs` 已按实录标成 `calibrated`（2026-11-21，值不变）；啸叫的两项和 `slight_below_dbfs` 只有不触发一侧的录音。
 `clap`：拍手的检测、分段、噪声窗、削波与截断，房间与位置共用，值来自合成验证。
 `reverb`、`direct_ratio`、`direction`：规格里的档界与判据是起始值，标 `pending`；实现用的窗长与块长来自合成验证。
 `plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；口水音的残差倍数、高频背景门限是按实录调整过的起始值，仍未标定；齿音、口水音的档界和喷麦的低基频界还没有值（`null`）。喷麦不分档，没有档界。
 三项各有一个参考值（经验值，不是档界）：`plosive.reference_max_db`、`sibilance.reference_max_db`（6-12 kHz 对元音的比值）、
 `click.reference_max_per_min`（还没有值，要等更多的试听标签）；齿音对元音比值的取法（`sibilance.vowel_*`）与实录分析用的同一种。
+有效带宽（`sibilance.bandwidth_*`）每 500 Hz 一个频点、看 1 kHz 宽的频带，底噪取带内帧功率的第 2 百分位（数字静音的帧不算），连续 2 个频点不满足才停。
 `recommended_distance`：推荐距离，静态的常见做法（电容、USB、不确定一组，动圈一组，耳机麦不给），全部 `pending`。
 `direct_ratio`：只有测量用的窗、频带与判据，没有档界（D/R 不分档）。
 `distance`：距离标尺的前后对比与弱提示。三个分辨力（`dr_resolution_db`、`plosive_resolution_db`、`sibilance_resolution_db`）是“现在减上次”要超过多少才算一个方向的迹象，
@@ -75,5 +78,6 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 
 ## 变更
 
-改值：同一个 PR 附新旧差异说明与依据。实录标定完成的值会用新状态 `calibrated` 标记：那时往 schema 的 `state` 枚举末尾追加它，已有取值不动。
+改值：同一个 PR 附新旧差异说明与依据。实录标定过的值用 `calibrated` 标记（追加在 schema 的 `state` 枚举末尾，已有取值不动）；
+依据只覆盖一侧时照样标 `calibrated`，`source` 写明缺哪一侧的录音。
 改键名、改单位、改分组：属于契约变更，按 `CLAUDE.md` 的规则处理，并同步 schema。

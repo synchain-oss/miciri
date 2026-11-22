@@ -80,15 +80,17 @@ A microphone that is not connected, a missing phantom power or a gain at zero gi
 quiet room with nobody speaking. The two cannot be told apart from the signal, so the no-signal hints always say "possibly" and the
 main button is never locked.
 
-## 判档的数值还没有用真实录音标定
+## 判档的数值大多还没有用真实录音标定
 
-`thresholds.json` 里每个阈值都标着状态：`pending`（规格起始值）或 `synthetic`（合成信号验证过），还没有一项在真实录音上标定过。
+`thresholds.json` 里每个阈值都标着状态：`pending`（规格起始值）、`synthetic`（合成信号验证过）或 `calibrated`（在真实录音上核对过）。
+按实录标定的只有少数几项（削波检查的电平下限、电流声的几项判据），其余仍待标定。
 读数本身可以参考；档位（好、一般、差，干、偏混、很混）只是起始判断，不是认证，也不能代替耳朵。房间混响只测 500 Hz 以上。
 
-## Thresholds are not yet calibrated on real recordings
+## Most thresholds are not yet calibrated on real recordings
 
-Every threshold in `thresholds.json` carries a state: `pending` (a starting value) or `synthetic` (checked with synthetic signals).
-None has been calibrated on real recordings yet. The numbers are useful as readings; the bands (good, fair, poor; dry, lively,
+Every threshold in `thresholds.json` carries a state: `pending` (a starting value), `synthetic` (checked with synthetic signals)
+or `calibrated` (checked on real recordings). Only a few are calibrated so far (the level floor of the clipping check and some of
+the hum checks); the rest are still waiting. The numbers are useful as readings; the bands (good, fair, poor; dry, lively,
 very reverberant) are starting judgements, not a certification, and they do not replace your ears. Room reverberation is
 measured above 500 Hz only.
 

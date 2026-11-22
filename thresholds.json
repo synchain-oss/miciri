@@ -133,9 +133,9 @@
     "flat_min_peaks": { "value": 3, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "flat_min_peak_dbfs": {
       "value": -12.0,
-      "state": "pending",
-      "source": "按实录调整的起始值",
-      "date": null,
+      "state": "calibrated",
+      "source": "实录标定（2026-11）：不设下限时误报的干净录音峰值最高 −15.2 dBFS，真正削波的接近 0 dBFS，在 −12 到 −3 之间取值两批结果相同（命中 6、误报 0）；还缺峰值在 −12 到 −3 dBFS 且带平顶的干净录音",
+      "date": "2026-11-21",
       "note": "a channel whose sample peak is below this is not checked for flat tops; in a real take a quiet steady sweep lined its peaks up inside the noise tolerance"
     },
     "flat_level_floor_frac": {
@@ -259,37 +259,42 @@
     },
     "harmonic_window_frac": { "value": 0.05, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "f0_candidates_hz": { "value": [50.0, 60.0], "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
-    "f0_accept_hz": { "value": 0.35, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
+    "f0_accept_hz": {
+      "value": 0.35,
+      "state": "calibrated",
+      "source": "实录标定（2026-11）：四条观测的电流声基频偏差都不超过 0.01 Hz；还缺发电机、UPS 等漂移电源的录音",
+      "date": "2026-11-21"
+    },
     "harmonic_max_hz": { "value": 3000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "buzz_above_hz": { "value": 1000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_min_hz": { "value": 2000, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_over_median_db": { "value": 15.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-02" },
     "whistle_max_hz": {
       "value": 12000,
-      "state": "pending",
-      "source": "按实录调整的起始值",
-      "date": null,
+      "state": "calibrated",
+      "source": "实录标定（2026-11）：安静录音里的假窄峰（转换器、时钟音）在 17.3–23.0 kHz，都高于它；还没有真啸叫的录音，上限只被误报约束",
+      "date": "2026-11-21",
       "note": "narrow peaks above this are not whistle candidates; real takes carry inaudible converter and clock tones up there"
     },
     "whistle_min_dbfs": {
       "value": -70.0,
-      "state": "pending",
-      "source": "按实录调整的起始值",
-      "date": null,
+      "state": "calibrated",
+      "source": "实录标定（2026-11）：所有假窄峰的单音电平最响 −79.7 dBFS，比它低 9.7 dB；还没有真啸叫的录音（例如 −50 dBFS 的窄音）",
+      "date": "2026-11-21",
       "note": "a narrow peak whose own power is below this is not a whistle, however far it stands above its neighbours"
     },
     "slight_below_over_floor_db": {
       "value": 16.0,
-      "state": "pending",
-      "source": "按实录调整的起始值",
-      "date": null,
+      "state": "calibrated",
+      "source": "实录标定（2026-11）：轻微的电流声谐波峰高出局部底噪 13.2 dB，明显的 19.5、24.0 dB，两侧各留约 3 dB；还缺第二批的电流声正例和真正响的电流声",
+      "date": "2026-11-21",
       "note": "strongest harmonic over its local median below this: still reported, marked slight; the energy share is information only"
     },
     "slight_below_dbfs": {
       "value": -70.0,
-      "state": "pending",
-      "source": "工程起始值",
-      "date": null,
+      "state": "calibrated",
+      "source": "实录标定（2026-11）：观测到的四例电流声总电平在 −74.8 到 −88.0 dBFS，都比它低至少 4.8 dB、都判轻微；高于它的一侧还没有录音（缺一条响的电流声）",
+      "date": "2026-11-21",
       "note": "hum level (all detected harmonics) below this: still reported, marked slight; an absolute stand-in for 'relative to the voice', valid only once the gain step has brought the voice near its target"
     },
     "f0_search_window_frac": {
@@ -519,7 +524,7 @@
     "low_f0_sensitivity_below_hz": {
       "value": null,
       "state": "pending",
-      "source": "待实录标定",
+      "source": "待定：只有两个嗓音（约 120、240 Hz）且与话筒一一绑定；缺同一人用两支话筒，或第三个嗓音（150–180 Hz）",
       "date": null,
       "note": "sensitivity drops at low fundamentals"
     },
@@ -623,10 +628,37 @@
       "state": "pending",
       "source": "规格起始值",
       "date": null,
-      "note": "effective bandwidth: highest frequency the speech stays this far over the noise, searching up without a break"
+      "note": "effective bandwidth: highest point whose band the speech stays this far over the band noise floor; the search stops after bandwidth_stop_points failing points in a row"
     },
     "bandwidth_search_from_hz": { "value": 1000.0, "state": "pending", "source": "规格起始值", "date": null },
-    "bandwidth_smoothing_hz": { "value": 250.0, "state": "pending", "source": "规格起始值", "date": null },
+    "bandwidth_band_hz": {
+      "value": 1000.0,
+      "state": "pending",
+      "source": "规格：实录里说话几乎不停的一段被按最安静帧的底噪误判成 2.1 kHz（实际高于 16 kHz），改用频带底噪、按 500 Hz 频点走、连续 2 点不满足才停",
+      "date": null,
+      "note": "each point looks at a band this wide around it"
+    },
+    "bandwidth_step_hz": {
+      "value": 500.0,
+      "state": "pending",
+      "source": "规格：实录里说话几乎不停的一段被按最安静帧的底噪误判成 2.1 kHz（实际高于 16 kHz），改用频带底噪、按 500 Hz 频点走、连续 2 点不满足才停",
+      "date": null,
+      "note": "distance between the points"
+    },
+    "bandwidth_stop_points": {
+      "value": 2,
+      "state": "pending",
+      "source": "规格：实录里说话几乎不停的一段被按最安静帧的底噪误判成 2.1 kHz（实际高于 16 kHz），改用频带底噪、按 500 Hz 频点走、连续 2 点不满足才停",
+      "date": null,
+      "note": "stop after this many failing points in a row"
+    },
+    "bandwidth_noise_percentile": {
+      "value": 2,
+      "state": "pending",
+      "source": "规格：实录里说话几乎不停的一段被按最安静帧的底噪误判成 2.1 kHz（实际高于 16 kHz），改用频带底噪、按 500 Hz 频点走、连续 2 点不满足才停",
+      "date": null,
+      "note": "the noise floor of a band is this percentile of its per-frame power over all frames"
+    },
     "bandwidth_active_percentile": { "value": 95, "state": "pending", "source": "规格起始值", "date": null },
     "bandwidth_active_within_db": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
     "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
@@ -697,8 +729,18 @@
       "date": null,
       "note": "LPC residual over its local scale; starting range 15-20 adjusted on real recordings, uncalibrated"
     },
-    "moderate_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
-    "heavy_per_min": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
+    "moderate_per_min": {
+      "value": null,
+      "state": "pending",
+      "source": "待定：口水音只作提示、不分档；缺第二位说话人的试听标签和安静段每分钟的误报率",
+      "date": null
+    },
+    "heavy_per_min": {
+      "value": null,
+      "state": "pending",
+      "source": "待定：口水音只作提示、不分档；缺第二位说话人的试听标签和安静段每分钟的误报率",
+      "date": null
+    },
     "analysis_rate_max_hz": { "value": 48000.0, "state": "pending", "source": "规格起始值", "date": null },
     "filter_order": { "value": 4, "state": "pending", "source": "规格起始值", "date": null },
     "candidate_multiple": {
