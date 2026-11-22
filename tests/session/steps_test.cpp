@@ -268,7 +268,7 @@ TEST_CASE("expiry rules follow the contract")
         return out;
     };
     CHECK(hit(core::ChangeKind::Gain) ==
-          std::vector<Section>{Section::Gain, Section::Noise, Section::Hum, Section::Sibilance});
+          std::vector<Section>{Section::Gain, Section::Noise, Section::Hum, Section::Sibilance, Section::Distance});
     CHECK(hit(core::ChangeKind::Position) == std::vector<Section>{Section::Gain, Section::Noise, Section::DirectRatio,
                                                                   Section::Plosive, Section::Sibilance, Section::Click,
                                                                   Section::Direction, Section::Distance});
@@ -276,6 +276,7 @@ TEST_CASE("expiry rules follow the contract")
     const auto layout = session::staleOnLayoutChange();
     CHECK(layout[static_cast<std::size_t>(Section::Gain)]);
     CHECK(layout[static_cast<std::size_t>(Section::Hum)]);
+    CHECK(layout[static_cast<std::size_t>(Section::Distance)]); // 距离的弱提示用 SNR
     CHECK_FALSE(layout[static_cast<std::size_t>(Section::Reverb)]);
 }
 
@@ -307,70 +308,171 @@ TEST_CASE("a change forgets the levels measured on the old chain, so the quiet s
     CHECK(out.results.noise->confidence.level == core::Reliability::Retest);
 }
 
-TEST_CASE("ungraded sibilance and clicks are not taken as 'no evidence' and get no colour")
+TEST_CASE("ungraded plosives, sibilance and clicks get no colour")
 {
-    core::AllResults r;
-    core::SibilanceResult sib; // 可信、severity 停在最低档：未分档
-    core::ClickResult click;
-    r.sibilance = sib;
-    r.click = click;
-    core::PlosiveResult plosive;
-    plosive.confidence = core::retest(core::RetestReason::TooShort);
-    r.plosive = plosive;
-    // 喷麦要再测，剩下的只有未分档的两项：什么都没测出来，不能说距离合适
-    auto d = session::deriveDistance(r);
-    REQUIRE(d.has_value());
-    CHECK(d->measures.closeEvidence == 0);
-    CHECK(d->verdict.kind == core::DistanceCase::Unknown);
-
-    // 喷麦分档了：轻就是没有证据，可以说合适
-    r.plosive->confidence = core::trusted();
-    d = session::deriveDistance(r);
-    REQUIRE(d.has_value());
-    CHECK(d->verdict.kind == core::DistanceCase::Fine);
-
     session::SessionView v;
-    v.results = r;
+    v.results.plosive = core::PlosiveResult{}; // 可信、severity 停在最低档：未分档
+    v.results.sibilance = core::SibilanceResult{};
+    v.results.click = core::ClickResult{};
+    v.results.directRatio = core::DirectRatioResult{};
     const JsonNode root = JsonReader(session::snapshotJson(v)).parse();
+    CHECK(root["results"]["plosive"]["tone"].text == "none");
     CHECK(root["results"]["sibilance"]["tone"].text == "none");
     CHECK(root["results"]["click"]["tone"].text == "none");
-    CHECK(root["results"]["plosive"]["tone"].text == "green");
-    CHECK(root["results"]["sibilance"]["severity"].text == "light");
+    CHECK(root["results"]["directRatio"]["tone"].text == "none"); // D/R 不分档
+    CHECK(root["results"]["plosive"]["severity"].text == "light");
+}
+
+namespace
+{
+// 一次位置步的三项读数
+void position(core::AllResults& r, double drDb, double plosiveDb, double highDb, double midHighDb = -50.0)
+{
+    r.directRatio = core::DirectRatioResult{};
+    r.directRatio->measures.drDb = drDb;
+    r.plosive = core::PlosiveResult{};
+    r.plosive->measures.worstRatioDb = plosiveDb;
+    r.plosive->measures.events = 12;
+    r.sibilance = core::SibilanceResult{};
+    r.sibilance->measures.highDb = highDb;
+    r.sibilance->measures.midHighDb = midHighDb;
+    r.sibilance->measures.events = 20;
+}
+} // namespace
+
+TEST_CASE("distance: the first test gives only the weak hint, and only from current, trusted results")
+{
+    core::AllResults r, previous;
+    const session::SectionSet fresh{};
+    CHECK_FALSE(session::deriveDistance(r, previous, {}, fresh).has_value()); // 什么都没做
+
+    r.noise = core::NoiseResult{};
+    r.noise->verdict.band = core::NoiseBand::Bad;
+    r.reverb = core::ReverbResult{};
+    r.reverb->measures.tMidSec = 0.3;
+    auto d = session::deriveDistance(r, previous, {}, fresh);
+    REQUIRE(d.has_value()); // 没做位置步也给提示
+    CHECK(d->verdict.kind == core::DistanceCase::MaybeTooFar);
+    CHECK(d->measures.empiricalLimitM == Catch::Approx(core::empiricalDistanceLimitM(0.3)));
+
+    session::SectionSet stale{};
+    stale[static_cast<std::size_t>(session::Section::Noise)] = true; // 调过增益：SNR 是旧链路上的
+    CHECK_FALSE(session::deriveDistance(r, previous, {}, stale).has_value());
+    r.reverb->confidence = core::retest(core::RetestReason::FewClaps);
+    CHECK_FALSE(session::deriveDistance(r, previous, {}, fresh).has_value());
+    r.reverb->confidence = core::trusted();
+    r.noise->verdict.band = core::NoiseBand::Fair;
+    CHECK_FALSE(session::deriveDistance(r, previous, {}, fresh).has_value());
+
+    // 做过一次位置步、SNR 不差：有距离结果，但说不出什么
+    position(r, 12.0, 4.0, -40.0);
+    d = session::deriveDistance(r, previous, {}, fresh);
+    REQUIRE(d.has_value());
+    CHECK(d->verdict.kind == core::DistanceCase::Unknown);
+}
+
+TEST_CASE("distance: a position retest compares with the replaced results")
+{
+    namespace dt = thr::distance;
+    core::AllResults r, previous;
+    const session::SectionSet fresh{};
+    position(previous, 12.0, 4.0, -40.0);
+    // 挪近：D/R 升、喷麦升、齿音升
+    position(r, 12.0 + dt::dr_resolution_db + 1.0, 4.0 + dt::plosive_resolution_db + 1.0,
+             -40.0 + dt::sibilance_resolution_db + 1.0);
+    auto d = session::deriveDistance(r, previous, {}, fresh);
+    REQUIRE(d.has_value());
+    CHECK(d->verdict.kind == core::DistanceCase::Closer);
+    CHECK(d->measures.closeEvidence == 3);
+    CHECK(d->measures.plosiveDeltaDb == Catch::Approx(dt::plosive_resolution_db + 1.0));
+
+    // 调过增益：齿音不比，其余照比
+    d = session::deriveDistance(r, previous, session::ChangesBetween{true, false}, fresh);
+    CHECK(d->verdict.sibilanceSign == core::DistanceSign::GainChanged);
+    CHECK(d->measures.closeEvidence == 2);
+    // 换了房间：三项都不比
+    d = session::deriveDistance(r, previous, session::ChangesBetween{false, true}, fresh);
+    CHECK(d->verdict.kind == core::DistanceCase::Unknown);
+    CHECK(d->verdict.drSign == core::DistanceSign::RoomChanged);
+
+    // 上次要再测：那一项不比
+    previous.plosive->confidence = core::retest(core::RetestReason::TooShort);
+    d = session::deriveDistance(r, previous, {}, fresh);
+    CHECK(d->verdict.plosiveSign == core::DistanceSign::NotCompared);
+    CHECK(d->measures.closeEvidence == 2);
+
+    // 有一次关了高频项：两次都用 3-6 kHz。高频升了很多，3-6 kHz 没动，所以没有明显变化
+    previous.sibilance->verdict.highBandDisabled = true;
+    previous.sibilance->measures.midHighDb = -50.0;
+    d = session::deriveDistance(r, previous, {}, fresh);
+    CHECK(d->verdict.sibilanceSign == core::DistanceSign::NoChange);
+    CHECK(d->measures.sibilanceDeltaDb == Catch::Approx(0.0).margin(1e-12));
 }
 
 TEST_CASE("the replaced distance goes into previous only on a position retest or a changed verdict")
 {
-    core::AllResults r;
-    r.plosive = core::PlosiveResult{}; // 可信、轻：没有太近的证据
-    std::optional<core::DistanceResult> previous;
-    session::refreshDistance(r, previous, StepId::Position); // 第一次没有旧值
+    core::AllResults r, previous;
+    const session::SectionSet fresh{};
+    position(r, 12.0, 4.0, -40.0);
+    session::refreshDistance(r, previous, StepId::Position, {}, fresh); // 第一次没有旧值
     REQUIRE(r.distance.has_value());
-    CHECK(r.distance->verdict.kind == core::DistanceCase::Fine);
-    CHECK_FALSE(previous.has_value());
+    CHECK(r.distance->verdict.kind == core::DistanceCase::Unknown);
+    CHECK_FALSE(previous.distance.has_value());
 
     // 别的步完成、结论没变：不记
-    session::refreshDistance(r, previous, StepId::Room);
-    CHECK_FALSE(previous.has_value());
+    session::refreshDistance(r, previous, StepId::Room, {}, fresh);
+    CHECK_FALSE(previous.distance.has_value());
 
     // 位置重测：换下来的那次进“上次”
-    session::refreshDistance(r, previous, StepId::Position);
-    REQUIRE(previous.has_value());
-    CHECK(previous->verdict.kind == core::DistanceCase::Fine);
+    session::refreshDistance(r, previous, StepId::Position, {}, fresh);
+    REQUIRE(previous.distance.has_value());
+    CHECK(previous.distance->verdict.kind == core::DistanceCase::Unknown);
 
-    // 结论变了：不是位置步也记
-    previous.reset();
-    r.plosive->verdict.severity = core::Severity::Heavy;
-    session::refreshDistance(r, previous, StepId::Direction);
+    // 结论变了：不是位置步也记（安静步做完，SNR 差，有 T20）
+    previous.distance.reset();
+    r.noise = core::NoiseResult{};
+    r.noise->verdict.band = core::NoiseBand::Bad;
+    r.reverb = core::ReverbResult{};
+    r.reverb->measures.tMidSec = 0.3;
+    session::refreshDistance(r, previous, StepId::Quiet, {}, fresh);
     REQUIRE(r.distance.has_value());
-    CHECK(r.distance->verdict.kind != core::DistanceCase::Fine);
-    REQUIRE(previous.has_value());
-    CHECK(previous->verdict.kind == core::DistanceCase::Fine);
+    CHECK(r.distance->verdict.kind == core::DistanceCase::MaybeTooFar);
+    REQUIRE(previous.distance.has_value());
+    CHECK(previous.distance->verdict.kind == core::DistanceCase::Unknown);
 
     // 重算后没有距离：“上次”一并撤掉
+    r.directRatio.reset();
     r.plosive.reset();
-    session::refreshDistance(r, previous, StepId::Room);
+    r.sibilance.reset();
+    r.noise.reset();
+    session::refreshDistance(r, previous, StepId::Room, {}, fresh);
     CHECK_FALSE(r.distance.has_value());
-    CHECK_FALSE(previous.has_value());
+    CHECK_FALSE(previous.distance.has_value());
+}
+
+TEST_CASE("changes reported between two position runs, including during one, void the comparison")
+{
+    session::PositionChangeLog log;
+    log.positionStarted();
+    CHECK_FALSE(log.positionDone().gain); // 第一次
+    log.report({true, false}, false); // 两次之间调了增益
+    log.positionStarted();
+    const session::ChangesBetween second = log.positionDone();
+    CHECK(second.gain);
+    CHECK_FALSE(second.room);
+    // 第三次进行中换了房间：第三次对第二次不能比，第四次对第三次也不能比（第三次有一段在改动之后）
+    log.positionStarted();
+    log.report({false, true}, true);
+    CHECK(log.positionDone().room);
+    log.positionStarted();
+    const session::ChangesBetween fourth = log.positionDone();
+    CHECK(fourth.room);
+    CHECK_FALSE(fourth.gain);
+    // 之后没有改动：干净
+    log.positionStarted();
+    const session::ChangesBetween fifth = log.positionDone();
+    CHECK_FALSE(fifth.room);
+    CHECK_FALSE(fifth.gain);
 }
 
 TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order")
@@ -468,11 +570,11 @@ TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by
     r.reverb = core::ReverbResult{};
     r.reverb->verdict.band = core::ReverbBand::VeryBoomy;
     r.directRatio = core::DirectRatioResult{};
-    r.directRatio->verdict.band = core::DrBand::Low;
+    // 喷麦不分档、距离只作报告：就算填了重档与“可能离远了”也不进候选
     r.plosive = core::PlosiveResult{};
     r.plosive->verdict.severity = core::Severity::Heavy;
     r.distance = core::DistanceResult{};
-    r.distance->verdict.kind = core::DistanceCase::TooFar;
+    r.distance->verdict.kind = core::DistanceCase::MaybeTooFar;
     r.direction = core::DirectionResult{};
     r.direction->verdict.kind = core::DirectionCase::MaybeReversed;
     core::DirectionAnalysis a;
@@ -484,28 +586,32 @@ TEST_CASE("the fix list puts no-signal and digital clipping first, then sorts by
     using F = core::FixItem;
     // 默认的影响与代价排出来的就是规格的先后
     auto fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
-    CHECK(fixes ==
-          std::vector<F>{F::NoSignal, F::Direction, F::Room, F::Distance, F::Hum, F::Gain, F::Noise, F::Plosive});
+    CHECK(fixes == std::vector<F>{F::NoSignal, F::Direction, F::Room, F::Hum, F::Gain, F::Noise});
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).room == core::RoomAdvice::ChangeRoomAndMoveCloser);
+    // 房间只看 T20：D/R 缺了照样给建议
+    r.directRatio.reset();
     CHECK(session::decideAdvice(v, core::MicType::Condenser).room == core::RoomAdvice::ChangeRoomAndMoveCloser);
 
     // 数字削波固定在前；增益不再单列，同一个原因不说两次
     r.gain->verdict.digitalClip = true;
     fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
-    CHECK(fixes == std::vector<F>{F::NoSignal, F::DigitalClip, F::Direction, F::Room, F::Distance, F::Hum, F::Noise,
-                                  F::Plosive});
+    CHECK(fixes == std::vector<F>{F::NoSignal, F::DigitalClip, F::Direction, F::Room, F::Hum, F::Noise});
 
     // 要再测的、过期的、轻微的、没确认的都不进
     r.noise->confidence = core::retest(core::RetestReason::TooShort);
-    v.stale[static_cast<std::size_t>(session::Section::Plosive)] = true;
     r.hum->verdict.slight = true;
     v.direction->confirmedAdvantageDb = thr::direction::priority_db - 1.0;
     r.noSignal->verdict.state = core::SignalState::Ok;
     // 数字削波只看过期、不看置信度：增益这一步要再测，削波也已经发生
     r.gain->confidence = core::retest(core::RetestReason::TooShort);
     fixes = session::decideAdvice(v, core::MicType::Condenser).fixes;
-    CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room, F::Distance});
+    CHECK(fixes == std::vector<F>{F::DigitalClip, F::Room});
     v.stale[static_cast<std::size_t>(session::Section::Gain)] = true;
-    CHECK(session::decideAdvice(v, core::MicType::Condenser).fixes == std::vector<F>{F::Room, F::Distance});
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).fixes == std::vector<F>{F::Room});
+    // 房间过期或 T20 要再测：不进候选，建议也回到 unknown
+    v.stale[static_cast<std::size_t>(session::Section::Reverb)] = true;
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).fixes.empty());
+    CHECK(session::decideAdvice(v, core::MicType::Condenser).room == core::RoomAdvice::Unknown);
 }
 
 TEST_CASE("the direction prompt and the distance advice only read current, trusted results")
@@ -529,10 +635,28 @@ TEST_CASE("the direction prompt and the distance advice only read current, trust
     CHECK(prompt(core::MicType::Condenser) == P::CardButton);
     r.gain.reset();
 
-    // 距离矛盾：可信时触发；要再测时不触发，距离建议也不给
+    // 可能离远了 + T20 干或正常：主按钮，距离建议是靠近一点；距离过期或 T20 过期时都不算
     r.distance = core::DistanceResult{};
+    r.distance->verdict.kind = core::DistanceCase::MaybeTooFar;
+    r.reverb = core::ReverbResult{};
+    r.reverb->verdict.band = core::ReverbBand::Normal;
+    CHECK(prompt(core::MicType::Dynamic) == P::MainButton);
+    CHECK(session::decideAdvice(v, core::MicType::Dynamic).distance == core::DistanceAdvice::MoveCloser);
+    r.reverb->verdict.band = core::ReverbBand::Boomy;
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    r.reverb->verdict.band = core::ReverbBand::Dry;
+    v.stale[static_cast<std::size_t>(session::Section::Reverb)] = true;
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    v.stale[static_cast<std::size_t>(session::Section::Reverb)] = false;
+    v.stale[static_cast<std::size_t>(session::Section::Distance)] = true;
+    CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
+    CHECK(session::decideAdvice(v, core::MicType::Dynamic).distance == core::DistanceAdvice::None);
+    v.stale[static_cast<std::size_t>(session::Section::Distance)] = false;
+
+    // 距离矛盾：可信时触发；要再测时不触发，距离建议也不给
     r.distance->verdict.kind = core::DistanceCase::Conflicting;
     CHECK(prompt(core::MicType::Dynamic) == P::ActionWithButton);
+    CHECK(session::decideAdvice(v, core::MicType::Dynamic).distance == core::DistanceAdvice::None);
     r.distance->confidence = core::retest(core::RetestReason::TooShort);
     CHECK(prompt(core::MicType::Dynamic) == P::CardButton);
     CHECK(session::decideAdvice(v, core::MicType::Dynamic).distance == core::DistanceAdvice::None);

@@ -8,7 +8,7 @@
 // 或 `export const 名字 = 整数;`；字符串只含字母、数字、点、减号；不写表达式、展开、模板串；注释只用整行 // 。
 // 扩展方式：同一版本内只追加（函数、事件、字段、枚举值只加在末尾）；改名、删除、调换顺序要升 BRIDGE_API_VERSION。
 
-export const BRIDGE_API_VERSION = 1;
+export const BRIDGE_API_VERSION = 2;
 
 // 界面调原生
 export const BRIDGE_FUNCTIONS = [
@@ -137,7 +137,7 @@ export const RESULT_HUM = [
 ];
 export const RESULT_DEVICE_PROCESSING = ["longestZeroMs", "zeroRuns", "detected"];
 export const RESULT_REVERB = ["t20Sec", "tMidSec", "bandPnrDb", "bandR2", "repeatMaxOverMin", "band", "gated"];
-export const RESULT_DIRECT_RATIO = ["drDb", "lowerBoundOnly", "band"];
+export const RESULT_DIRECT_RATIO = ["drDb", "lowerBoundOnly"];
 export const RESULT_PLOSIVE = ["worstRatioDb", "events", "severity", "lowSensitivity"];
 export const RESULT_SIBILANCE = [
     "midHighDb",
@@ -157,7 +157,18 @@ export const RESULT_DIRECTION = [
     "repeatIndex",
     "confirmedAdvantageDb",
 ];
-export const RESULT_DISTANCE = ["closeEvidence", "farEvidence", "kind"];
+export const RESULT_DISTANCE = [
+    "closeEvidence",
+    "farEvidence",
+    "drDeltaDb",
+    "plosiveDeltaDb",
+    "sibilanceDeltaDb",
+    "empiricalLimitM",
+    "kind",
+    "drSign",
+    "plosiveSign",
+    "sibilanceSign",
+];
 
 // miciri.meters 的载荷；单声道只用 L 一路
 export const METER_FIELDS = ["levelDbfsL", "levelDbfsR", "peakDbfsL", "peakDbfsR", "clipLatchL", "clipLatchR"];
@@ -208,10 +219,10 @@ export const ENUM_GAIN_BAND = ["too-quiet", "quiet", "good", "loud", "too-loud"]
 export const ENUM_NOISE_BAND = ["bad", "fair", "good"];
 export const ENUM_HUM_KIND = ["none", "hum", "buzz", "whistle"];
 export const ENUM_REVERB_BAND = ["dry", "normal", "boomy", "very-boomy"];
-export const ENUM_DR_BAND = ["low", "mid", "high"];
 export const ENUM_SEVERITY = ["light", "moderate", "heavy"];
 export const ENUM_DIRECTION_CASE = ["best", "maybe-reversed", "small-difference", "uncertain"];
-export const ENUM_DISTANCE_CASE = ["unknown", "fine", "too-close", "too-far", "conflicting"];
+export const ENUM_DISTANCE_CASE = ["unknown", "conflicting", "maybe-too-far", "closer", "farther", "no-change"];
+export const ENUM_DISTANCE_SIGN = ["not-compared", "closer", "farther", "no-change", "gain-changed", "room-changed"];
 export const ENUM_MIC_TYPE = ["unknown", "dynamic", "condenser", "usb", "headset"];
 export const ENUM_CHANGE_KIND = ["gain", "position", "room"];
 
@@ -227,10 +238,11 @@ export const SNAPSHOT_BANDS = [
     "t20DryBelowS",
     "t20NormalBelowS",
     "t20BoomyBelowS",
-    "drLowBelowDb",
-    "drHighAboveDb",
     "clipAdviceDropDb",
     "t20BandsHz",
+    "drResolutionDb",
+    "plosiveResolutionDb",
+    "sibilanceResolutionDb",
 ];
 // 追加（流程页用）：正在进行的那一步的实时信息，同一时刻只有一步在跑，所以不按步骤分键
 export const SNAPSHOT_LIVE = [
@@ -263,34 +275,10 @@ export const ENUM_CLAP_BAND_STATUS = [
     "poor-fit",
     "outlier",
 ];
-export const ENUM_ROOM_ADVICE = [
-    "unknown",
-    "good",
-    "fine-not-priority",
-    "move-closer-check-direction",
-    "change-room-and-move-closer",
-    "keep-close-dont-back-off",
-    "move-closer-then-treat",
-];
-export const ENUM_DISTANCE_ADVICE = [
-    "none",
-    "back-off-a-little",
-    "drink-water",
-    "move-closer",
-    "fix-room-or-direction-first",
-];
+export const ENUM_ROOM_ADVICE = ["unknown", "good", "change-room-and-move-closer", "move-closer-then-treat"];
+export const ENUM_DISTANCE_ADVICE = ["none", "back-off-a-little", "drink-water", "move-closer"];
 export const ENUM_DIRECTION_PROMPT = ["none", "stale", "main-button", "action-with-button", "card-button"];
-export const ENUM_FIX_ITEM = [
-    "no-signal",
-    "digital-clip",
-    "direction",
-    "room",
-    "distance",
-    "hum",
-    "gain",
-    "noise",
-    "plosive",
-];
+export const ENUM_FIX_ITEM = ["no-signal", "digital-clip", "direction", "room", "hum", "gain", "noise"];
 
 // 追加（证据波形）：getEvidence 的回执载荷（{ok: true, evidence}）、包络、事件与事件种类
 export const EVIDENCE_PACK = ["stepId", "rev", "durationSec", "envelope", "events"];

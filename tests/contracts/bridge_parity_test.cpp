@@ -203,7 +203,7 @@ TEST_CASE("bridge contract: JS and C++ agree, and breaking either side turns it 
     mustBeRed("rename an enum value",
               parseJs(replaceOnce(jsText, "\"all-zero-from-start\"", "\"all-zero-at-start\"")).tables, cpp);
     mustBeRed("bump the version",
-              parseJs(replaceOnce(jsText, "BRIDGE_API_VERSION = 1;", "BRIDGE_API_VERSION = 2;")).tables, cpp);
+              parseJs(replaceOnce(jsText, "BRIDGE_API_VERSION = 2;", "BRIDGE_API_VERSION = 3;")).tables, cpp);
     mustBeRed("append a function", parseJs(replaceOnce(jsText, "\"showLicense\"", "\"showLicense\", \"extra\"")).tables,
               cpp);
     CHECK(parseJs(replaceOnce(jsText, "export const BRIDGE_EVENTS = [", "export const BRIDGE_EVENTS = {")).malformed >

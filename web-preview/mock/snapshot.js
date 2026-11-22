@@ -32,10 +32,11 @@ export const BANDS = {
     t20DryBelowS: 0.25,
     t20NormalBelowS: 0.45,
     t20BoomyBelowS: 0.7,
-    drLowBelowDb: 5,
-    drHighAboveDb: 12,
     clipAdviceDropDb: 6,
     t20BandsHz: [500, 1000, 2000, 4000],
+    drResolutionDb: 3,
+    plosiveResolutionDb: 6,
+    sibilanceResolutionDb: 5.2,
 };
 
 /** 没有步骤在跑时的 live。 */

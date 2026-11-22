@@ -10,7 +10,6 @@
 #include "config/Thresholds.h"
 #include "decide/Decide.h"
 #include "level/Dsp.h"
-#include "session/Grading.h"
 
 namespace miciri::session
 {
@@ -88,14 +87,52 @@ SectionSet setOf(std::initializer_list<Section> items)
         s[index(i)] = true;
     return s;
 }
+
+void merge(ChangesBetween& into, const ChangesBetween& c)
+{
+    into.gain = into.gain || c.gain;
+    into.room = into.room || c.room;
+}
+
+ChangesBetween changesOf(core::ChangeKind kind)
+{
+    return {kind == core::ChangeKind::Gain, kind == core::ChangeKind::Room};
+}
+
+core::DistanceReading readingOf(const std::optional<core::DirectRatioResult>& r)
+{
+    if (!trusted(r))
+        return {};
+    return {true, r->measures.drDb, r->measures.lowerBoundOnly};
+}
+
+core::DistanceReading readingOf(const std::optional<core::PlosiveResult>& r)
+{
+    if (!trusted(r))
+        return {};
+    return {true, r->measures.worstRatioDb, false};
+}
+
+// 两次里有一次关了高频项（有效带宽不够），两次都用 3-6 kHz，免得拿不同频带的电平相减
+core::DistanceReading readingOf(const std::optional<core::SibilanceResult>& r, bool midHigh)
+{
+    if (!trusted(r))
+        return {};
+    return {true, midHigh ? r->measures.midHighDb : r->measures.highDb, false};
+}
+
+bool highBandOff(const std::optional<core::SibilanceResult>& r)
+{
+    return trusted(r) && r->verdict.highBandDisabled;
+}
 } // namespace
 
 SectionSet staleOnChange(core::ChangeKind kind)
 {
     switch (kind)
     {
-    case core::ChangeKind::Gain: // 齿音给的是固定增益下的绝对电平，增益一变 A/B 比较就失效
-        return setOf({Section::Gain, Section::Noise, Section::Hum, Section::Sibilance});
+    case core::ChangeKind::Gain: // 齿音给的是固定增益下的绝对电平，增益一变 A/B 比较就失效；距离要用 SNR 与齿音
+        return setOf({Section::Gain, Section::Noise, Section::Hum, Section::Sibilance, Section::Distance});
     case core::ChangeKind::Position:
         return setOf({Section::Gain, Section::Noise, Section::DirectRatio, Section::Plosive, Section::Sibilance,
                       Section::Click, Section::Direction, Section::Distance});
@@ -109,7 +146,7 @@ SectionSet staleOnChange(core::ChangeKind kind)
 
 SectionSet staleOnLayoutChange()
 {
-    return setOf({Section::Gain, Section::Noise, Section::Hum});
+    return setOf({Section::Gain, Section::Noise, Section::Hum, Section::Distance}); // 距离要用 SNR
 }
 
 void forgetStale(StepContext& ctx, const SectionSet& stale)
@@ -143,46 +180,59 @@ StepId producerOf(Section s)
     }
 }
 
-std::optional<core::DistanceDecision> decideDistanceOf(const core::AllResults& r)
+void PositionChangeLog::report(const ChangesBetween& c, bool positionRunning)
 {
-    using core::EvidenceLevel;
-    if (!r.plosive && !r.directRatio)
-        return std::nullopt; // 位置步没做过
+    merge(since_, c);
+    if (positionRunning)
+        merge(during_, c);
+}
+
+void PositionChangeLog::positionStarted()
+{
+    during_ = ChangesBetween{};
+}
+
+ChangesBetween PositionChangeLog::positionDone()
+{
+    const ChangesBetween between = since_;
+    since_ = during_;
+    during_ = ChangesBetween{};
+    return between;
+}
+
+std::optional<core::DistanceResult> deriveDistance(const core::AllResults& r, const core::AllResults& previous,
+                                                   const ChangesBetween& changes, const SectionSet& stale)
+{
     core::DistanceEvidence e;
-    if (trusted(r.plosive) && kSeverityGraded.plosive)
-        e.plosive = core::evidenceOf(r.plosive->verdict.severity);
-    // 齿音与口水音未分档：severity 停在最低档不表示“没有证据”，按没测处理，不当成良好
-    if (trusted(r.sibilance) && kSeverityGraded.sibilance)
-        e.sibilance = core::evidenceOf(r.sibilance->verdict.severity);
-    if (trusted(r.click) && kSeverityGraded.click)
-        e.click = core::evidenceOf(r.click->verdict.severity);
-    if (trusted(r.directRatio))
-    {
-        const auto& dr = *r.directRatio;
-        e.lowDirectRatio = dr.verdict.band != core::DrBand::Low ? EvidenceLevel::None
-                           : dr.measures.lowerBoundOnly         ? EvidenceLevel::Weak // 真值只会更高
-                                                                : EvidenceLevel::Strong;
-    }
-    if (trusted(r.noise))
-        e.lowSnr = r.noise->verdict.band == core::NoiseBand::Bad ? EvidenceLevel::Strong : EvidenceLevel::None;
-    return core::decideDistance(e);
+    e.drBefore = readingOf(previous.directRatio);
+    e.drNow = readingOf(r.directRatio);
+    e.plosiveBefore = readingOf(previous.plosive);
+    e.plosiveNow = readingOf(r.plosive);
+    const bool midHigh = highBandOff(previous.sibilance) || highBandOff(r.sibilance);
+    e.sibilanceBefore = readingOf(previous.sibilance, midHigh);
+    e.sibilanceNow = readingOf(r.sibilance, midHigh);
+    e.gainChanged = changes.gain;
+    e.roomChanged = changes.room;
+    // 弱提示只用当前、可信的噪声与 T20：过期的说的是改动之前的链路或房间
+    e.snrBad = trusted(r.noise) && !stale[index(Section::Noise)] && r.noise->verdict.band == core::NoiseBand::Bad;
+    e.tMidSec = trusted(r.reverb) && !stale[index(Section::Reverb)] ? r.reverb->measures.tMidSec : 0.0;
+    core::DistanceResult d = core::decideDistance(e);
+    const bool positionDone = r.directRatio || r.plosive || r.sibilance;
+    if (!positionDone && d.verdict.kind == core::DistanceCase::Unknown)
+        return std::nullopt;
+    return d;
 }
 
-std::optional<core::DistanceResult> deriveDistance(const core::AllResults& r)
-{
-    const auto d = decideDistanceOf(r);
-    return d ? std::optional<core::DistanceResult>{d->result} : std::nullopt;
-}
-
-void refreshDistance(core::AllResults& r, std::optional<core::DistanceResult>& previous, StepId completed)
+void refreshDistance(core::AllResults& r, core::AllResults& previous, StepId completed, const ChangesBetween& changes,
+                     const SectionSet& stale)
 {
     auto old = r.distance;
-    r.distance = deriveDistance(r);
+    r.distance = deriveDistance(r, previous, changes, stale);
     if (!r.distance)
-        previous.reset();
+        previous.distance.reset();
     else if (old && (completed == StepId::Position || r.distance->verdict.kind != old->verdict.kind ||
                      r.distance->confidence.level != old->confidence.level))
-        previous = std::move(old);
+        previous.distance = std::move(old);
 }
 
 struct Session::Worker
@@ -281,6 +331,8 @@ void Session::prepare(double sampleRate, int channels)
         if (hit[i] && present(results_, static_cast<Section>(i)))
             stale_[i] = true;
     forgetStale(context_, hit);
+    if (layoutChanged) // 声像规则会改变电平：之后的齿音不能和之前的比
+        positionChanges_.report(ChangesBetween{true, false}, false); // 进行中的那一步已经作废
     if (layoutChanged)
     {
         // 声道提示跟着布局走：撤掉，之后的单声道分析用左路
@@ -318,6 +370,8 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
         steps_[index(id)] = StepState{StepStatus::Running, RetestReason::None, 0.0};
         current_ = id;
         changedDuring_ = SectionSet{};
+        if (id == StepId::Position)
+            positionChanges_.positionStarted();
         offlineRender_ = false;
         live_ = worker->script->live();
         runningPlannedSec_ = worker->script->plannedSec();
@@ -373,6 +427,7 @@ void Session::reportChange(core::ChangeKind kind)
             changedDuring_[i] = true;
     }
     forgetStale(context_, hit);
+    positionChanges_.report(changesOf(kind), current_ == StepId::Position);
     bump();
 }
 
@@ -547,11 +602,17 @@ void Session::complete(StepId id, StepOutput&& out)
     take(r.sibilance, o.sibilance, previous_.sibilance, Section::Sibilance);
     take(r.click, o.click, previous_.click, Section::Click);
     take(r.direction, o.direction, previous_.direction, Section::Direction);
-    refreshDistance(r, previous_.distance, id); // 距离每完成一步都重算，规则见 Session.h
+    if (id == StepId::Position)
+        betweenPositions_ = positionChanges_.positionDone();
+    refreshDistance(r, previous_, id, betweenPositions_, stale_); // 距离每完成一步都重算，规则见 Session.h
+    // 距离过期：它用到的位置结果有一项过期（挪过位置、调过增益、换了房间），或这一步进行中报过让它过期的改动。
+    // 提示只用当前的噪声与 T20，它们不会让距离过期
+    const auto staleInput = [this, &r](Section s) { return present(r, s) && stale_[index(s)]; };
+    stale_[index(Section::Distance)] =
+        r.distance.has_value() && (changedDuring_[index(Section::Distance)] || staleInput(Section::DirectRatio) ||
+                                   staleInput(Section::Plosive) || staleInput(Section::Sibilance));
     if (out.direction)
         direction_ = out.direction;
-    if (id == StepId::Position)
-        stale_[index(Section::Distance)] = changedDuring_[index(Section::Distance)];
 
     // 后面几步要用的量；这一步进行中增益一项过期了，量到的电平就不留
     const bool levelsHold = !changedDuring_[index(Section::Gain)];

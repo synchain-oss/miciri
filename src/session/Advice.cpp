@@ -4,7 +4,6 @@
 #include <algorithm>
 
 #include "config/Thresholds.h"
-#include "session/Grading.h"
 
 namespace miciri::session
 {
@@ -34,16 +33,12 @@ double score(FixItem item)
         return p::direction_impact / p::direction_cost;
     case FixItem::Room:
         return p::room_impact / p::room_cost;
-    case FixItem::Distance:
-        return p::distance_impact / p::distance_cost;
     case FixItem::Hum:
         return p::hum_impact / p::hum_cost;
     case FixItem::Gain:
         return p::gain_impact / p::gain_cost;
     case FixItem::Noise:
         return p::noise_impact / p::noise_cost;
-    case FixItem::Plosive:
-        return p::plosive_impact / p::plosive_cost;
     default:
         return 0.0; // 固定在前的两项不打分
     }
@@ -68,23 +63,15 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
 
     // 打分的候选：(项, 置信度)
     std::vector<std::pair<FixItem, double>> scored;
-    const bool roomCurrent = current(r.reverb, v, Section::Reverb) && current(r.directRatio, v, Section::DirectRatio);
-    const core::RoomDecision room = roomCurrent ? core::decideRoom(r.reverb, r.directRatio) : core::RoomDecision{};
+    // 房间建议只看 T20
+    const core::RoomDecision room =
+        current(r.reverb, v, Section::Reverb) ? core::decideRoom(r.reverb) : core::RoomDecision{};
     a.room = room.advice;
     if (current(r.direction, v, Section::Direction) && v.direction && core::directionIsPriority(*v.direction))
         scored.emplace_back(FixItem::Direction, confidence(r.direction));
     if (room.priority)
-        scored.emplace_back(FixItem::Room, std::min(confidence(r.reverb), confidence(r.directRatio)));
-    if (current(r.distance, v, Section::Distance) && confidence(r.distance) > 0.0)
-    {
-        if (const auto d = decideDistanceOf(r))
-        {
-            a.distance = d->advice;
-            const auto kind = r.distance->verdict.kind;
-            if (kind == core::DistanceCase::TooClose || kind == core::DistanceCase::TooFar)
-                scored.emplace_back(FixItem::Distance, confidence(r.distance));
-        }
-    }
+        scored.emplace_back(FixItem::Room, confidence(r.reverb));
+    // 距离不进候选：第一次只有“可能离远了”这条弱提示，重测后的前后对比只是报告，都不当作要先改的问题
     if (current(r.hum, v, Section::Hum) && r.hum->verdict.kind != core::HumKind::None && !r.hum->verdict.slight)
         scored.emplace_back(FixItem::Hum, confidence(r.hum));
     // 有数字削波时它已固定在前，增益不再单列，同一个原因不说两次
@@ -93,9 +80,6 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
         scored.emplace_back(FixItem::Gain, confidence(r.gain));
     if (current(r.noise, v, Section::Noise) && r.noise->verdict.band == core::NoiseBand::Bad)
         scored.emplace_back(FixItem::Noise, confidence(r.noise));
-    if (kSeverityGraded.plosive && current(r.plosive, v, Section::Plosive) &&
-        r.plosive->verdict.severity != core::Severity::Light)
-        scored.emplace_back(FixItem::Plosive, confidence(r.plosive));
 
     scored.erase(std::remove_if(scored.begin(), scored.end(), [](const auto& c) { return c.second <= 0.0; }),
                  scored.end());
@@ -114,6 +98,8 @@ Advice decideAdvice(const SessionView& v, core::MicType mic)
     // 和候选一样，只看当前、可信的结果
     const auto usable = [&v](const auto& res, Section s) { return current(res, v, s) && confidence(res) > 0.0; };
     in.distance = usable(r.distance, Section::Distance) ? r.distance->verdict.kind : core::DistanceCase::Unknown;
+    if (usable(r.distance, Section::Distance))
+        a.distance = core::distanceAdviceOf(*r.distance);
     in.gainLowOrNoiseBad = (usable(r.gain, Section::Gain) && (r.gain->verdict.band == core::GainBand::TooQuiet ||
                                                               r.gain->verdict.band == core::GainBand::Quiet)) ||
                            (usable(r.noise, Section::Noise) && r.noise->verdict.band == core::NoiseBand::Bad);

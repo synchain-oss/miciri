@@ -112,17 +112,9 @@ Tone toneOf(const ReverbVerdict& v)
     return Tone::None;
 }
 
-Tone toneOf(const DirectRatioVerdict& v)
+// D/R 不分档，只做重测前后的对比，所以没有颜色
+Tone toneOf(const DirectRatioVerdict&)
 {
-    switch (v.band)
-    {
-    case DrBand::Low:
-        return Tone::Red;
-    case DrBand::Mid:
-        return Tone::Amber;
-    case DrBand::High:
-        return Tone::Green;
-    }
     return Tone::None;
 }
 

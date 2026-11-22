@@ -496,8 +496,6 @@
     "band_hz": { "value": [1000.0, 4000.0], "state": "pending", "source": "规格起始值", "date": null },
     "direct_window_start_ms": { "value": -2.5, "state": "pending", "source": "规格起始值", "date": null },
     "direct_window_end_ms": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null },
-    "low_below_db": { "value": 5.0, "state": "pending", "source": "规格起始值", "date": null },
-    "high_above_db": { "value": 12.0, "state": "pending", "source": "规格起始值", "date": null },
     "segment_after_s": { "value": 1.2, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
     "tail_snr_window_ms": { "value": 50.0, "state": "synthetic", "source": "合成验证", "date": "2026-11-12" },
     "tail_snr_min_db": {
@@ -517,20 +515,6 @@
       "source": "规格起始值",
       "date": null,
       "note": "band to compare on real recordings"
-    },
-    "moderate_above_db": {
-      "value": 9.0,
-      "state": "pending",
-      "source": "规格起始值，待实录标定",
-      "date": null,
-      "note": "worst syllable of one word-list take; adjusted on real recordings of one voice, uncalibrated"
-    },
-    "heavy_above_db": {
-      "value": 12.0,
-      "state": "pending",
-      "source": "规格起始值，待实录标定",
-      "date": null,
-      "note": "worst syllable of one word-list take; adjusted on real recordings of one voice, uncalibrated"
     },
     "low_f0_sensitivity_below_hz": {
       "value": null,
@@ -593,7 +577,6 @@
       "date": null,
       "note": "below this the high band is switched off"
     },
-    "off_axis_try_deg": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
     "moderate_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
     "heavy_above_db": { "value": null, "state": "pending", "source": "待实录标定", "date": null },
     "analysis_rate_max_hz": { "value": 48000.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -744,6 +727,56 @@
       "note": "active frames lie within this many dB of the top percentile"
     }
   },
+  "distance": {
+    "dr_resolution_db": {
+      "value": 3.0,
+      "state": "pending",
+      "source": "工程起始值，依据实录：同一位置各下拍手的 D/R 差 0.3–2 dB，15 cm 挪到 60 cm 时降 4.3–5.2 dB（两间房）",
+      "date": null,
+      "note": "a retest counts as a sign only when the D/R moved by more than this; a lower bound only rules out one direction"
+    },
+    "plosive_resolution_db": {
+      "value": 6.0,
+      "state": "pending",
+      "source": "工程起始值，依据实录：60 cm 处字表最大值两人分别 6.7、7.5 dB，15 cm 处出现过单个 17.3 dB 的音节；缺同一位置重复字表的散布",
+      "date": null,
+      "note": "a retest counts as a sign only when the worst syllable moved by more than this"
+    },
+    "sibilance_resolution_db": {
+      "value": 5.2,
+      "state": "pending",
+      "source": "工程起始值，依据实录：同一增益下两次测试的擦音中位电平，95% 置信能分辨的差两人分别约 5.2、1.6 dB，取较大的",
+      "date": null,
+      "note": "6-12 kHz level after noise subtraction, same gain only; a retest counts as a sign only when it moved by more than this"
+    },
+    "critical_distance_coef": {
+      "value": 0.057,
+      "state": "pending",
+      "source": "规格起始值：临界距离公式（扩散声场近似）",
+      "date": null,
+      "note": "critical distance in metres = coef x sqrt(directivity x volume / T20)"
+    },
+    "room_volume_m3": {
+      "value": 30.0,
+      "state": "pending",
+      "source": "工程起始值：典型卧室，约 3 × 4 × 2.5 m",
+      "date": null,
+      "note": "typical room volume for the empirical distance limit; the plugin cannot measure the volume"
+    },
+    "source_directivity": {
+      "value": 2.0,
+      "state": "pending",
+      "source": "工程起始值：人声正前方的指向性因子；话筒自身的指向性不计入，上限因此偏近",
+      "date": null
+    },
+    "limit_critical_frac": {
+      "value": 0.5,
+      "state": "pending",
+      "source": "工程起始值：临界距离的一半，扩散声场下那里的直达声比房间声高约 6 dB",
+      "date": null,
+      "note": "the empirical distance limit is this fraction of the critical distance"
+    }
+  },
   "priority": {
     "direction_impact": {
       "value": 9,
@@ -772,20 +805,6 @@
       "source": "工程起始值",
       "date": null,
       "note": "relative effort of the fix: room advice (move closer, treat or change the room)"
-    },
-    "distance_impact": {
-      "value": 7,
-      "state": "pending",
-      "source": "工程起始值",
-      "date": null,
-      "note": "impact of fixing: moving closer or backing off; score = impact x confidence / cost"
-    },
-    "distance_cost": {
-      "value": 1,
-      "state": "pending",
-      "source": "工程起始值",
-      "date": null,
-      "note": "relative effort of the fix: moving closer or backing off"
     },
     "hum_impact": {
       "value": 6,
@@ -828,20 +847,6 @@
       "source": "工程起始值",
       "date": null,
       "note": "relative effort of the fix: broadband noise with a bad A-weighted SNR"
-    },
-    "plosive_impact": {
-      "value": 3,
-      "state": "pending",
-      "source": "工程起始值",
-      "date": null,
-      "note": "impact of fixing: plosives (moderate or heavy); score = impact x confidence / cost"
-    },
-    "plosive_cost": {
-      "value": 1,
-      "state": "pending",
-      "source": "工程起始值",
-      "date": null,
-      "note": "relative effort of the fix: plosives (moderate or heavy)"
     }
   },
   "session": {

@@ -50,7 +50,7 @@ TEST_CASE("喷麦：每个音节一个事件，不喷的字比值接近 0", "[vo
     const auto r = core::analysePlosive(x, fs);
     CHECK(r.verdict.severity == core::Severity::Light);
     CHECK(r.confidence.level == core::Reliability::Trusted);
-    CHECK(r.measures.worstRatioDb < thr::plosive::moderate_above_db);
+    CHECK(r.measures.worstRatioDb < 2.0);
 }
 
 TEST_CASE("喷麦：录音停在最后一个音节中间时，证据不越过录音结尾", "[voice][plosive]")
@@ -67,7 +67,7 @@ TEST_CASE("喷麦：录音停在最后一个音节中间时，证据不越过录
         CHECK(m.endSec <= seconds);
 }
 
-TEST_CASE("喷麦：严重度取一遍字表的最大值，一个喷的字就够", "[voice][plosive]")
+TEST_CASE("喷麦：读数取一遍字表的最大值，一个喷的字就够", "[voice][plosive]")
 {
     const double fs = 48000.0;
     const auto x = wordList(fs, listWithOnePop(10.0));
@@ -77,15 +77,15 @@ TEST_CASE("喷麦：严重度取一遍字表的最大值，一个喷的字就够
     INFO("worst " << r.measures.worstRatioDb << " median " << medianRatio(events));
     // 只有第 8 个字喷：最大值落在它上面，中位数仍接近 0（取中位数就会漏掉）
     CHECK(r.measures.worstRatioDb == within(events[7].ratioDb, 1e-12));
-    CHECK(r.measures.worstRatioDb > thr::plosive::heavy_above_db);
+    CHECK(r.measures.worstRatioDb > 6.0);
     CHECK(medianRatio(events) < 2.0);
-    CHECK(r.verdict.severity == core::Severity::Heavy);
+    CHECK(r.verdict.severity == core::Severity::Light); // 不分档
     CHECK(r.measures.events == 12);
     REQUIRE_FALSE(r.evidence.marks.empty());
     CHECK(r.evidence.marks[7].kind == core::EvidenceKind::Plosive);
 }
 
-TEST_CASE("喷麦：爆发越强比值越大，档位随之升高", "[voice][plosive]")
+TEST_CASE("喷麦：爆发越强比值越大，但不分档", "[voice][plosive]")
 {
     const double fs = 48000.0;
     double previous = -std::numeric_limits<double>::infinity();
@@ -96,7 +96,7 @@ TEST_CASE("喷麦：爆发越强比值越大，档位随之升高", "[voice][plo
         CHECK(r.measures.worstRatioDb > previous + 3.0);
         previous = r.measures.worstRatioDb;
     }
-    CHECK(core::analysePlosive(wordList(fs, listWithOnePop(0.0)), fs).verdict.severity == core::Severity::Light);
+    CHECK(core::analysePlosive(wordList(fs, listWithOnePop(12.0)), fs).verdict.severity == core::Severity::Light);
 }
 
 TEST_CASE("喷麦：同一段录音整体衰减不改变比值", "[voice][plosive]")
@@ -138,15 +138,10 @@ TEST_CASE("喷麦：没有起音时要求再测，NaN 与 Inf 不让分析失效
     CHECK(dirty.measures.events == clean.measures.events);
 }
 
-TEST_CASE("喷麦：档界先后关系", "[voice][plosive]")
-{
-    STATIC_REQUIRE(thr::plosive::moderate_above_db < thr::plosive::heavy_above_db);
-}
-
 TEST_CASE("喷麦：22.05 kHz 也能切出音节", "[voice][plosive]")
 {
     const double fs = 22050.0;
     const auto r = core::analysePlosive(wordList(fs, listWithOnePop(10.0)), fs);
     CHECK(r.measures.events == 12);
-    CHECK(r.verdict.severity == core::Severity::Heavy);
+    CHECK(r.measures.worstRatioDb > 6.0);
 }

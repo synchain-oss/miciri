@@ -64,14 +64,35 @@ core::StepId producerOf(Section s);
 // 前面几步留给后面几步的量，跟着过期规则一起作废：增益一项过期，说话电平与底噪都是旧链路上量的，
 // 不能再拿来算 SNR 或平顶容差（后面的步拿不到就按再测处理）
 void forgetStale(StepContext& ctx, const SectionSet& stale);
-// 距离标尺：由喷麦、齿音、口水音（太近）与 D/R、SNR（太远）合成；位置步没做过时为空。
-// 未分档的项（见 Grading.h）按没测处理。
-std::optional<core::DistanceResult> deriveDistance(const core::AllResults& results);
-// 每完成一步都重算距离：重测了位置、或结论（档位、置信度）变了，被换下来的那次进 previous；
-// 重算后没有距离时 previous 一并撤掉（和声道一样，不留只有“上次”的项）
-void refreshDistance(core::AllResults& results, std::optional<core::DistanceResult>& previous, core::StepId completed);
-// 同上，连同距离的建议
-std::optional<core::DistanceDecision> decideDistanceOf(const core::AllResults& results);
+// 上一次与这一次位置步之间，用户报过的改动（距离标尺的“上次 → 现在”要看）
+struct ChangesBetween
+{
+    bool gain = false; // 调过增益或声道布局变了：齿音的绝对电平不能比
+    bool room = false; // 换了房间：三项都不比
+};
+// 记下两次位置步之间报过的改动。位置步进行中报的改动同时落在下一段间隔里：这一次的音频有一段在改动之后，
+// 下一次拿它当“上次”也不能比
+class PositionChangeLog
+{
+public:
+    void report(const ChangesBetween& c, bool positionRunning);
+    void positionStarted();
+    // 一次位置步做完：返回它与上一次位置步之间报过的改动，并从这一次起重新记
+    ChangesBetween positionDone();
+
+private:
+    ChangesBetween since_; // 上一次位置步做完以来
+    ChangesBetween during_; // 进行中的这一次位置步开始以来
+};
+// 距离标尺。重测位置之后由 D/R、喷麦、齿音的“上次 → 现在”合成：previous 里的这三项就是上一次位置步的；
+// 一项都比不了时，当前、可信的噪声档位为差且有当前、可信的 T20，才给“可能离远了”的弱提示。
+// 位置步没做过、也给不出提示时为空。
+std::optional<core::DistanceResult> deriveDistance(const core::AllResults& results, const core::AllResults& previous,
+                                                   const ChangesBetween& changes, const SectionSet& stale);
+// 每完成一步都重算距离：重测了位置、或结论（kind、置信度）变了，被换下来的那次进 previous.distance；
+// 重算后没有距离时 previous.distance 一并撤掉（和声道一样，不留只有“上次”的项）
+void refreshDistance(core::AllResults& results, core::AllResults& previous, core::StepId completed,
+                     const ChangesBetween& changes, const SectionSet& stale);
 
 struct HostTraits
 {
@@ -181,6 +202,8 @@ private:
     StepContext context_;
     bool offlineRender_ = false;
     bool channelPromptDismissed_ = false;
+    PositionChangeLog positionChanges_;
+    ChangesBetween betweenPositions_; // previous 与 results 里那两次位置步之间报过的改动
     std::atomic<std::uint64_t> version_{0};
 };
 

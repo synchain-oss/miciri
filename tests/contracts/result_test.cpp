@@ -62,10 +62,10 @@ TEST_CASE("result contract: names, plain measures and tone mapping")
     checkNames(kNoiseBandNames);
     checkNames(kHumKindNames);
     checkNames(kReverbBandNames);
-    checkNames(kDrBandNames);
     checkNames(kSeverityNames);
     checkNames(kDirectionCaseNames);
     checkNames(kDistanceCaseNames);
+    checkNames(kDistanceSignNames);
     checkNames(kMicTypeNames);
     checkNames(kChangeKindNames);
 
@@ -134,8 +134,7 @@ TEST_CASE("result contract: names, plain measures and tone mapping")
     // 整组作废不能显示成任何档位的颜色
     for (auto b : {ReverbBand::Dry, ReverbBand::Normal, ReverbBand::Boomy, ReverbBand::VeryBoomy})
         CHECK(toneOf(ReverbVerdict{b, true}) == Tone::None);
-    CHECK(toneOf(DirectRatioVerdict{DrBand::Low}) == Tone::Red);
-    CHECK(toneOf(DirectRatioVerdict{DrBand::High}) == Tone::Green);
+    CHECK(toneOf(DirectRatioVerdict{}) == Tone::None); // D/R 不分档
     CHECK(toneOf(Severity::Moderate) == Tone::Amber);
     CHECK(toneOf(DirectionVerdict{DirectionCase::Best}) == Tone::Green);
     CHECK(toneOf(DirectionVerdict{DirectionCase::SmallDifference}) == Tone::Green);

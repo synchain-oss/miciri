@@ -285,9 +285,7 @@ TEST_CASE("D/R matches the analytic ratio and its bands")
             REQUIRE(a.result.confidence.level == core::Reliability::Trusted);
             CHECK(a.result.measures.drDb == within(target, 1.0));
             CHECK_FALSE(a.result.measures.lowerBoundOnly);
-            const core::DrBand want =
-                target < 5.0 ? core::DrBand::Low : (target > 12.0 ? core::DrBand::High : core::DrBand::Mid);
-            CHECK(a.result.verdict.band == want);
+            CHECK(core::cardTone(a.result) == core::Tone::None); // 不分档，没有颜色
         }
 }
 
@@ -337,7 +335,7 @@ TEST_CASE("an unmeasurable tail gives only a lower bound")
     c.tailGain = 1e-6; // 尾巴比底噪还低
     const core::DirectRatioAnalysis a = core::analyseDirectRatio(makeClaps(c), c.fs);
     CHECK(a.result.measures.lowerBoundOnly);
-    CHECK(a.result.verdict.band == core::DrBand::High);
+    // 不分档：只知道下限也照样给出，前后对比时它只排除一个方向
     CHECK(a.result.confidence.level == core::Reliability::Trusted);
 }
 
