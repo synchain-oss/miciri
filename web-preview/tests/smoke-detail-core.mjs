@@ -21,6 +21,8 @@ const { detailOf } = await at("web/app/detail/detail-core.js");
 const { cardsOf, CARD_ORDER } = await at("web/app/report/report-core.js");
 const { EVIDENCE_OF } = await at("web/app/detail/evidence-core.js");
 const { SCENES, measured, staled, withSection } = await at("web-preview/mock/report-fixtures.js");
+// 口水音参考值为 null 的分支：假数据里已有参考值，这里显式去掉
+const noClickRef = (s) => ({ ...s, bands: { ...s.bands, clickReferencePerMin: null } });
 const { resultsFor } = await at("web-preview/mock/results.js");
 const dict = (await at("web/app/detail/detail-strings.js")).default;
 const flowDict = (await at("web/app/flow/flow-strings.js")).default;
@@ -145,7 +147,7 @@ function buildMissingRoom() {
     );
     const hit = detailOf(
         "mouth",
-        withSection(measured(), "click", { count: 3, perMinute: 6, loudestRelDb: -24, loudestDbfs: -32.4 }),
+        noClickRef(withSection(measured(), "click", { count: 3, perMinute: 6, loudestRelDb: -24, loudestDbfs: -32.4 })),
     );
     run.eq(
         hit.rows.find((r) => r.label.key === "detail.r.loud").label.vars.f,
@@ -230,7 +232,11 @@ function buildMissingRoom() {
         ["flow.ref.plosive", "detail.n.ungraded.ref"],
         "没超过参考值：只有参考行，没有提示",
     );
-    run.eq(keys(detailOf("mouth", measured())), ["detail.n.ungraded"], "口水音参考值为 null：没有参考行，也没有提示");
+    run.eq(
+        keys(detailOf("mouth", noClickRef(measured()))),
+        ["detail.n.ungraded"],
+        "口水音参考值为 null：没有参考行，也没有提示",
+    );
     const vow = detailOf("sib", over).rows.find((r) => r.label.key === "detail.r.vowel");
     run.eq([vow.abs.text, vow.label.vars.b], ["−1.5", "6–12 kHz"], "齿音详情：表里写 6-12 kHz 对元音的比值");
     const off = detailOf("sib", withSection(over, "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 }));

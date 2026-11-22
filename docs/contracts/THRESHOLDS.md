@@ -45,7 +45,7 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 `reverb`、`direct_ratio`、`direction`：规格里的档界与判据是起始值，标 `pending`；实现用的窗长与块长来自合成验证。
 `plosive`、`sibilance`、`click`：规格里的起始值，全部 `pending`；口水音的残差倍数、高频背景门限是按实录调整过的起始值，仍未标定；齿音、口水音的档界和喷麦的低基频界还没有值（`null`）。喷麦不分档，没有档界。
 三项各有一个参考值（经验值，不是档界）：`plosive.reference_max_db`、`sibilance.reference_max_db`（6-12 kHz 对元音的比值）、
-`click.reference_max_per_min`（还没有值，要等更多的试听标签）；齿音对元音比值的取法（`sibilance.vowel_*`）与实录分析用的同一种。
+`click.reference_max_per_min`（每分钟次数）；齿音对元音比值的取法（`sibilance.vowel_*`）与实录分析用的同一种。
 有效带宽（`sibilance.bandwidth_*`）每 500 Hz 一个频点、看 1 kHz 宽的频带，底噪取带内帧功率的第 2 百分位（数字静音的帧不算），连续 2 个频点不满足才停。
 `recommended_distance`：推荐距离，静态的常见做法（电容、USB、不确定一组，动圈一组，耳机麦不给），全部 `pending`。
 `direct_ratio`：只有测量用的窗、频带与判据，没有档界（D/R 不分档）。

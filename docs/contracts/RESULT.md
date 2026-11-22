@@ -60,7 +60,7 @@ status: frozen
 |---|---|---|---|
 | 喷麦 | `worstRatioDb`（每遍字表最响音节的瞬态比，取最大） | `plosive.reference_max_db`（9 dB 以下） | `overReference`；建议 `pop-filter-or-back-off`：加防喷罩，或在推荐距离范围内退后一点再测 |
 | 齿音 | `highOverVowelDb`（6-12 kHz 对紧随其后的元音 200-4000 Hz，有元音参考的擦音取中位数，`vowelEvents` 是这样的擦音个数） | `sibilance.reference_max_db`（−3 dB 以下） | `overReference`；建议 `angle-soften-de-ess`：话筒偏开嘴的正前方 15-30°（朝下巴或嘴角），s 念轻一点，录完用齿音消除。不建议退后（挪远后比值反而变大），不说再测对比 |
-| 口水音 | `perMinute` | `click.reference_max_per_min`（还没有值） | `overReference`（参考值定下来之前恒为 `false`）；建议 `back-off-a-little`：在推荐距离范围内退后一点；上一次位置步（`previous.click`，可信）也超过、这次仍超过时 `drink-water` |
+| 口水音 | `perMinute` | `click.reference_max_per_min`（每分钟 60 次以下） | `overReference`；建议 `back-off-a-little`：在推荐距离范围内退后一点；上一次位置步（`previous.click`，可信）也超过、这次仍超过时 `drink-water` |
 
 - 齿音：高频项关闭（`highBandDisabled`，有效带宽不足 10 kHz）或 `vowelEvents` 为 0 时不比，`overReference` 为 `false`，参考值不显示。
   对元音的比值随距离的方向不稳（近讲效应），只作参考；前后对比仍只用固定增益下的绝对电平。
