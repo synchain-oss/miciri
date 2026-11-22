@@ -119,15 +119,11 @@ const BODY = {
     },
     dr(state, r) {
         const d = r.directRatio;
-        const b = state.bands;
         return {
             expl: A("detail.dr.e", { v: signed(d.drDb) }),
             cols: ["detail.col.val"],
             rows: [row("detail.r.dr", cell((d.lowerBoundOnly ? "≥ " : "") + signed(d.drDb), "dB"), null, true)],
-            notes: [
-                ...(d.lowerBoundOnly ? [A("flow.cd.dr.lower")] : []),
-                ...(b ? [A("detail.n.dr", { lo: fmtDb(b.drLowBelowDb), hi: fmtDb(b.drHighAboveDb) })] : []),
-            ],
+            notes: [...(d.lowerBoundOnly ? [A("flow.cd.dr.lower")] : [])],
         };
     },
     plosive(state, r) {
