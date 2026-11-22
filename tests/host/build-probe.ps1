@@ -31,14 +31,19 @@ if ($IsWindows -and -not (Get-Command cl -ErrorAction SilentlyContinue)) {
     }
 }
 if ($env:MICIRI_NINJA) { $env:PATH = (Split-Path -Parent $env:MICIRI_NINJA) + [IO.Path]::PathSeparator + $env:PATH }
+# 非英文系统上要让 ninja 记得到 cl 报的头文件依赖：配置与构建用系统代码页，见 scripts/lib/MsvcDeps.psm1
+Import-Module (Join-Path $Root 'scripts/lib/MsvcDeps.psm1') -Force -ErrorAction Stop
+Repair-MsvcDepsPrefix -BuildDir $BuildDir
 
 function Invoke-Native([string]$Exe, [string[]]$Arguments) {
     & $Exe @Arguments
     if ($LASTEXITCODE) { throw "$Exe 失败（退出码 $LASTEXITCODE）" }
 }
-Invoke-Native cmake @('-S', '.', '-B', $BuildDir, '-G', 'Ninja', "-DCMAKE_BUILD_TYPE=$Config", '-DCMAKE_COLOR_DIAGNOSTICS=OFF',
-    '-DMICIRI_WARNINGS_AS_ERRORS=ON', '-DMICIRI_CORE_ONLY=OFF', '-DMICIRI_SANITIZER=none', "-DJUCE_PATH=$JucePath", '-DMICIRI_HOST_PROBE=ON')
-Invoke-Native cmake @('--build', $BuildDir, '--target', 'Miciri_VST3', '--parallel')
+Invoke-WithOemConsole {
+    Invoke-Native cmake @('-S', '.', '-B', $BuildDir, '-G', 'Ninja', "-DCMAKE_BUILD_TYPE=$Config", '-DCMAKE_COLOR_DIAGNOSTICS=OFF',
+        '-DMICIRI_WARNINGS_AS_ERRORS=ON', '-DMICIRI_CORE_ONLY=OFF', '-DMICIRI_SANITIZER=none', "-DJUCE_PATH=$JucePath", '-DMICIRI_HOST_PROBE=ON')
+    Invoke-Native cmake @('--build', $BuildDir, '--target', 'Miciri_VST3', '--parallel')
+}
 
 $bundle = Get-ChildItem -LiteralPath $BuildDir -Recurse -Directory -Filter 'Miciri.vst3' |
     Where-Object { $_.FullName -notmatch '[\\/]_deps[\\/]' } | Select-Object -First 1

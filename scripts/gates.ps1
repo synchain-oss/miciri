@@ -210,6 +210,17 @@ function Invoke-SelfTest {
     & $check 'run-all 汇总行：缺字段时返回 $null，不当 0' (-not (Read-RunAllSummary 'run-all：通过 9 / 失败 0') -and -not (Read-RunAllSummary 'run-all：通过 9 / 跳过 0 / 失败 0'))
     $runAll = Join-Path $Root 'web-preview/tests/run-all.mjs'
     & $check 'run-all.mjs 仍按解析器认的格式写汇总行' ((-not (Test-Path -LiteralPath $runAll)) -or ((Get-Content -LiteralPath $runAll -Raw -Encoding utf8) -match [regex]::Escape('跳过 ${count.skip} / 失败 ${count.fail}（内部跳过项 ${inner.length}）')))
+    Import-Module (Join-Path $PSScriptRoot 'lib/MsvcDeps.psm1') -Force -ErrorAction Stop
+    [Text.Encoding]::RegisterProvider([Text.CodePagesEncodingProvider]::Instance)
+    $gbk = [Text.Encoding]::GetEncoding(936); $ru = @([Text.Encoding]::GetEncoding(866), [Text.Encoding]::GetEncoding(1251))
+    $mangle = { param($s, $enc) $enc.GetString([Text.Encoding]::UTF8.GetBytes($s)) }
+    $zh = "$([char]0x6CE8)$([char]0x610F): $([char]0x5305)$([char]0x542B)$([char]0x6587)$([char]0x4EF6):  "
+    $ruText = "$([char]0x041F)$([char]0x0440)$([char]0x0438)$([char]0x043C)$([char]0x0435)$([char]0x0447)$([char]0x0430)$([char]0x043D)$([char]0x0438)$([char]0x0435): "
+    & $check '前缀乱码：中文 UTF-8 被当 GBK 解码' (Test-MojibakePrefix (& $mangle $zh $gbk) @($gbk))
+    & $check '前缀正确：中文' (-not (Test-MojibakePrefix $zh @($gbk)))
+    & $check '前缀正确：英文' (-not (Test-MojibakePrefix 'Note: including file:  ' @($gbk)))
+    & $check '前缀乱码：俄文 UTF-8 被当 1251 解码' (Test-MojibakePrefix (& $mangle $ruText $ru[1]) $ru)
+    & $check '前缀正确：俄文（OEM 866 与 ANSI 1251 都不误判）' (-not (Test-MojibakePrefix $ruText $ru))
     $ids = @(Get-Gates | ForEach-Object { $_.Id })
     & $check 'gate 编号不重复' ($ids.Count -eq ($ids | Sort-Object -Unique).Count)
     & $check '每个 gate 的档位都在规则里' (@(Get-Gates | Where-Object { $_.Tier -notin $Rules.tiers }).Count -eq 0)

@@ -49,6 +49,9 @@ if ($IsWindows -and -not (Get-Command cl -ErrorAction SilentlyContinue)) {
 if ($env:MICIRI_NINJA) { $env:PATH = (Split-Path -Parent $env:MICIRI_NINJA) + [IO.Path]::PathSeparator + $env:PATH }
 
 if (-not $NoBuild) {
+    # 非英文系统上要让 ninja 记得到 cl 报的头文件依赖：配置与构建用系统代码页，见 lib/MsvcDeps.psm1
+    Import-Module (Join-Path $PSScriptRoot 'lib/MsvcDeps.psm1') -Force -ErrorAction Stop
+    Repair-MsvcDepsPrefix -BuildDir $BuildDir
     $args1 = @('-S', '.', '-B', $BuildDir, '-G', 'Ninja', "-DCMAKE_BUILD_TYPE=$Config", '-DCMAKE_COLOR_DIAGNOSTICS=OFF',
         '-DMICIRI_WARNINGS_AS_ERRORS=ON', "-DMICIRI_CORE_ONLY=$($CoreOnly ? 'ON' : 'OFF')",
         "-DMICIRI_SANITIZER=$($Sanitizer ? $Sanitizer : 'none')")
@@ -59,8 +62,10 @@ if (-not $NoBuild) {
         if ($have -ne $want) { throw "JUCE 检出是 $have，应为 .juce-commit 的 $want" }
         $args1 += "-DJUCE_PATH=$JucePath"
     }
-    Invoke-Native cmake $args1
-    Invoke-Native cmake @('--build', $BuildDir, '--parallel')
+    Invoke-WithOemConsole {
+        Invoke-Native cmake $args1
+        Invoke-Native cmake @('--build', $BuildDir, '--parallel')
+    }
 }
 
 if ($Test) {
