@@ -31,10 +31,15 @@ export function renderThresholds(json) {
     const groups = groupsOf(json);
     const count = { synthetic: 0, pending: 0, calibrated: 0 };
     let total = 0;
-    for (const [, entries] of groups)
-        for (const e of Object.values(entries)) {
+    for (const [name, entries] of groups)
+        for (const [key, e] of Object.entries(entries)) {
+            // 形状不对的项宁可在这里说清楚，也不要让计数行里冒出 undefined
+            if (e === null || typeof e !== "object" || !("value" in e) || !(e.state in STATE_LABEL))
+                throw new Error(
+                    `thresholds.json：${name}.${key} 不是 {value, state, …} 形状，或 state 不是 ${Object.keys(STATE_LABEL).join("、")} 之一`,
+                );
             total++;
-            count[e.state] = (count[e.state] ?? 0) + 1;
+            count[e.state]++;
         }
     const out = [
         `共 ${total} 项，分 ${groups.length} 组：合成验证 ${count.synthetic} 项、待标定 ${count.pending} 项、实录标定 ${count.calibrated} 项。`,

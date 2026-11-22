@@ -11,9 +11,15 @@ import { BEGIN, DOC_FILE, END, extractBlock, renderThresholds, replaceBlock } fr
 
 /** 返回错误说明列表；空表示一致。 */
 export function compare(doc, json) {
-    const have = extractBlock(doc);
+    // 换行不同不算不一致：Windows 上按 CRLF 检出的文档与生成的 LF 文本比之前先统一
+    const have = extractBlock(doc.replace(/\r\n/g, "\n"));
     if (have === null) return [`${DOC_FILE}：找不到成对的阈值表标记（各一行）`];
-    const want = renderThresholds(json);
+    let want;
+    try {
+        want = renderThresholds(json);
+    } catch (e) {
+        return [e.message];
+    }
     if (have === want) return [];
     const a = have.split("\n");
     const b = want.split("\n");
@@ -54,6 +60,9 @@ export function selfTest() {
             false,
             compare(replaceBlock(doc, renderThresholds(SAMPLE)), SAMPLE).length > 0,
         ],
+        ["文档按 CRLF 检出，内容没变", false, compare(doc.replace(/\n/g, "\r\n"), SAMPLE).length > 0],
+        ["数据里有一项没有 state", true, compare(doc, withDemo({ broken: { value: 1 } })).length > 0],
+        ["数据里有一项不是对象", true, compare(doc, withDemo({ broken: 5 })).length > 0],
     ].map(([label, bad, flagged]) => ({ label, bad, passed: flagged === bad }));
     // 说明里的竖线要转义，否则表会多出一列
     cases.push({ label: "说明里的竖线被转义", bad: false, passed: renderThresholds(SAMPLE).includes("a \\| b") });
