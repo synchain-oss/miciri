@@ -69,13 +69,13 @@ Values measure()
 
 // 期望值：由本文件在 48 kHz 上生成
 const Values kGolden{
-    {"plosive.worstRatioDb", 17.9298235631},
+    {"plosive.worstRatioDb", 17.9464915157},
     {"plosive.events", 6.0},
-    {"sibilance.midHighDb", -35.8026582897},
-    {"sibilance.highDb", -32.5900046635},
+    {"sibilance.midHighDb", -35.8715245976},
+    {"sibilance.highDb", -32.6307838659},
     {"sibilance.effectiveBandwidthHz", 23500.0},
     {"sibilance.events", 4.0},
-    {"sibilance.highOverVowelDb", -9.78982998136},
+    {"sibilance.highOverVowelDb", -9.85130907526},
     {"sibilance.vowelEvents", 4.0},
     {"click.count", 4.0},
     {"click.perMinute", 40.0},

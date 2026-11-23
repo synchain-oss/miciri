@@ -13,8 +13,12 @@ namespace miciri::core
 DirectionTake measureDirectionTake(const std::vector<double>& samples, double sampleRate)
 {
     DirectionTake out;
-    const auto frame = static_cast<std::size_t>(std::llround(thr::direction::frame_ms * 1e-3 * sampleRate));
-    if (frame == 0 || samples.size() < frame)
+    // frame_ms 长的帧每 hop_ms 一帧、互相重叠（帧长取整数个 hop）：帧不重叠时，分析起点挪几个样本，
+    // 哪几帧算“有声”就跟着变，电平与亮度随之跳动
+    const auto hop = static_cast<std::size_t>(std::llround(thr::direction::hop_ms * 1e-3 * sampleRate));
+    const auto parts = static_cast<std::size_t>(
+        std::max<long long>(1, std::llround(thr::direction::frame_ms / thr::direction::hop_ms)));
+    if (hop == 0 || samples.size() < hop * parts)
         return out;
     const int order = static_cast<int>(thr::clap::filter_order);
     dsp::BiquadCascade k = dsp::makeKWeighting(sampleRate);
@@ -22,16 +26,29 @@ DirectionTake measureDirectionTake(const std::vector<double>& samples, double sa
                                                           thr::direction::brightness_num_band_hz[1], sampleRate);
     dsp::BiquadCascade den = dsp::makeButterworthBandpass(order, thr::direction::brightness_den_band_hz[0],
                                                           thr::direction::brightness_den_band_hz[1], sampleRate);
-    dsp::FrameMeanSquare kFrames(frame), numFrames(frame), denFrames(frame);
-    for (double v : samples)
+    // 每 hop 个样本的平方和边滤波边累加，不存整段滤波输出；不够一个 hop 的尾巴用不到
+    const std::size_t hops = samples.size() / hop;
+    std::vector<double> kHop(hops), numHop(hops), denHop(hops);
+    for (std::size_t b = 0; b < hops; ++b)
     {
-        const double x = dsp::finiteOrZero(v);
-        kFrames.add(k.process(x));
-        numFrames.add(num.process(x));
-        denFrames.add(den.process(x));
+        double sk = 0.0, sn = 0.0, sd = 0.0;
+        for (std::size_t i = b * hop; i < (b + 1) * hop; ++i)
+        {
+            const double x = dsp::finiteOrZero(samples[i]);
+            const double yk = k.process(x), yn = num.process(x), yd = den.process(x);
+            sk += yk * yk;
+            sn += yn * yn;
+            sd += yd * yd;
+        }
+        kHop[b] = sk;
+        numHop[b] = sn;
+        denHop[b] = sd;
     }
+    const auto kFrames = dsp::overlappedMeans(kHop, hop, parts);
+    const auto numFrames = dsp::overlappedMeans(numHop, hop, parts);
+    const auto denFrames = dsp::overlappedMeans(denHop, hop, parts);
     std::vector<double> levels;
-    for (double p : kFrames.frames())
+    for (double p : kFrames)
         levels.push_back(dsp::powerToDb(p));
     const double top = dsp::percentile(levels, thr::direction::active_top_percentile);
     if (top <= dsp::powerToDb(dsp::kPowerFloor))
@@ -44,8 +61,8 @@ DirectionTake measureDirectionTake(const std::vector<double>& samples, double sa
         if (levels[i] < gate)
             continue;
         active.push_back(levels[i]);
-        numSum += numFrames.frames()[i];
-        denSum += denFrames.frames()[i];
+        numSum += numFrames[i];
+        denSum += denFrames[i];
     }
     out.active = !active.empty();
     if (out.active)

@@ -44,9 +44,8 @@ double median(std::vector<double> values)
 
 std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::size_t hop, std::size_t parts)
 {
-    std::vector<double> out;
     if (hop == 0 || parts == 0 || x.size() / hop < parts)
-        return out;
+        return {};
     std::vector<double> sums(x.size() / hop);
     for (std::size_t b = 0; b < sums.size(); ++b)
     {
@@ -55,6 +54,14 @@ std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::siz
             sum += x[i] * x[i];
         sums[b] = sum;
     }
+    return overlappedMeans(sums, hop, parts);
+}
+
+std::vector<double> overlappedMeans(const std::vector<double>& sums, std::size_t hop, std::size_t parts)
+{
+    std::vector<double> out;
+    if (hop == 0 || parts == 0 || sums.size() < parts)
+        return out;
     const auto length = static_cast<double>(parts * hop);
     out.resize(sums.size() - parts + 1);
     for (std::size_t f = 0; f < out.size(); ++f)

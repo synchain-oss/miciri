@@ -44,7 +44,7 @@
   对元音的比值随距离的方向不稳（近讲效应，挪远后反而可能变大），只作参考。
 - **参考值。** 喷麦 9 dB、齿音 −3 dB、口水音每分钟 75 次，都是经验值，不是档界，也不是合格线，超过不等于有问题。各自的依据：
   - 喷麦 9 dB：两位说话人在 5 cm 处，每遍字表的最大值都超过它，在 60 cm 处都低于它；一位在 15 cm 处有一遍超过。
-  - 齿音 −3 dB：常见做法的默认；同一批录音里两位说话人在唱歌位置（约 15 cm）的中位比值是 −5.4 与 −7.1 dB，都低于它。
+  - 齿音 −3 dB：常见做法的默认；同一批录音里两位说话人在唱歌位置（约 15 cm）的中位比值是 −6.8 与 −8.4 dB，都低于 −3 dB。
   - 口水音每分钟 75 次：两位说话人在约 15 cm 处的自然读数都低于它，一位刻意咂嘴时高于它，另一位刻意咂嘴时与正常读数相近；检出里仍有送气音（t、k）的误报。
 - **推荐距离。** 静态的常见做法（电容与 USB 约 15 cm，动圈约 5 到 10 cm），不是测量，也不是这批样本的结论。
 
@@ -95,9 +95,11 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 - **D/R**：1 到 4 kHz 带，直达窗内的能量比上其后到截断点的能量，两者都减去噪声；只用没削波的几下，取中位数；
   尾部高出噪声不够时这一下只算下限（真值只会更高）。不分档。
 - **喷麦**：按宽带起音切出音节，量起音段的低频峰值比同音节元音稳态的低频电平高多少（同音节瞬态比）。一遍字表取所有音节里最大的那个，
-  不取中位数：不喷的字（t、k 开头）会把中位数稀释掉。不分档。
+  不取中位数：不喷的字（t、k 开头）会把中位数稀释掉。不分档。包络帧短于基频周期时帧功率随基频起伏，帧距取得很密，
+  最大值不随分析起点变化。
 - **齿音**：按谱重心、平坦度与高频能量找擦音段，量 3 到 6 kHz 与 6 到 12 kHz 减去底噪后的绝对电平（dBFS），供同一增益下两次测试之间的比较。
   另给 6 到 12 kHz 对紧随其后的元音（200 到 4000 Hz）的比值，用来和参考值比；有效带宽不足 10 kHz 时高频项关闭。不分档。
+  谱帧互相重叠、帧距很密，读数不随分析起点变化。
 - **有效带宽**：从起始频率起每 500 Hz 一个频点，看以它为中心 1 kHz 宽的频带，说话高出底噪 10 dB 的最高频点；
   底噪取带内帧功率的第 2 百分位（数字静音的帧不算）；连续 2 个频点不满足才停，所以一个窄谷不会让它提前停下。读数是 500 Hz 的整数倍。
   不按能量占比算：人声能量大多在低频，按占比会误关高频项。
@@ -120,7 +122,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 ### 方向
 
-只回答“当前方向是不是最响”，不猜话筒型号。每个方向念一段：K 加权后分帧，活跃帧是落在第 95 百分位帧电平一定 dB 以内的帧，电平取活跃帧电平的中位数。
+只回答“当前方向是不是最响”，不猜话筒型号。每个方向念一段：K 加权后分帧（帧互相重叠，读数不随分析起点变化），活跃帧是落在第 95 百分位帧电平一定 dB 以内的帧，电平取活跃帧电平的中位数。
 亮度（3 到 10 kHz 对 300 到 1000 Hz）只显示，不参与判断：从背面进来的主要是房间声，亮度反而可能比正面高。
 四个方向最响与最轻差不到一定 dB 说“差别不大”；当前方向就是最响的说“最响”；别的方向比当前响一定 dB 以上时重测那一对，两次都成立才说“可能放反”。没测方向不算问题。
 
@@ -136,7 +138,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 <!-- prettier-ignore-start -->
 <!-- thresholds:begin 以下由 scripts/gen-algorithms.mjs 按 thresholds.json 生成，不要手改 -->
-共 293 项，分 17 组：合成验证 105 项、待标定 182 项、实录标定 6 项。
+共 294 项，分 17 组：合成验证 108 项、待标定 180 项、实录标定 6 项。
 
 ### `no_signal`
 
@@ -335,7 +337,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `filter_order` | 4 | 待标定 | 规格起始值 |  |
 | `envelope_highpass_hz` | 80 | 待标定 | 规格起始值 |  |
 | `envelope_frame_ms` | 10 | 待标定 | 规格起始值 |  |
-| `envelope_hop_ms` | 2.5 | 待标定 | 规格起始值 |  |
+| `envelope_hop_ms` | 0.5 | 合成验证 2026-11-23 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内 | a rectangular frame's power ripples at twice the pitch; a coarse hop samples the ripple at a different place for every start point |
 | `floor_percentile` | 10 | 待标定 | 规格起始值 | of the take's own envelope frames; the word list leaves pauses between words |
 | `onset_rise_db` | 12 | 待标定 | 规格起始值 |  |
 | `onset_over_floor_db` | 20 | 待标定 | 规格起始值 |  |
@@ -352,7 +354,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `vowel_window_ms` | [100, 600] | 待标定 | 规格起始值 |  |
 | `vowel_min_ms` | 40 | 待标定 | 规格起始值 |  |
 | `vowel_within_db` | 6 | 待标定 | 规格起始值 |  |
-| `vowel_min_frames` | 6 | 待标定 | 规格起始值 |  |
+| `vowel_kept_min_ms` | 15 | 待标定 | 规格起始值：原为 2.5 ms 帧距下的 6 帧，按毫秒写 | fewer kept steady-vowel frames: no reference; converted to envelope frames with the actual hop |
 | `reference_floor_margin_db` | 3 | 待标定 | 规格起始值 |  |
 | `evidence_max_marks` | 40 | 待标定 | 规格起始值 |  |
 | `reference_max_db` | 9 | 待标定 | 经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人 5 cm 时每遍字表的最大值都超过它，60 cm 时都低于它；一位在 15 cm 处有一遍超过 | reference shown next to the worst syllable of each pass; above it the card gives a light hint, no grade |
@@ -369,7 +371,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `heavy_above_db` | — | 待标定 | 待实录标定 |  |
 | `analysis_rate_max_hz` | 48000 | 待标定 | 规格起始值 |  |
 | `frame_ms` | 10 | 待标定 | 规格起始值 |  |
-| `hop_ms` | 5 | 待标定 | 规格起始值 |  |
+| `hop_ms` | 1.25 | 合成验证 2026-11-23 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内 | one spectrum frame this often; frames overlap |
 | `wideband_hz` | [80, 20000] | 待标定 | 规格起始值 |  |
 | `noise_frame_percentile` | 20 | 待标定 | 规格起始值 | frames at or below this percentile of the wideband level make the noise spectrum |
 | `centroid_band_hz` | [1000, 16000] | 待标定 | 规格起始值 |  |
@@ -394,9 +396,9 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `vowel_window_ms` | 300 | 待标定 | 规格起始值：与实录分析同一种取法 | and ends this long after the fricative ends |
 | `vowel_centroid_max_hz` | 3500 | 待标定 | 规格起始值：与实录分析同一种取法 | vowel frames have their centroid below this |
 | `vowel_within_db` | 12 | 待标定 | 规格起始值：与实录分析同一种取法 | and are within this of the loudest frame in the window |
-| `vowel_min_frames` | 4 | 待标定 | 规格起始值：与实录分析同一种取法 | fewer kept frames: this fricative has no vowel reference |
+| `vowel_kept_min_ms` | 20 | 待标定 | 规格起始值：与实录分析同一种取法，原为 5 ms 帧距下的 4 帧，按毫秒写 | fewer kept frames: this fricative has no vowel reference; converted to spectrum frames with the actual hop |
 | `vowel_loudest_frac` | 0.5 | 待标定 | 规格起始值：与实录分析同一种取法 | the vowel level is the mean of this share of the loudest kept frames |
-| `reference_max_db` | -3 | 待标定 | 经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −5.4、−7.1 dB，都低于它；一位挪到 60 cm 后升到 −2.8 dB，比值随距离的方向不稳，只作参考 | reference for the 6-12 kHz over vowel ratio; not shown when the high band is off |
+| `reference_max_db` | -3 | 待标定 | 经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −6.8、−8.4 dB，都低于它；一位挪到 60 cm 后升到 −4.1 dB，比值随距离的方向不稳，只作参考 | reference for the 6-12 kHz over vowel ratio; not shown when the high band is off |
 
 ### `click`
 
@@ -454,6 +456,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `brightness_num_band_hz` | [3000, 10000] | 待标定 | 规格起始值 |  |
 | `brightness_den_band_hz` | [300, 1000] | 待标定 | 规格起始值 |  |
 | `frame_ms` | 100 | 合成验证 2026-11-12 | 合成验证 |  |
+| `hop_ms` | 5 | 合成验证 2026-11-23 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内 | frames overlap; one frame this often, each frame a whole number of these |
 | `active_top_percentile` | 95 | 合成验证 2026-11-12 | 合成验证 |  |
 | `active_within_top_db` | 20 | 合成验证 2026-11-12 | 合成验证 | active frames lie within this many dB of the top percentile |
 
@@ -462,7 +465,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | 名称 | 值 | 状态 | 依据 | 说明 |
 |---|---|---|---|---|
 | `dr_resolution_db` | 3 | 待标定 | 工程起始值，依据实录：同一位置各下拍手的 D/R 差 0.3–2 dB，15 cm 挪到 60 cm 时降 4.3–5.2 dB（两间房） | a retest counts as a sign only when the D/R moved by more than this; a lower bound only rules out one direction |
-| `plosive_resolution_db` | 6 | 待标定 | 工程起始值，依据实录：60 cm 处字表最大值两人分别 6.7、7.5 dB，15 cm 处出现过单个 17.3 dB 的音节；缺同一位置重复字表的散布 | a retest counts as a sign only when the worst syllable moved by more than this |
+| `plosive_resolution_db` | 6 | 待标定 | 工程起始值，依据实录：60 cm 处字表最大值两人分别 7.3、7.7 dB，15 cm 处出现过单个 17.3 dB 的音节；缺同一位置重复字表的散布 | a retest counts as a sign only when the worst syllable moved by more than this |
 | `sibilance_resolution_db` | 5.2 | 待标定 | 工程起始值，依据实录：同一增益下两次测试的擦音中位电平，95% 置信能分辨的差两人分别约 5.2、1.6 dB，取较大的 | 6-12 kHz level after noise subtraction, same gain only; a retest counts as a sign only when it moved by more than this |
 | `critical_distance_coef` | 0.057 | 待标定 | 规格起始值：临界距离公式（扩散声场近似） | critical distance in metres = coef x sqrt(directivity x volume / T20) |
 | `room_volume_m3` | 30 | 待标定 | 工程起始值：典型卧室，约 3 × 4 × 2.5 m | typical room volume for the empirical distance limit; the plugin cannot measure the volume |

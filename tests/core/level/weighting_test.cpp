@@ -120,6 +120,12 @@ TEST_CASE("overlapped mean squares equal frame-by-frame means and drop the parti
     CHECK(core::dsp::overlappedMeanSquares(x, hop, 1).size() == x.size() / hop);
     CHECK(core::dsp::overlappedMeanSquares(x, 500, 3).empty());
     CHECK(core::dsp::overlappedMeanSquares(x, 0, 3).empty());
+    // 第二步单独用：调用方自己按顺序求每 hop 个样本的平方和，结果逐位相同
+    std::vector<double> sums(x.size() / hop, 0.0);
+    for (std::size_t i = 0; i < sums.size() * hop; ++i)
+        sums[i / hop] += x[i] * x[i];
+    CHECK(core::dsp::overlappedMeans(sums, hop, parts) == frames);
+    CHECK(core::dsp::overlappedMeans(sums, hop, sums.size() + 1).empty());
 }
 
 namespace

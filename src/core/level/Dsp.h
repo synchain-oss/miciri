@@ -33,6 +33,9 @@ double median(std::vector<double> values);
 // 先求每 hop 个样本的平方和，每帧再把相邻 parts 个加起来：每帧都从头加，不靠滑动相减，长输入也没有累积误差。
 // 帧数为 长度 / hop - parts + 1，不够一帧时为空。
 std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::size_t hop, std::size_t parts);
+// 上面的第二步：hopSums 是每 hop 个样本的平方和，每帧把相邻 parts 个加起来再除以帧长。
+// 边处理边求平方和的调用方用它，不必先存整段信号。
+std::vector<double> overlappedMeans(const std::vector<double>& hopSums, std::size_t hop, std::size_t parts);
 
 // 滑动窗口的中心值。窗口 [k·step, k·step + length)，k = 0, 1, …，直到窗口越过末尾；v 短于一个窗口时为空。
 // trim 为 0 时取中位数，与 median 的值相同（偶数个时取中间两个的平均）；

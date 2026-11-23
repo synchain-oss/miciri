@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 方向：只回答“当前方向是不是最响”，不猜话筒型号。
-// 每个方向唱一段：K 加权后 frame_ms 帧，活跃帧是落在第 active_top_percentile 百分位帧电平 active_within_top_db
-// 以内的帧，电平取活跃帧电平的中位数。亮度（3–10 kHz 对 300–1000 Hz，只在活跃帧上算）只显示，不参与判断：
+// 每个方向唱一段：K 加权后 frame_ms 帧，每 hop_ms 一帧、互相重叠。活跃帧是落在
+// 第 active_top_percentile 百分位帧电平 active_within_top_db 以内的帧，电平取活跃帧电平的中位数。
+// 亮度（3–10 kHz 对 300–1000 Hz，只在活跃帧上算）只显示，不参与判断：
 // 从背面进来的主要是房间声，亮度反而可能比正面高。
 //
 // 判断：四个方向最响与最轻差不到 small_difference_db 说“差别不大”；当前方向就是最响的说“最响”；
