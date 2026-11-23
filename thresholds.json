@@ -580,6 +580,13 @@
       "date": null,
       "note": "fewer kept steady-vowel frames: no reference; converted to envelope frames with the actual hop"
     },
+    "vowel_over_floor_db": {
+      "value": 15.0,
+      "state": "pending",
+      "source": "工程起始值：依据实录，两位说话人在三个距离上，字表里真实音节的元音稳态都比底噪高 25 dB 以上；字表结束后碰到话筒架的低频闷响，后面只有底噪，约高 10 dB。取两者之间，与起音要高出底噪 20 dB 同一量级",
+      "date": null,
+      "note": "the steady vowel after an onset must be this far above the take's vowel-band floor; a low thump followed by room noise has no vowel and is not a syllable"
+    },
     "reference_floor_margin_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
     "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
     "reference_max_db": {

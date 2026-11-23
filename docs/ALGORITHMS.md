@@ -96,7 +96,8 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
   尾部高出噪声不够时这一下只算下限（真值只会更高）。不分档。
 - **喷麦**：按宽带起音切出音节，量起音段的低频峰值比同音节元音稳态的低频电平高多少（同音节瞬态比）。一遍字表取所有音节里最大的那个，
   不取中位数：不喷的字（t、k 开头）会把中位数稀释掉。不分档。包络帧短于基频周期时帧功率随基频起伏，帧距取得很密，
-  最大值不随分析起点变化。
+  最大值不随分析起点变化。起音之后要跟着真的元音才算一个音节：元音稳态在 200 到 4000 Hz 的电平要比整段字表录音同频带的底噪
+  高出 `vowel_over_floor_db`。字表念完碰到话筒架这类低频闷响，后面只有底噪，不算。
 - **齿音**：按谱重心、平坦度与高频能量找擦音段，量 3 到 6 kHz 与 6 到 12 kHz 减去底噪后的绝对电平（dBFS），供同一增益下两次测试之间的比较。
   另给 6 到 12 kHz 对紧随其后的元音（200 到 4000 Hz）的比值，用来和参考值比；有效带宽不足 10 kHz 时高频项关闭。不分档。
   谱帧互相重叠、帧距很密，读数不随分析起点变化。
@@ -138,7 +139,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 <!-- prettier-ignore-start -->
 <!-- thresholds:begin 以下由 scripts/gen-algorithms.mjs 按 thresholds.json 生成，不要手改 -->
-共 294 项，分 17 组：合成验证 108 项、待标定 180 项、实录标定 6 项。
+共 295 项，分 17 组：合成验证 108 项、待标定 181 项、实录标定 6 项。
 
 ### `no_signal`
 
@@ -355,6 +356,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `vowel_min_ms` | 40 | 待标定 | 规格起始值 |  |
 | `vowel_within_db` | 6 | 待标定 | 规格起始值 |  |
 | `vowel_kept_min_ms` | 15 | 待标定 | 规格起始值：原为 2.5 ms 帧距下的 6 帧，按毫秒写 | fewer kept steady-vowel frames: no reference; converted to envelope frames with the actual hop |
+| `vowel_over_floor_db` | 15 | 待标定 | 工程起始值：依据实录，两位说话人在三个距离上，字表里真实音节的元音稳态都比底噪高 25 dB 以上；字表结束后碰到话筒架的低频闷响，后面只有底噪，约高 10 dB。取两者之间，与起音要高出底噪 20 dB 同一量级 | the steady vowel after an onset must be this far above the take's vowel-band floor; a low thump followed by room noise has no vowel and is not a syllable |
 | `reference_floor_margin_db` | 3 | 待标定 | 规格起始值 |  |
 | `evidence_max_marks` | 40 | 待标定 | 规格起始值 |  |
 | `reference_max_db` | 9 | 待标定 | 经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人 5 cm 时每遍字表的最大值都超过它，60 cm 时都低于它；一位在 15 cm 处有一遍超过 | reference shown next to the worst syllable of each pass; above it the card gives a light hint, no grade |

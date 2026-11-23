@@ -69,6 +69,7 @@ std::vector<PlosiveEvent> plosiveEvents(const std::vector<double>& samples, doub
         return {};
     const double floorDb = dsp::percentile(wide, p::floor_percentile);
     const double lowFloorDb = dsp::percentile(low, p::floor_percentile);
+    const double vowelFloorDb = dsp::percentile(vowel, p::floor_percentile);
     const auto size = static_cast<long long>(wide.size());
     const long long frameSpan = std::llround(static_cast<double>(n) / static_cast<double>(hop));
 
@@ -94,11 +95,19 @@ std::vector<PlosiveEvent> plosiveEvents(const std::vector<double>& samples, doub
 
         // 元音稳态：起音之后最响的几帧（比该段最响帧低不超过 vowel_within_db）
         const double loudest = *std::max_element(vowel.begin() + v0, vowel.begin() + v1);
-        std::vector<double> steady;
+        std::vector<double> steady, steadyVowel;
         for (long long f = v0; f < v1; ++f)
             if (vowel[static_cast<std::size_t>(f)] >= loudest - p::vowel_within_db)
+            {
                 steady.push_back(low[static_cast<std::size_t>(f)]);
+                steadyVowel.push_back(vowel[static_cast<std::size_t>(f)]);
+            }
         if (static_cast<long long>(steady.size()) < std::max<long long>(1, frames(p::vowel_kept_min_ms)))
+            continue;
+        // 稳态得是真的元音：元音频带的电平要比整段录音同频带的底噪高出 vowel_over_floor_db，
+        // 底噪取法与上面相同（帧的 floor_percentile 百分位）。
+        // 碰到话筒架这类低频闷响后面只有底噪，“稳态”就是底噪本身，闷响会被当成一次很重的喷麦
+        if (dsp::median(steadyVowel) < vowelFloorDb + p::vowel_over_floor_db)
             continue;
         // 元音几乎没有低频时，分母取底噪加一点余量，不让比值被底噪放大
         const double reference = std::max(dsp::median(steady), lowFloorDb + p::reference_floor_margin_db);
