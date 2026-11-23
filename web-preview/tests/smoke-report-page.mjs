@@ -18,12 +18,12 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createRun, repoRoot } from "./lib/harness.mjs";
-import { findBrowser, launchBrowser } from "./lib/browser.mjs";
+import { NO_BROWSER_HINT, findBrowser, launchBrowser } from "./lib/browser.mjs";
 import { startStaticServer } from "./lib/static-server.mjs";
 
 const ROOT = repoRoot();
 const run = createRun("报告页（页面）");
-if (!findBrowser()) run.skip("没有 Chromium 系浏览器；可用环境变量 MICIRI_BROWSER 指定");
+if (!findBrowser()) run.skip(NO_BROWSER_HINT);
 const { SCENES } = await import(pathToFileURL(path.join(ROOT, "web-preview/mock/report-fixtures.js")).href);
 const { resultsFor } = await import(pathToFileURL(path.join(ROOT, "web-preview/mock/results.js")).href);
 
