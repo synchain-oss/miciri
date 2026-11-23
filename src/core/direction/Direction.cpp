@@ -26,17 +26,27 @@ DirectionTake measureDirectionTake(const std::vector<double>& samples, double sa
                                                           thr::direction::brightness_num_band_hz[1], sampleRate);
     dsp::BiquadCascade den = dsp::makeButterworthBandpass(order, thr::direction::brightness_den_band_hz[0],
                                                           thr::direction::brightness_den_band_hz[1], sampleRate);
-    std::vector<double> kOut(samples.size()), numOut(samples.size()), denOut(samples.size());
-    for (std::size_t i = 0; i < samples.size(); ++i)
+    // 每 hop 个样本的平方和边滤波边累加，不存整段滤波输出；不够一个 hop 的尾巴用不到
+    const std::size_t hops = samples.size() / hop;
+    std::vector<double> kHop(hops), numHop(hops), denHop(hops);
+    for (std::size_t b = 0; b < hops; ++b)
     {
-        const double x = dsp::finiteOrZero(samples[i]);
-        kOut[i] = k.process(x);
-        numOut[i] = num.process(x);
-        denOut[i] = den.process(x);
+        double sk = 0.0, sn = 0.0, sd = 0.0;
+        for (std::size_t i = b * hop; i < (b + 1) * hop; ++i)
+        {
+            const double x = dsp::finiteOrZero(samples[i]);
+            const double yk = k.process(x), yn = num.process(x), yd = den.process(x);
+            sk += yk * yk;
+            sn += yn * yn;
+            sd += yd * yd;
+        }
+        kHop[b] = sk;
+        numHop[b] = sn;
+        denHop[b] = sd;
     }
-    const auto kFrames = dsp::overlappedMeanSquares(kOut, hop, parts);
-    const auto numFrames = dsp::overlappedMeanSquares(numOut, hop, parts);
-    const auto denFrames = dsp::overlappedMeanSquares(denOut, hop, parts);
+    const auto kFrames = dsp::overlappedMeans(kHop, hop, parts);
+    const auto numFrames = dsp::overlappedMeans(numHop, hop, parts);
+    const auto denFrames = dsp::overlappedMeans(denHop, hop, parts);
     std::vector<double> levels;
     for (double p : kFrames)
         levels.push_back(dsp::powerToDb(p));

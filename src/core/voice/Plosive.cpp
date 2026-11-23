@@ -98,7 +98,7 @@ std::vector<PlosiveEvent> plosiveEvents(const std::vector<double>& samples, doub
         for (long long f = v0; f < v1; ++f)
             if (vowel[static_cast<std::size_t>(f)] >= loudest - p::vowel_within_db)
                 steady.push_back(low[static_cast<std::size_t>(f)]);
-        if (static_cast<long long>(steady.size()) < frames(p::vowel_kept_min_ms))
+        if (static_cast<long long>(steady.size()) < std::max<long long>(1, frames(p::vowel_kept_min_ms)))
             continue;
         // 元音几乎没有低频时，分母取底噪加一点余量，不让比值被底噪放大
         const double reference = std::max(dsp::median(steady), lowFloorDb + p::reference_floor_margin_db);
