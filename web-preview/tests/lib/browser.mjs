@@ -270,7 +270,7 @@ class Page {
 export function needsNoSandbox(exe, { platform = process.platform, env = process.env } = {}) {
     if (platform !== "linux" || !env.PLAYWRIGHT_BROWSERS_PATH) return false;
     const rel = path.relative(path.resolve(env.PLAYWRIGHT_BROWSERS_PATH), path.resolve(exe));
-    return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+    return rel !== "" && rel.split(path.sep)[0] !== ".." && !path.isAbsolute(rel);
 }
 
 /**

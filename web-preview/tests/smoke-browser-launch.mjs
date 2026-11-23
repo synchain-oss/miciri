@@ -388,6 +388,14 @@ function startFakeCdp({ respond }) {
         "名字只是前缀相同的兄弟目录不算在自带目录之下",
     );
     run.check(!needsNoSandbox(PW, { platform: "linux", env }), "自带目录本身不是浏览器可执行文件，不算");
+    run.check(
+        needsNoSandbox(path.join(PW, "..cache", "chrome"), { platform: "linux", env }),
+        "自带目录下名字以两个点开头的子目录（..cache）仍算在自带目录之下",
+    );
+    run.check(
+        !needsNoSandbox(path.join(PW, "..", "chrome"), { platform: "linux", env }),
+        "自带目录的上一级不算在自带目录之下",
+    );
     run.check(!needsNoSandbox(bundled, { platform: "linux", env: {} }), "没设 PLAYWRIGHT_BROWSERS_PATH：不加");
     run.check(!needsNoSandbox(bundled, { platform: "win32", env }), "Windows 上不加");
     run.check(!needsNoSandbox(bundled, { platform: "darwin", env }), "mac 上不加");
