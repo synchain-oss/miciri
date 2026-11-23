@@ -172,8 +172,9 @@ macOS 版的 Miciri 没有签名和公证，Gatekeeper 会拦下载来的文件�
 先确认戴了耳机、这条轨道的输入选好了、需要监听的宿主里监听开了、插件没有被旁路。然后看[收不到信号时](#收不到信号时)。Miciri 看不到那些 DAW 设置，所以只能说“可能”。
 
 **它能在我的 DAW 里用吗？**
-能加载 VST3（Windows、macOS）或 Audio Unit（macOS）的宿主都可以尝试加载，但目前没有任何宿主有完整的测试记录。兼容表在
-[KNOWN_ISSUES.md](KNOWN_ISSUES.md)，没测过的宿主都写着“未测”。
+能加载 VST3（Windows、macOS）或 Audio Unit（macOS）的宿主都可以尝试加载，但目前只有 REAPER（Windows，VST3）有自动化测试记录，
+没有任何宿主做过手测。兼容表在 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)，详细记录在 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)，
+没测过的宿主都写着“未测”。
 
 **这一步自己重新开始了，是 bug 吗？**
 不是。有东西搅了这一步，它就会重来：安静步骤里的说话声或碰撞声、削波的拍手、或明显比增益那一步轻的一遍。卡片会写原因。

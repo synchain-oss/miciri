@@ -35,8 +35,9 @@
 
 ## 支持的 DAW
 
-目前没有任何宿主有完整的测试记录，所以 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) 里每个宿主都写着**未测**。v1 的目标宿主是 REAPER、
-Cubase、FL Studio 和 GarageBand / Logic（Audio Unit）。验证过一个，就在那里补上宿主版本和日期。
+目前只有 REAPER（Windows，VST3）有自动化测试记录，没有任何宿主做过手测，其余宿主在 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) 里都写着**未测**；
+完整记录见 [docs/DAW_COMPATIBILITY.md](docs/DAW_COMPATIBILITY.md)。v1 的目标宿主是 REAPER、Cubase、FL Studio 和 GarageBand / Logic（Audio Unit）。
+验证过一个，就在那里补上宿主版本和日期。
 
 ## 安装
 
@@ -74,7 +75,7 @@ cmake --build build
 
 **它会录音或上传我的音频吗？** 不会。音频边收边在内存里分析，不保留，什么都不会离开你的电脑。
 
-**它能在哪些 DAW 里用？** 能加载 VST3 或 Audio Unit 的宿主都可以尝试加载，但目前没有任何宿主有完整的测试记录。见
+**它能在哪些 DAW 里用？** 能加载 VST3 或 Audio Unit 的宿主都可以尝试加载，但目前只有 REAPER（Windows）有自动化测试记录，没有任何宿主做过手测。见
 [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) 里的表。
 
 **为什么 macOS 会拦它？** macOS 版没有签名和公证，下载下来的文件会被 Gatekeeper 拦住。使用指南里写了怎样解除。

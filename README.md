@@ -37,9 +37,10 @@ affected items and see "last time → now".
 
 ## Supported DAWs
 
-No host has a full test record yet, so every host is listed as **not tested** in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md). The
-v1 targets are REAPER, Cubase, FL Studio and GarageBand / Logic (Audio Unit). Results are added there with the host version and
-the date as they are verified.
+So far only REAPER on Windows (VST3) has automated test results, and no host has been tested by hand. Every other host is listed
+as **not tested** in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md); the full record is in
+[docs/DAW_COMPATIBILITY.md](docs/DAW_COMPATIBILITY.md). The v1 targets are REAPER, Cubase, FL Studio and GarageBand / Logic (Audio
+Unit). Results are added there with the host version and the date as they are verified.
 
 ## Install
 
@@ -81,8 +82,8 @@ for a better vocal recording, with the numbers behind it.
 
 **Does it record or upload my audio?** No. Audio is analysed in memory while it arrives and is not kept. Nothing leaves your computer.
 
-**Which DAWs does it work in?** Hosts that load VST3 or Audio Units can load it, but none has a full test record yet. See the
-table in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+**Which DAWs does it work in?** Hosts that load VST3 or Audio Units can load it, but only REAPER on Windows has automated test
+results so far, and no host has been tested by hand. See the table in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
 **Why does macOS block it?** The macOS builds are not signed or notarized, so Gatekeeper blocks a downloaded copy. The user
 guide shows how to clear the flag.

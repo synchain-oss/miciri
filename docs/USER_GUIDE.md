@@ -213,8 +213,10 @@ Check that you are wearing headphones, that the track's input is selected and mo
 Then read [If no signal arrives](#if-no-signal-arrives). Miciri can only say "possibly", because it cannot see those DAW settings.
 
 **Does it work in my DAW?**
-Any host that loads VST3 (Windows, macOS) or Audio Units (macOS) can try to load it, but no host has a full test record yet. The
-compatibility table is in [KNOWN_ISSUES.md](KNOWN_ISSUES.md) and every untested host says "Not tested".
+Any host that loads VST3 (Windows, macOS) or Audio Units (macOS) can try to load it, but only REAPER on Windows (VST3) has
+automated test results so far, and no host has been tested by hand. The compatibility table is in
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md), with the details in [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md), and every untested host says
+"Not tested".
 
 **The step restarted by itself. Is that a bug?**
 No. A step starts over when something spoils it: speech or a bump during the quiet test, a clap that clipped, or a pass much quieter
