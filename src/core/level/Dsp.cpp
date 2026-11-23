@@ -42,6 +42,31 @@ double median(std::vector<double> values)
     return percentile(std::move(values), 50.0);
 }
 
+std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::size_t hop, std::size_t parts)
+{
+    std::vector<double> out;
+    if (hop == 0 || parts == 0 || x.size() / hop < parts)
+        return out;
+    std::vector<double> sums(x.size() / hop);
+    for (std::size_t b = 0; b < sums.size(); ++b)
+    {
+        double sum = 0.0;
+        for (std::size_t i = b * hop; i < (b + 1) * hop; ++i)
+            sum += x[i] * x[i];
+        sums[b] = sum;
+    }
+    const auto length = static_cast<double>(parts * hop);
+    out.resize(sums.size() - parts + 1);
+    for (std::size_t f = 0; f < out.size(); ++f)
+    {
+        double sum = 0.0;
+        for (std::size_t j = f; j < f + parts; ++j)
+            sum += sums[j];
+        out[f] = sum / length;
+    }
+    return out;
+}
+
 BiquadCascade::BiquadCascade(std::vector<Biquad> stages) : stages_(std::move(stages)), state_(stages_.size())
 {
     reset();

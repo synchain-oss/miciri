@@ -59,8 +59,8 @@ SibilanceResult analyseSibilance(const std::vector<double>& samples, double samp
 // 每个残差尖峰都留下，规则在 summariseClicks 里套：这样能对同一次扫描比较不同的残差倍数。
 struct ClickCandidate
 {
-    double timeSec = 0.0;
-    double residualMultiple = 0.0; // 尖峰处残差绝对值 ÷ 局部残差尺度
+    double timeSec = 0.0; // 尖峰的位置：组内高通信号绝对值最大的样本
+    double residualMultiple = 0.0; // 这一组超限样本里残差绝对值 ÷ 局部残差尺度的最大值
     double peakDbfs = 0.0; // 尖峰附近高通后的峰值
     double relSpeechDb = 0.0; // peakDbfs 相对本人语音
     double contextRelDb = 0.0; // 尖峰前后的高频背景，相对本人语音

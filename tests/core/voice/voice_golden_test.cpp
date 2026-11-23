@@ -80,7 +80,7 @@ const Values kGolden{
     {"click.count", 4.0},
     {"click.perMinute", 40.0},
     {"click.loudestDbfs", -21.4053231159},
-    {"click.loudestRelDb", 7.8875158418},
+    {"click.loudestRelDb", 8.06381155524},
     {"click.analysedSeconds", 6.0},
 };
 } // namespace

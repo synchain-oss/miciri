@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 加权滤波器与重采样原件：A 加权对 IEC 61672 的标准表，K 加权各采样率对 48 kHz 公布系数的频响，
-// 抽取器的直流增益与分块一致性，百分位的定义。
+// 抽取器的直流增益与分块一致性，百分位的定义，重叠帧的均方。
 #include <catch2/catch_test_macros.hpp>
 
 #include "core/level/Synth.h"
@@ -98,6 +98,24 @@ TEST_CASE("percentile interpolates like the usual definition")
     CHECK(core::dsp::percentile(v, 50) == within(3.0, 1e-12));
     CHECK(core::dsp::percentile(v, 100) == within(5.0, 1e-12));
     CHECK(core::dsp::percentile({}, 50) == 0.0);
+}
+
+TEST_CASE("overlapped mean squares equal frame-by-frame means and drop the partial tail")
+{
+    const std::vector<double> x = whiteNoise(1003, 0.3, 17);
+    const std::size_t hop = 10, parts = 5;
+    const auto frames = core::dsp::overlappedMeanSquares(x, hop, parts);
+    REQUIRE(frames.size() == x.size() / hop - parts + 1);
+    for (std::size_t f = 0; f < frames.size(); ++f)
+    {
+        double sum = 0.0;
+        for (std::size_t i = f * hop; i < f * hop + parts * hop; ++i)
+            sum += x[i] * x[i];
+        CHECK(frames[f] == within(sum / static_cast<double>(parts * hop), 1e-12));
+    }
+    CHECK(core::dsp::overlappedMeanSquares(x, hop, 1).size() == x.size() / hop);
+    CHECK(core::dsp::overlappedMeanSquares(x, 500, 3).empty());
+    CHECK(core::dsp::overlappedMeanSquares(x, 0, 3).empty());
 }
 
 TEST_CASE("decimator keeps level, has unit DC gain and does not depend on block size")

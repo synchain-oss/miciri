@@ -29,6 +29,11 @@ double dbToPower(double db);
 double percentile(std::vector<double> values, double pct);
 double median(std::vector<double> values);
 
+// 互相重叠的帧均方：帧长 parts × hop 个样本，每 hop 个样本一帧（parts 为 1 时不重叠）。先求每 hop 个样本的平方和，
+// 每帧再把相邻 parts 个加起来：每帧都从头加，不靠滑动相减，长输入也没有累积误差。帧数 长度 / hop - parts +
+// 1，不够一帧时为空。
+std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::size_t hop, std::size_t parts);
+
 // 定长帧的均方值：逐样本累加，帧满了就记一项。累加顺序只取决于样本顺序，所以与分块方式无关。
 class FrameMeanSquare
 {
