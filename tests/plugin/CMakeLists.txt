@@ -10,29 +10,39 @@ endif()
 enable_language(C)
 
 set(_plugin_src "${CMAKE_SOURCE_DIR}/src/plugin")
+# 带探针（MICIRI_HOST_PROBE=1）编处理器时要一起编的探针源文件；探针写快照用编辑器同一个拼装函数
+set(_probe_src "${_plugin_src}/HostProbe.cpp" "${_plugin_src}/HostProbeScript.cpp" "${_plugin_src}/HostProbeRunner.cpp"
+  "${_plugin_src}/BridgeSnapshot.cpp")
 
 # 处理器测试自己提供 createEditor 的空实现，所以不用链编辑器与 WebView。
 miciri_add_test(NAME plugin_passthrough
   SOURCES passthrough_test.cpp EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp"
   LINK miciri_session juce::juce_audio_processors)
 
-# 宿主探针的核心逻辑（全 0 判断、分类、JSON、原子写文件、环境变量开关）：不依赖宿主，不看 MICIRI_HOST_PROBE，
-# 默认的 OFF 构建里照常编、照常跑。JSON 用 juce_core 的解析器核对，探针本身不依赖 JUCE。
+# 桥快照的拼装（编辑器与宿主探针共用）：键序按契约，输出与抽成共用函数之前的编辑器逐字节相同。
+miciri_add_test(NAME plugin_bridge_snapshot
+  SOURCES bridge_snapshot_test.cpp EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp" "${_plugin_src}/BridgeSnapshot.cpp"
+  LINK miciri_session juce::juce_audio_processors)
+
+# 宿主探针的核心逻辑（全 0 判断、分类、JSON、原子写文件、环境变量开关）与自动操作脚本（解析、按样本秒调度）：
+# 不依赖宿主，不看 MICIRI_HOST_PROBE，默认的 OFF 构建里照常编、照常跑。计数部分不依赖 JUCE，JSON 用 juce_core 的解析器核对；
+# 脚本解析本身用 juce_core。
 miciri_add_test(NAME plugin_host_probe
-  SOURCES host_probe_test.cpp "${_plugin_src}/HostProbe.cpp"
+  SOURCES host_probe_test.cpp host_probe_script_test.cpp "${_plugin_src}/HostProbe.cpp" "${_plugin_src}/HostProbeScript.cpp"
   LINK juce::juce_core)
 
 # 带探针的处理器：同一份 MiciriProcessor.cpp 在 MICIRI_HOST_PROBE=1 下再编一遍，守住处理器里的接线（计数、写文件的时机、
 # 定时器）。数据块的内容、逐位直通同样在这个配置下验证。测试里要自己跑一会儿消息循环，需要放开模态循环。
 miciri_add_test(NAME plugin_host_probe_processor
-  SOURCES host_probe_processor_test.cpp EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp" "${_plugin_src}/HostProbe.cpp"
+  SOURCES host_probe_processor_test.cpp host_probe_autorun_test.cpp EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp"
+          ${_probe_src}
   LINK miciri_session juce::juce_audio_processors
   DEFINITIONS MICIRI_HOST_PROBE=1 JUCE_MODAL_LOOPS_PERMITTED=1)
 
 # 分配计数器也在带探针的配置下跑一遍：探针开着，processBlock 照样一次分配都不许有。复用 tests/alloc 的用例源文件。
 miciri_add_test(NAME alloc_processblock_host_probe
   SOURCES "${CMAKE_SOURCE_DIR}/tests/alloc/alloc_test.cpp" EditorStub.cpp "${_plugin_src}/MiciriProcessor.cpp"
-          "${_plugin_src}/HostProbe.cpp"
+          ${_probe_src}
   LINK miciri_session juce::juce_audio_processors
   DEFINITIONS MICIRI_HOST_PROBE=1
   LABELS alloc)
@@ -60,6 +70,8 @@ target_sources(plugin_editor_open_close PRIVATE
   frontend_resource_test.cpp
   "${_plugin_src}/MiciriProcessor.cpp"
   "${_plugin_src}/HostProbe.cpp"
+  "${_plugin_src}/HostProbeScript.cpp"
+  "${_plugin_src}/HostProbeRunner.cpp"
   ${_ui_sources})
 target_include_directories(plugin_editor_open_close PRIVATE
   "${_plugin_src}" "${CMAKE_SOURCE_DIR}/src" "${CMAKE_SOURCE_DIR}/tests")
