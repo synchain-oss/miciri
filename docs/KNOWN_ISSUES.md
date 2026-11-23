@@ -49,7 +49,7 @@ off, where audio arriving faster than real time voids the step: it is covered by
 
 | 宿主 | 系统与格式 | 状态 |
 |---|---|---|
-| REAPER | Windows，VST3 | 自动化测试通过，手测未做（REAPER 7.82，2026-11-12） |
+| REAPER | Windows，VST3 | 自动化测试通过，手测未做（REAPER 7.82，2026-11-23） |
 | REAPER | macOS，VST3 与 AU | 未测 |
 | Cubase | Windows 与 macOS，VST3 | 未测 |
 | FL Studio | Windows 与 macOS，VST3 | 未测 |
@@ -70,7 +70,7 @@ validates the plug-in format and does not mean it works in a host.
 
 | Host | OS and format | Status |
 |---|---|---|
-| REAPER | Windows, VST3 | Automated tests pass, manual test not done (REAPER 7.82, 2026-11-12) |
+| REAPER | Windows, VST3 | Automated tests pass, manual test not done (REAPER 7.82, 2026-11-23) |
 | REAPER | macOS, VST3 and AU | Not tested |
 | Cubase | Windows and macOS, VST3 | Not tested |
 | FL Studio | Windows and macOS, VST3 | Not tested |
