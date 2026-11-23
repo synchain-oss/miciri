@@ -224,14 +224,19 @@ function Invoke-SelfTest {
     # Invoke-WithOemConsole：输入输出一起切到系统 OEM 页，结束（含抛异常）后各自还原。
     # 只切输出会留下“输出 OEM + 输入 UTF-8”，全新构建目录的 CMake 配置在这个组合下会失败。
     # 不是 Windows、读不到系统代码页、或没有可设置的控制台时整组跳过。
-    $cp = $IsWindows ? (& (Get-Module MsvcDeps) { Get-SystemCodePages }) : $null
+    $cp = $IsWindows ? (Get-SystemCodePages) : $null
     $oemPage = $cp ? $cp.Oem.CodePage : 0
     $origOut = $null; $origIn = $null
     $pages = { param($o, $i) [Console]::OutputEncoding = [Text.Encoding]::GetEncoding($o); [Console]::InputEncoding = [Text.Encoding]::GetEncoding($i) }
     $now = { "$([Console]::OutputEncoding.CodePage)/$([Console]::InputEncoding.CodePage)" }
     if ($cp) {
         try { $origOut = [Console]::OutputEncoding; $origIn = [Console]::InputEncoding; & $pages 65001 65001 }
-        catch { Write-Host "OEM 控制台自测跳过：没有可设置的控制台（$($_.Exception.Message)）"; $cp = $null }
+        catch {
+            Write-Host "OEM 控制台自测跳过：没有可设置的控制台（$($_.Exception.Message)）"
+            # 输出页已经设成功、输入页才抛：先还原再跳过，别把控制台留在 65001
+            try { if ($origOut) { [Console]::OutputEncoding = $origOut }; if ($origIn) { [Console]::InputEncoding = $origIn } } catch { $null = $_ }
+            $cp = $null
+        }
     }
     if ($cp) {
         try {
@@ -248,7 +253,7 @@ function Invoke-SelfTest {
             try { [Console]::OutputEncoding = $origOut; [Console]::InputEncoding = $origIn } catch { $null = $_ }
         }
     }
-    $ids =@(Get-Gates | ForEach-Object { $_.Id })
+    $ids = @(Get-Gates | ForEach-Object { $_.Id })
     & $check 'gate 编号不重复' ($ids.Count -eq ($ids | Sort-Object -Unique).Count)
     & $check '每个 gate 的档位都在规则里' (@(Get-Gates | Where-Object { $_.Tier -notin $Rules.tiers }).Count -eq 0)
     if ($script:ok) { Write-Host 'gates 自测通过' }

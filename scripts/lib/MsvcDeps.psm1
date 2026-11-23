@@ -91,4 +91,4 @@ function Invoke-WithOemConsole {
     }
 }
 
-Export-ModuleMember -Function Repair-MsvcDepsPrefix, Invoke-WithOemConsole, Test-MojibakePrefix
+Export-ModuleMember -Function Get-SystemCodePages, Repair-MsvcDepsPrefix, Invoke-WithOemConsole, Test-MojibakePrefix
