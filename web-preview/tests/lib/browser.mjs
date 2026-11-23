@@ -31,6 +31,25 @@ export function findBrowser() {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
+ * fetch 的禁用端口表：Fetch 标准的 bad port 列表（https://fetch.spec.whatwg.org/#port-blocking），Node 的 fetch（undici）
+ * 对这些端口直接抛 `TypeError: fetch failed`（cause 是 bad port），根本不发请求。调试端口由系统随机分配（--remote-debugging-port=0），
+ * 偶尔落在表里，之后对 http://127.0.0.1:<端口>/json/... 的每一次 fetch 都会抛错，所以拿到这样的端口就当这一次启动失败。
+ * 表多收几项只会多重起一次，少收才会让冒烟偶发红；smoke-browser-launch 核对表里每一项在当前 Node 上确实被 fetch 拒绝。
+ */
+export const FETCH_BAD_PORTS = Object.freeze([
+    1, 7, 9, 11, 13, 15, 17, 19, 20, 21, 22, 23, 25, 37, 42, 43, 53, 69, 77, 79, 87, 95, 101, 102, 103, 104, 109, 110,
+    111, 113, 115, 117, 119, 123, 135, 137, 139, 143, 161, 179, 389, 427, 465, 512, 513, 514, 515, 526, 530, 531, 532,
+    540, 548, 554, 556, 563, 587, 601, 636, 989, 990, 993, 995, 1719, 1720, 1723, 2049, 3659, 4045, 4190, 5060, 5061,
+    6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080,
+]);
+const FETCH_BAD_PORT_SET = new Set(FETCH_BAD_PORTS);
+
+/** 这个端口是否在 fetch 的禁用端口表里（对它的 fetch 会直接抛 bad port）。 */
+export function isFetchBadPort(port) {
+    return FETCH_BAD_PORT_SET.has(Number(port));
+}
+
+/**
  * 开调试端口的有界重试。无头浏览器偶尔在负载下 10 秒内写不出 DevToolsActivePort（CI 与本机都见过），这一次没起来不等于页面坏了，
  * 所以换一个新 profile 重起；但次数与总时长都有上界，重试完仍没起来照常抛错判红，不改成跳过：页面冒烟是 required check。
  * attempts：最多起几次（含第一次）；waitMs：每次等端口文件多久；backoffMs：第 k 次失败后等多久再起（不够长就重复最后一项）；
@@ -56,7 +75,7 @@ export async function withLaunchRetry(
         const spent = now() - t0;
         if (k >= policy.attempts || spent + pause + policy.waitMs > policy.totalMs) {
             const err = new Error(
-                `浏览器起了 ${k} 次，每次都没在 ${policy.waitMs / 1000} 秒内开出调试端口（重试 ${k - 1} 次，共 ${(spent / 1000).toFixed(1)} 秒）`,
+                `浏览器起了 ${k} 次，每次都没在 ${policy.waitMs / 1000} 秒内开出可用的调试端口（重试 ${k - 1} 次，共 ${(spent / 1000).toFixed(1)} 秒）`,
             );
             err.launchAttempts = k;
             throw err;
@@ -172,12 +191,13 @@ class Page {
 }
 
 /**
- * 起一次浏览器：新的临时 profile，等 waitMs 看它写不写出调试端口。写出来了返回 { port, cleanup }；没写出来就收掉这一次的进程树与
- * profile，返回 null（由 withLaunchRetry 决定还起不起）。
+ * 起一次浏览器：新的临时 profile，等 waitMs 看它写不写出调试端口。写出来且 fetch 连得上（不在禁用端口表里）返回 { port, cleanup }；
+ * 没写出来，或写出来的端口在 fetch 的禁用端口表里，就收掉这一次的进程树与 profile，返回 null（由 withLaunchRetry 决定还起不起）。
+ * spawnProc 只为自测注入假浏览器，正常调用不传。
  */
-async function launchOnce(exe, waitMs) {
+export async function launchOnce(exe, waitMs, { spawnProc = spawn } = {}) {
     const profile = makeTempDir("miciri-pv-");
-    const proc = spawn(
+    const proc = spawnProc(
         exe,
         [
             "--headless=new",
@@ -231,9 +251,19 @@ async function launchOnce(exe, waitMs) {
     process.once("exit", () => {
         removeTempDir(profile);
     });
+    // 系统分配的端口落在 fetch 的禁用端口表里：之后对它的 fetch 一律抛 bad port。这一次作废，走和「没开出端口」同一条收尾（收进程树与 profile）
+    let badPort = 0;
+    if (port && isFetchBadPort(port)) {
+        badPort = port;
+        port = 0;
+    }
     if (!port) {
         await cleanup();
         if (spawnError) console.error(`[浏览器] 这一次没起来：${spawnError.message}`);
+        if (badPort)
+            console.error(
+                `[浏览器] 系统分配的调试端口 ${badPort} 在 fetch 的禁用端口表里（会报 bad port），这一次作废`,
+            );
         return null;
     }
     return { port, cleanup };
@@ -251,7 +281,7 @@ export async function launchBrowser({ width = 1280, height = 900 } = {}) {
     const got = await withLaunchRetry(() => launchOnce(exe, LAUNCH_POLICY.waitMs), LAUNCH_POLICY, {
         onRetry: (k, pause) =>
             console.error(
-                `[浏览器] 第 ${k} 次启动没在 ${LAUNCH_POLICY.waitMs / 1000} 秒内开出调试端口，${pause / 1000} 秒后重起（最多起 ${LAUNCH_POLICY.attempts} 次）`,
+                `[浏览器] 第 ${k} 次启动没在 ${LAUNCH_POLICY.waitMs / 1000} 秒内开出可用的调试端口，${pause / 1000} 秒后重起（最多起 ${LAUNCH_POLICY.attempts} 次）`,
             ),
     });
     const { port, cleanup } = got.value;
