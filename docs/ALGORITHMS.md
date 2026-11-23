@@ -44,7 +44,7 @@
   对元音的比值随距离的方向不稳（近讲效应，挪远后反而可能变大），只作参考。
 - **参考值。** 喷麦 9 dB、齿音 −3 dB、口水音每分钟 75 次，都是经验值，不是档界，也不是合格线，超过不等于有问题。各自的依据：
   - 喷麦 9 dB：两位说话人在 5 cm 处，每遍字表的最大值都超过它，在 60 cm 处都低于它；一位在 15 cm 处有一遍超过。
-  - 齿音 −3 dB：常见做法的默认；同一批录音里两位说话人在唱歌位置（约 15 cm）的中位比值是 −5.4 与 −7.1 dB，都低于它。
+  - 齿音 −3 dB：常见做法的默认；同一批录音里两位说话人在唱歌位置（约 15 cm）的中位比值是 −6.8 与 −8.4 dB，都低于 −3 dB。
   - 口水音每分钟 75 次：两位说话人在约 15 cm 处的自然读数都低于它，一位刻意咂嘴时高于它，另一位刻意咂嘴时与正常读数相近；检出里仍有送气音（t、k）的误报。
 - **推荐距离。** 静态的常见做法（电容与 USB 约 15 cm，动圈约 5 到 10 cm），不是测量，也不是这批样本的结论。
 
@@ -354,7 +354,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `vowel_window_ms` | [100, 600] | 待标定 | 规格起始值 |  |
 | `vowel_min_ms` | 40 | 待标定 | 规格起始值 |  |
 | `vowel_within_db` | 6 | 待标定 | 规格起始值 |  |
-| `vowel_min_frames` | 30 | 待标定 | 规格起始值：15 ms，按包络帧距换成帧数 | counted in envelope frames, so it follows envelope_hop_ms |
+| `vowel_kept_min_ms` | 15 | 待标定 | 规格起始值：原为 2.5 ms 帧距下的 6 帧，按毫秒写 | fewer kept steady-vowel frames: no reference; converted to envelope frames with the actual hop |
 | `reference_floor_margin_db` | 3 | 待标定 | 规格起始值 |  |
 | `evidence_max_marks` | 40 | 待标定 | 规格起始值 |  |
 | `reference_max_db` | 9 | 待标定 | 经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人 5 cm 时每遍字表的最大值都超过它，60 cm 时都低于它；一位在 15 cm 处有一遍超过 | reference shown next to the worst syllable of each pass; above it the card gives a light hint, no grade |
@@ -396,9 +396,9 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `vowel_window_ms` | 300 | 待标定 | 规格起始值：与实录分析同一种取法 | and ends this long after the fricative ends |
 | `vowel_centroid_max_hz` | 3500 | 待标定 | 规格起始值：与实录分析同一种取法 | vowel frames have their centroid below this |
 | `vowel_within_db` | 12 | 待标定 | 规格起始值：与实录分析同一种取法 | and are within this of the loudest frame in the window |
-| `vowel_min_frames` | 16 | 待标定 | 规格起始值：与实录分析同一种取法，20 ms，按帧距换成帧数 | fewer kept frames: this fricative has no vowel reference; counted in spectrum frames, so it follows hop_ms |
+| `vowel_kept_min_ms` | 20 | 待标定 | 规格起始值：与实录分析同一种取法，原为 5 ms 帧距下的 4 帧，按毫秒写 | fewer kept frames: this fricative has no vowel reference; converted to spectrum frames with the actual hop |
 | `vowel_loudest_frac` | 0.5 | 待标定 | 规格起始值：与实录分析同一种取法 | the vowel level is the mean of this share of the loudest kept frames |
-| `reference_max_db` | -3 | 待标定 | 经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −5.4、−7.1 dB，都低于它；一位挪到 60 cm 后升到 −2.8 dB，比值随距离的方向不稳，只作参考 | reference for the 6-12 kHz over vowel ratio; not shown when the high band is off |
+| `reference_max_db` | -3 | 待标定 | 经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −6.8、−8.4 dB，都低于它；一位挪到 60 cm 后升到 −4.1 dB，比值随距离的方向不稳，只作参考 | reference for the 6-12 kHz over vowel ratio; not shown when the high band is off |
 
 ### `click`
 

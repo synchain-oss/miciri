@@ -573,12 +573,12 @@
     "vowel_window_ms": { "value": [100.0, 600.0], "state": "pending", "source": "规格起始值", "date": null },
     "vowel_min_ms": { "value": 40.0, "state": "pending", "source": "规格起始值", "date": null },
     "vowel_within_db": { "value": 6.0, "state": "pending", "source": "规格起始值", "date": null },
-    "vowel_min_frames": {
-      "value": 30,
+    "vowel_kept_min_ms": {
+      "value": 15.0,
       "state": "pending",
-      "source": "规格起始值：15 ms，按包络帧距换成帧数",
+      "source": "规格起始值：原为 2.5 ms 帧距下的 6 帧，按毫秒写",
       "date": null,
-      "note": "counted in envelope frames, so it follows envelope_hop_ms"
+      "note": "fewer kept steady-vowel frames: no reference; converted to envelope frames with the actual hop"
     },
     "reference_floor_margin_db": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
     "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
@@ -708,12 +708,12 @@
       "date": null,
       "note": "and are within this of the loudest frame in the window"
     },
-    "vowel_min_frames": {
-      "value": 16,
+    "vowel_kept_min_ms": {
+      "value": 20.0,
       "state": "pending",
-      "source": "规格起始值：与实录分析同一种取法，20 ms，按帧距换成帧数",
+      "source": "规格起始值：与实录分析同一种取法，原为 5 ms 帧距下的 4 帧，按毫秒写",
       "date": null,
-      "note": "fewer kept frames: this fricative has no vowel reference; counted in spectrum frames, so it follows hop_ms"
+      "note": "fewer kept frames: this fricative has no vowel reference; converted to spectrum frames with the actual hop"
     },
     "vowel_loudest_frac": {
       "value": 0.5,
@@ -725,7 +725,7 @@
     "reference_max_db": {
       "value": -3.0,
       "state": "pending",
-      "source": "经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −5.4、−7.1 dB，都低于它；一位挪到 60 cm 后升到 −2.8 dB，比值随距离的方向不稳，只作参考",
+      "source": "经验值（常见做法的默认），依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在唱歌位置（约 15 cm）6–12 kHz 对元音的中位比值分别为 −6.8、−8.4 dB，都低于它；一位挪到 60 cm 后升到 −4.1 dB，比值随距离的方向不稳，只作参考",
       "date": null,
       "note": "reference for the 6-12 kHz over vowel ratio; not shown when the high band is off"
     }

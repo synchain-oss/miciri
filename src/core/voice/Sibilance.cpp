@@ -39,7 +39,7 @@ double vowelPower(const std::vector<double>& vowel, const std::vector<double>& c
     for (std::size_t f = from; f <= to; ++f)
         if (centroid[f] < s::vowel_centroid_max_hz && vowel[f] >= floor)
             kept.push_back(vowel[f]);
-    const auto minFrames = static_cast<std::size_t>(s::vowel_min_frames);
+    const auto minFrames = static_cast<std::size_t>(std::max(1LL, std::llround(s::vowel_kept_min_ms / hopMs)));
     if (kept.size() < minFrames)
         return 0.0;
     const auto use =
