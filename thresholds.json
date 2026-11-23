@@ -836,9 +836,9 @@
     "cluster_gap_ms": { "value": 100.0, "state": "pending", "source": "规格起始值", "date": null },
     "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
     "reference_max_per_min": {
-      "value": 60.0,
+      "value": 75.0,
       "state": "pending",
-      "source": "经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在约 15 cm 处每分钟的读数都低于它，刻意咂嘴时高于它；检出里仍有送气音的误报，只作参考",
+      "source": "经验值，依据实录（3 间房、2 位说话人、2 支话筒，2026-11）：两位说话人在约 15 cm 处的自然读数都低于它，一位刻意咂嘴时高于它，另一位刻意咂嘴时与正常读数相近；检出里仍有送气音（t、k）的误报，只作参考",
       "date": null,
       "note": "reference for clicks per minute; above it the card gives a light hint, no grade"
     }
