@@ -30,6 +30,20 @@ std::vector<double> listWithOnePop(double popDb)
     return pops;
 }
 
+// 碰到话筒架的闷响：hz 的正弦，2 ms 起、按时间常数 tau 指数衰减，长 seconds。能量几乎全在 100 Hz 以下
+void addThump(std::vector<double>& x, double fs, double startSec, double seconds, double hz, double amplitude,
+              double tau)
+{
+    const auto start = static_cast<std::size_t>(startSec * fs);
+    const auto length = static_cast<std::size_t>(seconds * fs);
+    for (std::size_t i = 0; i < length && start + i < x.size(); ++i)
+    {
+        const double t = static_cast<double>(i) / fs;
+        const double attack = t < 0.002 ? 0.5 - 0.5 * std::cos(kPi * t / 0.002) : 1.0;
+        x[start + i] += amplitude * attack * std::exp(-t / tau) * std::sin(2.0 * kPi * hz * t);
+    }
+}
+
 double medianRatio(const std::vector<core::PlosiveEvent>& events)
 {
     std::vector<double> r;
@@ -102,6 +116,45 @@ TEST_CASE("喷麦：爆发越强比值越大，但不分档", "[voice][plosive]"
         previous = r.measures.worstRatioDb;
     }
     CHECK(core::analysePlosive(wordList(fs, listWithOnePop(12.0)), fs).verdict.severity == core::Severity::Light);
+}
+
+TEST_CASE("喷麦：后面没有元音的低频闷响不算音节", "[voice][plosive]")
+{
+    // 一遍字表念完，再录 2.5 s 底噪；其中一份在字表结束 0.6 s 后碰一下话筒架：0.28 s、60 Hz、逐渐衰减的闷响，
+    // 几乎全在 100 Hz 以下，后面只有底噪。它有起音，元音窗里却只有闷响的尾巴和底噪，不能当成一次很重的喷麦
+    const double fs = 48000.0;
+    auto quiet = wordList(fs, std::vector<double>(12, kNone));
+    const double listEnd = static_cast<double>(quiet.size()) / fs;
+    const auto tail = whiteNoise(static_cast<std::size_t>(2.5 * fs), 1e-4, 23);
+    quiet.insert(quiet.end(), tail.begin(), tail.end());
+    auto bumped = quiet;
+    const double thumpAt = listEnd + 0.6;
+    addThump(bumped, fs, thumpAt, 0.28, 60.0, 0.02, 0.06);
+
+    const auto before = core::analysePlosive(quiet, fs);
+    const auto after = core::analysePlosive(bumped, fs);
+    INFO("worst " << before.measures.worstRatioDb << " -> " << after.measures.worstRatioDb << ", events "
+                  << before.measures.events << " -> " << after.measures.events);
+    REQUIRE(before.measures.events == 12);
+    CHECK(before.measures.worstRatioDb < kCleanMaxDb); // 字都不喷：闷响要是算进来，最大值会落在它上面
+    CHECK(after.measures.events == before.measures.events);
+    CHECK(after.measures.worstRatioDb == within(before.measures.worstRatioDb, 0.05));
+    for (const auto& e : core::plosiveEvents(bumped, fs))
+        CHECK(e.startSec < thumpAt - 0.3);
+}
+
+TEST_CASE("喷麦：底噪高、刚过起音门限的真实音节照样算", "[voice][plosive]")
+{
+    // 底噪抬到约 -40 dBFS：起音刚好高出底噪 20 dB 以上，元音频带比底噪高约 25 dB
+    const double fs = 48000.0;
+    auto x = wordList(fs, listWithOnePop(kPopDb));
+    const auto noise = whiteNoise(x.size(), 0.01, 29);
+    for (std::size_t i = 0; i < x.size(); ++i)
+        x[i] += noise[i];
+    const auto r = core::analysePlosive(x, fs);
+    INFO("worst " << r.measures.worstRatioDb);
+    CHECK(r.measures.events == 12);
+    CHECK(r.measures.worstRatioDb > kPoppedMinDb);
 }
 
 TEST_CASE("喷麦：最大值超过参考值才标出，只是轻提示", "[voice][plosive]")
