@@ -107,13 +107,30 @@ Spectrogram spectrogram(const std::vector<double>& x, double rate, double frameM
 
 double bandSum(const std::vector<double>& power, double binHz, double loHz, double hiHz)
 {
+    // 只走带内的 bin：先按除法估一个不超过下界的起点，再用与逐个判断相同的比较前后修正，
+    // 所以加进来的 bin 与顺序都和逐个判断时一样，结果逐位相同
     double sum = 0.0;
-    for (std::size_t k = 0; k < power.size(); ++k)
+    if (!(binHz > 0.0)) // 频点不递增，没法只走一段：逐个判断
     {
-        const double f = static_cast<double>(k) * binHz;
-        if (f >= loHz && f < hiHz)
-            sum += power[k];
+        for (std::size_t k = 0; k < power.size(); ++k)
+        {
+            const double f = static_cast<double>(k) * binHz;
+            if (f >= loHz && f < hiHz)
+                sum += power[k];
+        }
+        return sum;
     }
+    if (!(hiHz > loHz))
+        return 0.0;
+    std::size_t k = 0;
+    if (loHz > 0.0)
+        k = static_cast<std::size_t>(std::min(std::floor(loHz / binHz), static_cast<double>(power.size())));
+    while (k > 0 && static_cast<double>(k - 1) * binHz >= loHz)
+        --k;
+    while (k < power.size() && static_cast<double>(k) * binHz < loHz)
+        ++k;
+    for (; k < power.size() && static_cast<double>(k) * binHz < hiHz; ++k)
+        sum += power[k];
     return sum;
 }
 

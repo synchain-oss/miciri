@@ -4,11 +4,13 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "config/Thresholds.h"
 #include "core/voice/VoiceSynth.h"
 #include "voice/Voice.h"
+#include "voice/VoiceDsp.h"
 
 using namespace miciri;
 using namespace miciri::testing;
@@ -210,4 +212,32 @@ TEST_CASE("齿音与有效带宽：22.05 kHz 时结果有限，带宽不超过�
     CHECK(std::isfinite(r.measures.highDb));
     CHECK(r.measures.effectiveBandwidthHz <= fs / 2.0);
     CHECK(core::effectiveBandwidthHz(bandLimitedSpeech(fs, 7000.0), fs) == within(7000.0, 500.0));
+}
+
+TEST_CASE("齿音：频带求和只走带内的 bin，结果与逐个判断逐位相同", "[voice][sibilance]")
+{
+    const std::vector<double> power = whiteNoise(257, 1.0, 77);
+    const auto direct = [&power](double binHz, double lo, double hi) {
+        double sum = 0.0;
+        for (std::size_t k = 0; k < power.size(); ++k)
+        {
+            const double f = static_cast<double>(k) * binHz;
+            if (f >= lo && f < hi)
+                sum += power[k];
+        }
+        return sum;
+    };
+    for (double binHz : {100.0, 93.75, 91.875, 0.0})
+        for (const auto& band : std::vector<std::array<double, 2>>{{3000.0, 6000.0},
+                                                                   {6000.0, 12000.0},
+                                                                   {0.0, 100.0},
+                                                                   {-50.0, 1e9},
+                                                                   {2250.0, 3281.25},
+                                                                   {5000.0, 5000.0},
+                                                                   {7000.0, 6000.0},
+                                                                   {30000.0, 40000.0}})
+        {
+            INFO("bin " << binHz << " band " << band[0] << ".." << band[1]);
+            CHECK(core::voice::bandSum(power, binHz, band[0], band[1]) == direct(binHz, band[0], band[1]));
+        }
 }

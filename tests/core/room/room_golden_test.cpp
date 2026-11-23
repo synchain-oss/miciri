@@ -68,11 +68,11 @@ const Values kGolden{
     {"reverb.tMidSec", 0.3674613326},           {"reverb.t20Sec.0", 0.3626626637},
     {"reverb.t20Sec.1", 0.3722600014},          {"reverb.t20Sec.2", 0.371594873},
     {"reverb.t20Sec.3", 0.3646005096},          {"directRatio.drDb", 0.9220717309},
-    {"directRatio.lowerBoundOnly", 0},          {"direction.levelDb.0", -26.98221563},
-    {"direction.brightnessDb.0", -14.78570291}, {"direction.levelDb.1", -28.98220493},
-    {"direction.brightnessDb.1", -14.78526498}, {"direction.levelDb.2", -30.97202239},
-    {"direction.brightnessDb.2", -14.34576692}, {"direction.levelDb.3", -32.98213643},
-    {"direction.brightnessDb.3", -14.78348062}, {"direction.bestOtherAdvantageDb", 5.9999208},
+    {"directRatio.lowerBoundOnly", 0},          {"direction.levelDb.0", -26.94246956},
+    {"direction.brightnessDb.0", -14.7852696},  {"direction.levelDb.1", -28.94267149},
+    {"direction.brightnessDb.1", -14.78478637}, {"direction.levelDb.2", -30.93281532},
+    {"direction.brightnessDb.2", -14.30839782}, {"direction.levelDb.3", -32.94320735},
+    {"direction.brightnessDb.3", -14.78281644}, {"direction.bestOtherAdvantageDb", 6.000737784},
 };
 } // namespace
 
