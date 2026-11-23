@@ -6,9 +6,15 @@
 # CMake{C,CXX}Compiler.cmake。cl 按控制台的输出代码页编码这行字：gates 为了日志把控制台切到 UTF-8 后，
 # cl 输出 UTF-8，CMake 却按系统代码页解码，记下的前缀成了乱码；之后 ninja 认不出依赖行，改了头文件，
 # 增量构建还沿用旧目标（测试会假红或假绿）。
-# 办法：配置和构建时把控制台的输出代码页临时切回系统 OEM 代码页（Invoke-WithOemConsole），并把已经记成乱码的
-# 探测结果删掉让 CMake 重新探测（Repair-MsvcDepsPrefix，只删单个文件，不做递归删除）。
+# 办法：配置和构建时把控制台的输出和输入代码页一起临时切回系统 OEM 代码页（Invoke-WithOemConsole），并把已经
+# 记成乱码的探测结果删掉让 CMake 重新探测（Repair-MsvcDepsPrefix，只删单个文件，不做递归删除）。
 # 英文等前缀只有 ASCII 的系统不受代码页影响，两个函数在那里都不改变什么。
+#
+# 输入、输出为什么要一起切：只切输出会造出“输出 OEM + 输入 UTF-8”的组合（例如三个流都被重定向的 agent 终端，
+# 控制台本来是 65001/65001）。在这个组合下，全新构建目录的 CMake 配置会在探测编译器时失败：try_compile 里的
+# ninja 报找不到 CMakeFiles\rules.ninja。最小工程（project(t CXX)）也复现，与 JUCE、CMake 版本无关。
+# 实测组合（输出/输入）：65001/65001 过；936/65001 失败；437/65001 过；65001/936 过；936/936 过。已有缓存的
+# 构建目录不再探测编译器，所以只切输出时增量构建一直没暴露这个问题。两个代码页保持一致，就回到“过”的那几行。
 
 # 系统的 OEM 与 ANSI 代码页：读注册表里的系统设置，不随用户的格式区域变。取不到时返回 $null，调用方退化为空操作。
 function Get-SystemCodePages {
@@ -59,18 +65,30 @@ function Repair-MsvcDepsPrefix {
 
 function Invoke-WithOemConsole {
     param([Parameter(Mandatory)][scriptblock]$Body)
-    $saved = $null
+    $savedOut = $null
+    $savedIn = $null
     $cp = Get-SystemCodePages
     if ($cp) {
-        $current = $null
-        try { $current = [Console]::OutputEncoding } catch { $current = $null }
-        if ($current -and $current.CodePage -ne $cp.Oem.CodePage) {
-            try { [Console]::OutputEncoding = $cp.Oem; $saved = $current }
-            catch { Write-Warning "没能把控制台切到系统代码页 $($cp.Oem.CodePage)（$($_.Exception.Message)），ninja 可能记不到头文件依赖" }
+        $oem = $cp.Oem.CodePage
+        $curOut = $null
+        $curIn = $null
+        try { $curOut = [Console]::OutputEncoding } catch { $curOut = $null }
+        try { $curIn = [Console]::InputEncoding } catch { $curIn = $null }
+        # 输出和输入各自只在与 OEM 页不同时才切；谁切成功就记下谁，finally 里只还原切过的那个。
+        if ($curOut -and $curOut.CodePage -ne $oem) {
+            try { [Console]::OutputEncoding = $cp.Oem; $savedOut = $curOut }
+            catch { Write-Warning "没能把控制台输出切到系统代码页 ${oem}（$($_.Exception.Message)），ninja 可能记不到头文件依赖" }
+        }
+        if ($curIn -and $curIn.CodePage -ne $oem) {
+            try { [Console]::InputEncoding = $cp.Oem; $savedIn = $curIn }
+            catch { Write-Warning "没能把控制台输入切到系统代码页 ${oem}（$($_.Exception.Message)），全新构建目录的配置可能失败" }
         }
     }
     try { & $Body }
-    finally { if ($saved) { try { [Console]::OutputEncoding = $saved } catch { $null = $_ } } }
+    finally {
+        if ($savedOut) { try { [Console]::OutputEncoding = $savedOut } catch { $null = $_ } }
+        if ($savedIn) { try { [Console]::InputEncoding = $savedIn } catch { $null = $_ } }
+    }
 }
 
 Export-ModuleMember -Function Repair-MsvcDepsPrefix, Invoke-WithOemConsole, Test-MojibakePrefix
