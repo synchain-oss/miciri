@@ -8,7 +8,7 @@
 
 | 宿主 | 平台与格式 | 状态 | 版本 | 验证日期 | 证据 |
 |---|---|---|---|---|---|
-| REAPER | Windows，VST3 | 自动化测试通过，手测未做 | 7.82 (x64) | 2026-11-12 | 见下面“REAPER（Windows，VST3）” |
+| REAPER | Windows，VST3 | 自动化测试通过，手测未做 | 7.82 (x64) | 2026-11-23 | 见下面“REAPER（Windows，VST3）” |
 | REAPER | macOS，VST3 / AU | 未测 | | | |
 | Cubase | | 未测 | | | |
 | FL Studio | | 未测 | | | |
@@ -17,7 +17,7 @@
 
 ## REAPER（Windows，VST3）
 
-**怎么测的。** 用公开的 [reaper-harness](https://github.com/synchain-oss/reaper-harness)（钉在提交 `b27d4a4`）驱动真实的 REAPER 7.82（x64）和 Windows 10（19045），音频设备是 REAPER 自带的 Dummy Audio（48 kHz、512 样本），插件是带宿主探针的测试构建（探针说明见 [HOST_PROBE.md](HOST_PROBE.md)；发布版不含探针）。10 个场景、4 个自带反例（判据放错必须变红）和工具内置的 8 个反例全部 PASS；每次运行后都没有残留进程，REAPER 默认资源目录没有变化。怎么在本机重跑见 `tests/host/README.md`。
+**怎么测的。** 用公开的 [reaper-harness](https://github.com/synchain-oss/reaper-harness)（钉在提交 `b27d4a4`）驱动真实的 REAPER 7.82（x64）和 Windows 10（19045），音频设备是 REAPER 自带的 Dummy Audio（48 kHz、512 样本），插件是提交 `391169e` 的带宿主探针的测试构建（探针说明见 [HOST_PROBE.md](HOST_PROBE.md)；发布版不含探针）。验证日期 2026-11-23。10 个场景、4 个自带反例（判据放错必须变红）和工具内置的 8 个反例全部 PASS（全程启动 REAPER 26 次，其中 1 次因评估版提醒由工具自动重试一次）；运行后没有残留进程，REAPER 默认资源目录没有变化。怎么在本机重跑见 `tests/host/README.md`。
 
 **音频逐位直通。** 7 次渲染（3 种方式 × 偏好开关，外加一次单声道输出）的输出和不挂插件的渲染逐位相同（`identical=yes`，延迟 0，144000 帧，无 NaN 与 Inf）。
 
@@ -27,7 +27,7 @@
 |---|---|---|
 | 全速离线 | 非实时 301，实时 0 | 实时 300–301，非实时 0 |
 | 1x 离线 | 非实时 300，实时 0 | 实时 300，非实时 0 |
-| 在线（实时） | 实时 301–302，非实时 0 | 实时 301，非实时 0 |
+| 在线（实时） | 实时 301–303，非实时 0 | 实时 301–302，非实时 0 |
 
 要点：**偏好关时，离线渲染对插件也是“实时”**，所以离线保护不能只靠这个标志，见 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)。在走带、arm、监听的所有状态里，插件收到的块都是实时的（非实时块数增量 0）。
 
@@ -47,7 +47,7 @@
 
 每格约 190 个块里，工具的探针和插件自己数的“全 0 块 / 有内容块”一致：有信号的 5 格没有全 0 块，其余各格没有有内容的块。也就是说，只有 arm 且监听生效的 5 格，Miciri 才收到话筒信号（这正是插件里“监听中才测试”的前提）。
 
-**开关编辑器窗口 20 次。** 在走带播放、arm、监听开的状态下，工具开关插件浮窗 20 次：打开 20 次、关闭 20 次，插件自己数到的 `editorOpens`、`editorCloses` 各 +20；期间链运行的块数与设备的块数相同（2566 / 2566），音频不中断。这不证明页面渲染成功：工具只给每次打开留了十圈消息循环。
+**开关编辑器窗口 20 次。** 在走带播放、arm、监听开的状态下，工具开关插件浮窗 20 次：打开 20 次、关闭 20 次，插件自己数到的 `editorOpens`、`editorCloses` 各 +20；期间链运行的块数与设备的块数相同（2016 / 2016），音频不中断。这不证明页面渲染成功：工具只给每次打开留了十圈消息循环。
 
 **这一栏没有测、需要别的办法的：**
 
@@ -83,7 +83,7 @@ This table is checked by `scripts/checks.d/compat-table.mjs`: a tested row must 
 
 | Host | Platform and format | Status | Version | Date | Evidence |
 |---|---|---|---|---|---|
-| REAPER | Windows, VST3 | Automated tests pass, manual test not done | 7.82 (x64) | 2026-11-12 | See "REAPER (Windows, VST3)" below |
+| REAPER | Windows, VST3 | Automated tests pass, manual test not done | 7.82 (x64) | 2026-11-23 | See "REAPER (Windows, VST3)" below |
 | REAPER | macOS, VST3 / AU | Untested | | | |
 | Cubase | | Untested | | | |
 | FL Studio | | Untested | | | |
@@ -92,7 +92,7 @@ This table is checked by `scripts/checks.d/compat-table.mjs`: a tested row must 
 
 ## REAPER (Windows, VST3)
 
-**How it was tested.** The public [reaper-harness](https://github.com/synchain-oss/reaper-harness) (pinned at commit `b27d4a4`) drove a real REAPER 7.82 (x64) on Windows 10 (19045) with REAPER's built-in Dummy Audio device (48 kHz, 512 samples) and a test build of the plug-in that contains the host probe (see [HOST_PROBE.md](HOST_PROBE.md); release builds do not contain it). All 10 scenarios, the 4 negative cases of our own (a wrongly placed criterion must turn red) and the tool's 8 built-in negative cases came out PASS; after every run no process was left behind and REAPER's default resource directory had not changed. How to re-run it locally: `tests/host/README.md`.
+**How it was tested.** The public [reaper-harness](https://github.com/synchain-oss/reaper-harness) (pinned at commit `b27d4a4`) drove a real REAPER 7.82 (x64) on Windows 10 (19045) with REAPER's built-in Dummy Audio device (48 kHz, 512 samples) and a test build of the plug-in at commit `391169e` that contains the host probe (see [HOST_PROBE.md](HOST_PROBE.md); release builds do not contain it). Checked on 2026-11-23. All 10 scenarios, the 4 negative cases of our own (a wrongly placed criterion must turn red) and the tool's 8 built-in negative cases came out PASS (REAPER was started 26 times in total; the tool retried one launch automatically after REAPER's evaluation reminder); after the run no process was left behind and REAPER's default resource directory had not changed. How to re-run it locally: `tests/host/README.md`.
 
 **Audio passes through bit for bit.** In all 7 renders (3 render modes × the preference on and off, plus one render to a mono file) the output is identical to the render without the plug-in (`identical=yes`, lag 0, 144000 frames, no NaN or Inf).
 
@@ -102,7 +102,7 @@ This table is checked by `scripts/checks.d/compat-table.mjs`: a tested row must 
 |---|---|---|
 | Full-speed offline | non-realtime 301, realtime 0 | realtime 300–301, non-realtime 0 |
 | 1x offline | non-realtime 300, realtime 0 | realtime 300, non-realtime 0 |
-| Online (real time) | realtime 301–302, non-realtime 0 | realtime 301, non-realtime 0 |
+| Online (real time) | realtime 301–303, non-realtime 0 | realtime 301–302, non-realtime 0 |
 
 Note: **with the preference off, an offline render looks like real time to the plug-in**, so the offline protection cannot rely on this flag alone; see [KNOWN_ISSUES.md](KNOWN_ISSUES.md). In every transport, arm and monitoring state the plug-in only received real-time blocks (non-realtime growth 0).
 
@@ -122,7 +122,7 @@ Note: **with the preference off, an offline render looks like real time to the p
 
 In about 190 blocks per cell, the tool's probe and the plug-in's own counts of all-zero and non-zero blocks agree: the 5 cells with signal have no all-zero block, the other cells have no block with content. So only in the 5 cells that are armed with monitoring in effect does Miciri receive microphone signal, which is exactly what "test only while monitoring" relies on.
 
-**Opening and closing the editor window 20 times.** While playing, armed and monitoring, the tool opened and closed the plug-in's floating window 20 times: 20 opens and 20 closes, and the plug-in's own `editorOpens` and `editorCloses` each grew by 20; the chain ran the same number of blocks as the device (2566 / 2566), so audio did not stop. This does not prove that the page rendered: the tool gives each opening ten turns of the message loop.
+**Opening and closing the editor window 20 times.** While playing, armed and monitoring, the tool opened and closed the plug-in's floating window 20 times: 20 opens and 20 closes, and the plug-in's own `editorOpens` and `editorCloses` each grew by 20; the chain ran the same number of blocks as the device (2016 / 2016), so audio did not stop. This does not prove that the page rendered: the tool gives each opening ten turns of the message loop.
 
 **Not tested here:**
 
