@@ -9,7 +9,8 @@
 //   3. launchOnce：禁用端口返回 null 且 profile 被收掉；普通端口返回 { port } 且 cleanup 能收掉 profile；
 //   4. withLaunchRetry：第一次拿到禁用端口、第二次正常，就在第二次起来；每次都拿到禁用端口，在次数上限处抛错，不无限重起；
 //   5. 收尾逻辑：自己退出就不强杀；没退出或发不出去才强杀并写一行；没有可用端口时不去对话直接强杀；早已退出的不再动；
-//   6. cdpBrowserClose 本身：对一个手写的最小 CDP 服务器真发 Browser.close，对端不应答时也按超时返回，连不上时抛错。
+//   6. cdpBrowserClose 本身：对一个手写的最小 CDP 服务器真发 Browser.close，对端不应答时也按超时返回，连不上时抛错；
+//   7. --no-sandbox 只给 Linux 上 Playwright 自带的 Chromium，系统 Chrome 与 MICIRI_BROWSER 指定的照常带沙箱。
 //
 // 用法：node web-preview/tests/smoke-browser-launch.mjs [仓库根]
 
@@ -25,6 +26,7 @@ import {
     cdpBrowserClose,
     isFetchBadPort,
     launchOnce,
+    needsNoSandbox,
     withLaunchRetry,
 } from "./lib/browser.mjs";
 
@@ -88,10 +90,12 @@ class FakeProc extends EventEmitter {
 function fakeBrowser(port, mode = "exit") {
     const seen = [];
     const procs = [];
+    const argsSeen = [];
     const calls = { close: 0, kill: 0 };
     const spawnProc = (_exe, args) => {
         const profile = args.find((a) => a.startsWith("--user-data-dir=")).slice("--user-data-dir=".length);
         seen.push(profile);
+        argsSeen.push(args);
         fs.writeFileSync(path.join(profile, "DevToolsActivePort"), `${port}\n/devtools/browser/fake\n`);
         const proc = new FakeProc();
         procs.push(proc);
@@ -105,7 +109,7 @@ function fakeBrowser(port, mode = "exit") {
     const killTree = () => {
         calls.kill++;
     };
-    return { opts: { spawnProc, closeBrowser, killTree, graceMs: 50 }, seen, procs, calls };
+    return { opts: { spawnProc, closeBrowser, killTree, graceMs: 50 }, seen, procs, calls, argsSeen };
 }
 
 /** 抓标准错误：launchOnce 把作废原因、强杀原因写到 console.error，测试里收下来，免得它成了 run-all 显示的最后一行。 */
@@ -366,6 +370,41 @@ function startFakeCdp({ respond }) {
         err = e;
     }
     run.check(err !== null, "连不上调试端口时 cdpBrowserClose 应抛错，让调用方退到强杀");
+}
+
+// ---- 7. --no-sandbox 只给 Linux 上 Playwright 自带的 Chromium ----
+{
+    const PW = path.join(path.sep, "pw-browsers");
+    const bundled = path.join(PW, "chromium-1248", "chrome-linux64", "chrome");
+    const env = { PLAYWRIGHT_BROWSERS_PATH: PW };
+    run.check(needsNoSandbox(bundled, { platform: "linux", env }), "Linux 上自带的 Chromium 要加 --no-sandbox");
+    run.check(!needsNoSandbox("/usr/bin/google-chrome", { platform: "linux", env }), "Linux 上系统 Chrome 照常带沙箱");
+    run.check(
+        !needsNoSandbox("/opt/custom/browser", { platform: "linux", env }),
+        "Linux 上 MICIRI_BROWSER 指定的浏览器（不在自带目录下）照常带沙箱",
+    );
+    run.check(
+        !needsNoSandbox(path.join(path.sep, "pw-browsers-other", "chrome"), { platform: "linux", env }),
+        "名字只是前缀相同的兄弟目录不算在自带目录之下",
+    );
+    run.check(!needsNoSandbox(PW, { platform: "linux", env }), "自带目录本身不是浏览器可执行文件，不算");
+    run.check(!needsNoSandbox(bundled, { platform: "linux", env: {} }), "没设 PLAYWRIGHT_BROWSERS_PATH：不加");
+    run.check(!needsNoSandbox(bundled, { platform: "win32", env }), "Windows 上不加");
+    run.check(!needsNoSandbox(bundled, { platform: "darwin", env }), "mac 上不加");
+
+    // 经 launchOnce 传到浏览器的命令行上
+    const withFlag = fakeBrowser(40123);
+    await withCapturedStderr(async () => {
+        const r = await launchOnce(bundled, 2000, { ...withFlag.opts, platform: "linux", env });
+        await r.cleanup();
+    });
+    run.check(withFlag.argsSeen[0]?.includes("--no-sandbox"), "Linux 上起自带 Chromium：命令行里应有 --no-sandbox");
+    const without = fakeBrowser(40123);
+    await withCapturedStderr(async () => {
+        const r = await launchOnce("/usr/bin/google-chrome", 2000, { ...without.opts, platform: "linux", env });
+        await r.cleanup();
+    });
+    run.check(!without.argsSeen[0]?.includes("--no-sandbox"), "Linux 上起系统 Chrome：命令行里不该有 --no-sandbox");
 }
 
 run.finish();

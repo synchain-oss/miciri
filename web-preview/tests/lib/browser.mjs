@@ -263,8 +263,21 @@ class Page {
 }
 
 /**
+ * 要不要给这个浏览器加 --no-sandbox：只有 Linux 上、可执行文件在 PLAYWRIGHT_BROWSERS_PATH 之下（即 Playwright 自带的 Chromium）才加。
+ * 原因：CI 的 Ubuntu 限制了非发行版自带浏览器的用户命名空间，带沙箱起不来；Playwright 自己启动它时默认也不带沙箱。
+ * 冒烟只加载本机静态服务给的预览页，profile 是一次性的。系统里的 Chrome、MICIRI_BROWSER 指定的浏览器照常带沙箱。
+ */
+export function needsNoSandbox(exe, { platform = process.platform, env = process.env } = {}) {
+    if (platform !== "linux" || !env.PLAYWRIGHT_BROWSERS_PATH) return false;
+    const rel = path.relative(path.resolve(env.PLAYWRIGHT_BROWSERS_PATH), path.resolve(exe));
+    return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+}
+
+/**
  * 向浏览器级 CDP 端点发 Browser.close，让浏览器自己收尾退出：比强杀干净（Edge 被强杀会留下标签代理窗口，见文件开头）。
- * 不等应答也行：浏览器收到命令就开始退出，应答不一定来得及送到。连不上、地址缺失、超时都抛错，由调用方退到强杀。
+ * 抛错的只有“命令没能送出去”：/json/version 连不上或没给地址、WebSocket 连接阶段出错或超时，由调用方退到强杀。
+ * 命令发出之后不等应答也行（浏览器收到就开始退出，应答不一定来得及送到）：之后的应答超时不抛错，只是不再等，
+ * 浏览器到底退没退由调用方等进程的 exit 事件判断。
  */
 export async function cdpBrowserClose(port, { timeoutMs = 3000 } = {}) {
     const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -369,17 +382,19 @@ export async function stopBrowser(
  * 起一次浏览器：新的临时 profile，等 waitMs 看它写不写出调试端口。写出来且 fetch 连得上（不在禁用端口表里）返回 { port, cleanup }；
  * 没写出来，或写出来的端口在 fetch 的禁用端口表里，就收掉这一次的进程树与 profile，返回 null（由 withLaunchRetry 决定还起不起）。
  * cleanup() 先让浏览器自己退出、不行再强杀（见 stopBrowser），然后删 profile，返回 stopBrowser 的结果。
- * spawnProc、closeBrowser、killTree、graceMs 只为自测注入假浏览器，正常调用不传。
+ * spawnProc、platform、env、closeBrowser、killTree、graceMs 只为自测注入，正常调用不传。
  */
-export async function launchOnce(exe, waitMs, { spawnProc = spawn, ...stopOpts } = {}) {
+export async function launchOnce(
+    exe,
+    waitMs,
+    { spawnProc = spawn, platform = process.platform, env = process.env, ...stopOpts } = {},
+) {
     const profile = makeTempDir("miciri-pv-");
     const proc = spawnProc(
         exe,
         [
             "--headless=new",
-            // Linux 上不带沙箱：CI 的 Ubuntu 限制了非发行版自带浏览器的用户命名空间，带沙箱起不来；Playwright 自己启动时默认也不带。
-            // 这里只加载本机静态服务给的预览页，profile 是一次性的。
-            ...(process.platform === "linux" ? ["--no-sandbox"] : []),
+            ...(needsNoSandbox(exe, { platform, env }) ? ["--no-sandbox"] : []),
             "--disable-gpu",
             "--hide-scrollbars",
             "--no-first-run",
