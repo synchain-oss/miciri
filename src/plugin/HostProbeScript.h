@@ -107,7 +107,7 @@ public:
     std::size_t advance(std::optional<double> processedSec, const Execute& execute);
 
     const std::vector<ActionRecord>& done() const noexcept { return done_; }
-    // 正在等的那个动作（到期了但回了 busy）；没有就为空
+    // 正在等的那个动作（到期了、回过 busy）；没有就为空。执行当中也只报回过 busy 的，不报刚开始执行的那个
     const std::optional<ActionRecord>& waiting() const noexcept { return waiting_; }
     // 还没执行完的动作数（含正在等的那个）
     std::size_t remaining() const noexcept { return actions_.size() - done_.size(); }

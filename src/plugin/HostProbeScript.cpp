@@ -180,24 +180,27 @@ std::size_t Scheduler::advance(std::optional<double> processedSec, const Execute
         const Action& a = actions_[i];
         if (now < a.atSec)
             break;
-        if (!waiting_)
+        // 记录先放在局部：执行当中（执行者可能写输出文件）waiting() 只报真正回过 busy 的那个，不报正在执行的这个
+        ActionRecord r;
+        if (waiting_)
+            r = *waiting_;
+        else
         {
-            ActionRecord r;
             r.index = i;
             r.action = a;
             r.firstTriedSec = now;
-            waiting_ = std::move(r);
         }
         Reply reply = execute(a);
         if (!reply.ok && reply.reason == "busy")
         {
-            ++waiting_->busyReplies; // 上一步还在跑或还在收尾：下一拍再试，后面的动作都等它
+            ++r.busyReplies; // 上一步还在跑或还在收尾：下一拍再试，后面的动作都等它
+            waiting_ = std::move(r);
             break;
         }
-        waiting_->reply = std::move(reply);
-        waiting_->doneSec = now;
-        done_.push_back(std::move(*waiting_));
         waiting_.reset();
+        r.reply = std::move(reply);
+        r.doneSec = now;
+        done_.push_back(std::move(r));
         ++executed;
     }
     return executed;

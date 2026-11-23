@@ -216,7 +216,13 @@ TEST_CASE("a busy startStep waits for the previous step, and everything after it
     probe::Scheduler sched(s.actions);
     FakeBridge bridge;
     bridge.busyFor = 2;
-    auto run = [&](double t) { return sched.advance(t, std::ref(bridge)); };
+    // 执行当中（探针此时可能写输出文件）看到的 waiting：只有回过 busy 的才算在等
+    std::vector<int> busySeen;
+    auto exec = [&](const probe::Action& a) {
+        busySeen.push_back(sched.waiting() ? sched.waiting()->busyReplies : -1);
+        return bridge(a);
+    };
+    auto run = [&](double t) { return sched.advance(t, exec); };
 
     CHECK(run(1.05) == 0);
     REQUIRE(sched.waiting());
@@ -235,4 +241,5 @@ TEST_CASE("a busy startStep waits for the previous step, and everything after it
     CHECK(sched.done()[1].doneSec == 2.4);
     CHECK(bridge.calls ==
           std::vector<std::string>{"startStep:gain", "startStep:gain", "startStep:gain", "reportChange:gain"});
+    CHECK(busySeen == std::vector<int>{-1, 1, 2, -1}); // 第一次执行与后面那个动作执行时，都没有在等的
 }
