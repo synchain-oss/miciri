@@ -20,68 +20,6 @@ double dbToAmplitude(double db)
     return std::sqrt(dsp::dbToPower(db));
 }
 
-// 窗口 [k·step, k·step + length)（k = 0, 1, …，直到窗口越过末尾）的中心值：trim 为 0 时取中位数，与 dsp::median
-// 的值相同 （偶数个时取中间两个的平均）；否则把窗口排序后两端各去掉 trim 的比例，取剩下的平均。 窗口逐个滑动时只换掉
-// step 个值：移出与移入的各自排序后，和有序窗口线性归并，不必每个窗口重新排序。 step 不小于 length
-// 时窗口不重叠，逐个排序。v 不能含 NaN。
-std::vector<double> slidingCentres(const std::vector<double>& v, std::size_t length, std::size_t step, double trim)
-{
-    if (length == 0 || step == 0 || v.size() < length)
-        return {};
-    const std::size_t count = (v.size() - length) / step + 1;
-    const auto at = [&v](std::size_t i) { return v.begin() + static_cast<std::ptrdiff_t>(i); };
-    std::vector<double> out(count), window(at(0), at(length)), next, gone, added;
-    std::sort(window.begin(), window.end());
-    const auto cut = static_cast<std::size_t>(trim * static_cast<double>(length));
-    const auto centre = [&window, cut] {
-        if (cut > 0 && 2 * cut < window.size())
-        {
-            double sum = 0.0;
-            for (std::size_t i = cut; i + cut < window.size(); ++i)
-                sum += window[i];
-            return sum / static_cast<double>(window.size() - 2 * cut);
-        }
-        const std::size_t upper = window.size() / 2;
-        if (window.size() % 2 == 1)
-            return window[upper];
-        return window[upper - 1] + (window[upper] - window[upper - 1]) * 0.5;
-    };
-    out[0] = centre();
-    for (std::size_t k = 1; k < count; ++k)
-    {
-        const std::size_t from = k * step;
-        if (step >= length)
-        {
-            window.assign(at(from), at(from + length));
-            std::sort(window.begin(), window.end());
-            out[k] = centre();
-            continue;
-        }
-        gone.assign(at(from - step), at(from));
-        added.assign(at(from - step + length), at(from + length));
-        std::sort(gone.begin(), gone.end());
-        std::sort(added.begin(), added.end());
-        next.clear();
-        std::size_t g = 0, n = 0;
-        for (double w : window)
-        {
-            if (g < gone.size() && w == gone[g])
-            {
-                ++g;
-                continue;
-            }
-            while (n < added.size() && added[n] < w)
-                next.push_back(added[n++]);
-            next.push_back(w);
-        }
-        while (n < added.size())
-            next.push_back(added[n++]);
-        window.swap(next);
-        out[k] = centre();
-    }
-    return out;
-}
-
 // 线性预测残差。每 lpc_block_ms 一块，在块中心用 lpc_window_ms 长的汉宁窗段估自相关，Levinson-Durbin 解出预测系数；
 // 每个样本的预测系数在前后两个块中心之间按位置线性插值，再做逆滤波（用真实的前文样本）。
 // 块之间不跳变，块又远短于窗，所以残差几乎不随分析起点挪动：用户点“开始”的时刻落在块里的哪个位置都一样。
@@ -99,9 +37,8 @@ std::vector<double> lpcResidual(const std::vector<double>& x, double rate)
     // 每个延迟的求和顺序仍是 i 从小到大
     std::vector<double> z(win + order, 0.0);
     const std::size_t blocks = (x.size() + block - 1) / block;
-    std::vector<std::vector<double>> predictors(blocks); // 空：这一块没有预测系数
-    for (std::size_t b = 0; b < blocks; ++b)
-    {
+    // 第 b 块的预测系数；全静音或不稳定时为空
+    const auto predictorOf = [&](std::size_t b) -> std::vector<double> {
         const std::size_t centre = b * block + block / 2;
         const std::size_t from = centre > win / 2 ? centre - win / 2 : 0;
         for (std::size_t i = 0; i < win; ++i)
@@ -115,7 +52,7 @@ std::vector<double> lpcResidual(const std::vector<double>& x, double rate)
                 r[lag] += v * tail[lag];
         }
         if (r[0] <= dsp::kPowerFloor)
-            continue;
+            return {};
         r[0] *= 1.0 + c::lpc_white_noise_frac;
         std::fill(a.begin(), a.end(), 0.0);
         double err = r[0];
@@ -133,10 +70,15 @@ std::vector<double> lpcResidual(const std::vector<double>& x, double rate)
             err *= 1.0 - k * k;
             stable = err > 0.0;
         }
-        if (stable)
-            predictors[b] = a;
-    }
+        if (!stable)
+            return {};
+        return a;
+    };
 
+    // 样本按顺序走，前后两个块只增不减：只留这两块的系数，用到时才算，内存不随录音长度增长
+    constexpr auto kNone = static_cast<std::size_t>(-1);
+    std::size_t loBlock = kNone, hiBlock = kNone;
+    std::vector<double> pl, ph;
     std::vector<double> e(x.size(), 0.0);
     for (std::size_t n = 0; n < x.size(); ++n)
     {
@@ -146,8 +88,17 @@ std::vector<double> lpcResidual(const std::vector<double>& x, double rate)
         const std::size_t hi = std::min(lo + 1, blocks - 1);
         const double offset = static_cast<double>(n) - static_cast<double>(lo * block + block / 2);
         const double t = hi == lo ? 0.0 : std::clamp(offset / static_cast<double>(block), 0.0, 1.0);
-        const auto& pl = predictors[lo];
-        const auto& ph = predictors[hi];
+        if (lo != loBlock)
+        {
+            pl = lo == hiBlock ? std::move(ph) : predictorOf(lo);
+            loBlock = lo;
+            hiBlock = kNone;
+        }
+        if (hi != hiBlock)
+        {
+            ph = hi == lo ? pl : predictorOf(hi);
+            hiBlock = hi;
+        }
         // 两组系数各算一次预测，再按位置插值（等于先插值系数再预测）；没有系数的一侧残差按 0
         double predictedLo = 0.0, predictedHi = 0.0;
         const std::size_t taps = std::min(order, n);
@@ -178,7 +129,7 @@ std::vector<double> residualScale(const std::vector<double>& e, double rate)
     std::vector<double> magnitude(e.size());
     for (std::size_t n = 0; n < e.size(); ++n)
         magnitude[n] = std::fabs(e[n]);
-    const auto medians = slidingCentres(magnitude, block, hop, 0.0);
+    const auto medians = dsp::slidingCentres(magnitude, block, hop, 0.0);
     const std::size_t blocks = medians.size();
     // 前后各 half 块：两端按边缘值延拓后，在延拓序列上逐块滑动
     const auto half =
@@ -188,7 +139,7 @@ std::vector<double> residualScale(const std::vector<double>& e, double rate)
     padded.insert(padded.end(), half, medians.front());
     padded.insert(padded.end(), medians.begin(), medians.end());
     padded.insert(padded.end(), half, medians.back());
-    auto local = slidingCentres(padded, 2 * half + 1, 1, c::scale_trim_frac);
+    auto local = dsp::slidingCentres(padded, 2 * half + 1, 1, c::scale_trim_frac);
     const double minimum = std::sqrt(dsp::kPowerFloor);
     for (auto& v : local)
         v = std::max(v, minimum) / kMadToSigma;
@@ -334,9 +285,9 @@ ClickScan scanClicks(const std::vector<double>& samples, double sampleRate)
             continue;
         }
         // 相隔不超过 spike_merge_ms 的超限样本算同一个尖峰，残差比取组内最大值。
-        // 位置取组内高通信号绝对值最大的样本：组里常有两个几乎等高的残差峰，
-        // 按残差比取位置会随起点在两者之间跳，后面按位置取的窗口（擦音、爆破、高频背景）跟着跳；
-        // 高通信号随整段平移严格不变，按它取位置就不跳
+        // 位置取第一个到最后一个超限样本之间高通信号绝对值最大的样本，中间没过门限的样本也算：
+        // 组里常有两个几乎等高的残差峰，按残差比取位置会随起点在两者之间跳，
+        // 后面按位置取的窗口（擦音、爆破、高频背景）跟着跳；高通信号随整段平移严格不变，按它取位置就不跳
         const std::size_t first = i;
         std::size_t last = i;
         double multiple = ratio[i];

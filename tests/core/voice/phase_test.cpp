@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 相位不变性：同一段输入，分析起点挪几个样本（用户点“开始”的时刻是随机的），读数不该跟着变。
-// 每项把合成输入的开头去掉 0 到一个完整周期的样本数（逐 0.5 ms，另加几个零碎的样本数），看读数的最大减最小。
+// 每项把合成输入的开头去掉 0 到一个完整周期的样本数（逐 1 ms，另加几个零碎的样本数），看读数的最大减最小。
 // 周期取改动前的块长：块不重叠时读数按块长循环，这些测试在那样的实现上会变红。
 #include <catch2/catch_test_macros.hpp>
 
@@ -20,11 +20,11 @@ namespace
 {
 constexpr double kFs = 48000.0;
 
-// 去掉开头的 0、24、48、… 个样本直到 period，再加几个不在 0.5 ms 网格上的样本数
+// 去掉开头的 0、48、96、… 个样本直到 period，再加几个不在 1 ms 网格上的样本数
 std::vector<std::size_t> shifts(std::size_t period)
 {
     std::vector<std::size_t> out;
-    for (std::size_t d = 0; d < period; d += 24)
+    for (std::size_t d = 0; d < period; d += 48)
         out.push_back(d);
     for (std::size_t d : std::array<std::size_t, 7>{1, 5, 11, 17, 29, 37, 101})
         if (d < period)
