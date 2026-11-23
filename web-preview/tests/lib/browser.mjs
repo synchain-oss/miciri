@@ -3,6 +3,8 @@
 //
 // 无头浏览器 + DevTools 协议，零 npm 依赖：靠两件 Node 内置，fetch（取协议目标列表）和全局 WebSocket（Node 22 起有）。
 // 不引入 puppeteer：仓库不带运行时依赖。起的是独立 user-data-dir 的无头实例，不碰用户正在用的浏览器，也不用任何扩展。
+// 用哪个浏览器见 browserCandidates：先 MICIRI_BROWSER，再 Playwright 自带的 Chromium，最后系统里的 Chrome。收尾先发 CDP 的 Browser.close
+// 让它自己退出，只有退不出去才强杀进程树。
 // 无头浏览器的光栅路径和真机不同，颜色、字体和亚像素可能有极小差异；本库用来回归和「有没有画出来」，设计验收以真机为准。
 // 本机同时只能有一个浏览器冒烟：调用方在 gates 里持 gui 锁；手动跑 run-all 时自己别并行。
 
@@ -11,22 +13,92 @@ import fs from "node:fs";
 import path from "node:path";
 import { makeTempDir, removeTempDir } from "../../../scripts/lib/safe-rm.mjs";
 
-const CANDIDATES = [
-    process.env.MICIRI_BROWSER,
-    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+// 不用 Edge：Edge 每启动一次就向外壳注册一个标签代理窗口（Windows.Internal.Shell.TabProxyWindow），进程被强杀时不会注销，
+// 泄漏的窗口越积越多，拖慢整台机器上的每一次窗口操作。Playwright 自带的 Chromium 没有这个问题，所以候选里不再有任何 Edge 路径。
+
+/** 系统里装的 Chrome / Chromium，排在自带的 Chromium 之后。 */
+const SYSTEM_CHROME = [
     "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
     "/usr/bin/google-chrome",
     "/usr/bin/chromium",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 ];
 
-/** 找一个可用的 Chromium 系浏览器；找不到返回 null。 */
-export function findBrowser() {
-    return CANDIDATES.find((p) => p && fs.existsSync(p)) || null;
+// Playwright 把完整的 Chromium 装在 <PLAYWRIGHT_BROWSERS_PATH>/chromium-<修订号>/ 下，可执行文件的相对位置按平台与架构不同。
+// 前一项是钉版 playwright（web-preview/tests/axe/package.json）的布局，后一项是旧版的布局，旧环境里装的也认。
+// 同目录旁边还有 chromium_headless_shell-<修订号>：那是另一个二进制，不认 --headless=new，名字也不匹配 chromium-<数字>，不会被选中。
+const MAC_APP = ["Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"];
+const BUNDLED_LAYOUTS = {
+    "win32-x64": [
+        ["chrome-win64", "chrome.exe"],
+        ["chrome-win", "chrome.exe"],
+    ],
+    "win32-arm64": [
+        ["chrome-win64", "chrome.exe"],
+        ["chrome-win", "chrome.exe"],
+    ],
+    "linux-x64": [
+        ["chrome-linux64", "chrome"],
+        ["chrome-linux", "chrome"],
+    ],
+    "linux-arm64": [
+        ["chrome-linux-arm64", "chrome"],
+        ["chrome-linux", "chrome"],
+    ],
+    "darwin-x64": [
+        ["chrome-mac-x64", ...MAC_APP],
+        ["chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"],
+    ],
+    "darwin-arm64": [
+        ["chrome-mac-arm64", ...MAC_APP],
+        ["chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium"],
+    ],
+};
+
+/**
+ * browsersPath 下 Playwright 自带 Chromium 的可执行文件候选，修订号大的在前；没设目录、读不了目录、平台不认时返回空数组。
+ * 只列路径，不检查文件在不在（半装好的目录由 findBrowser 逐个检查后跳过）。
+ */
+export function bundledChromiumCandidates(
+    browsersPath,
+    { platform = process.platform, arch = process.arch, readdir = fs.readdirSync } = {},
+) {
+    const layouts = BUNDLED_LAYOUTS[`${platform}-${arch}`];
+    if (!browsersPath || !layouts) return [];
+    let names;
+    try {
+        names = readdir(browsersPath);
+    } catch {
+        return [];
+    }
+    return names
+        .map((name) => ({ name, m: /^chromium-(\d+)$/.exec(name) }))
+        .filter((e) => e.m)
+        .sort((a, b) => Number(b.m[1]) - Number(a.m[1]))
+        .flatMap((e) => layouts.map((parts) => path.join(browsersPath, e.name, ...parts)));
 }
+
+/**
+ * 浏览器候选，按优先级：环境变量 MICIRI_BROWSER → Playwright 自带的 Chromium（PLAYWRIGHT_BROWSERS_PATH，gates 的页面冒烟与 CI 的
+ * web-smoke 都会设）→ 系统里的 Chrome / Chromium。参数只为自测注入。
+ */
+export function browserCandidates({ env = process.env, platform, arch, readdir } = {}) {
+    return [
+        env.MICIRI_BROWSER,
+        ...bundledChromiumCandidates(env.PLAYWRIGHT_BROWSERS_PATH, { platform, arch, readdir }),
+        ...SYSTEM_CHROME,
+    ];
+}
+
+/** 找一个可用的 Chromium 系浏览器；找不到返回 null（调用方按跳过处理，不记通过）。参数只为自测注入。 */
+export function findBrowser({ exists = fs.existsSync, ...rest } = {}) {
+    return browserCandidates(rest).find((p) => p && exists(p)) || null;
+}
+
+/** 找不到浏览器时给人看的提示，各处冒烟的跳过原因与启动错误共用。 */
+export const NO_BROWSER_HINT =
+    "没有 Chromium 系浏览器；可用环境变量 MICIRI_BROWSER 指定，或让 PLAYWRIGHT_BROWSERS_PATH 指向 playwright 装好浏览器的目录";
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -191,16 +263,123 @@ class Page {
 }
 
 /**
+ * 向浏览器级 CDP 端点发 Browser.close，让浏览器自己收尾退出：比强杀干净（Edge 被强杀会留下标签代理窗口，见文件开头）。
+ * 不等应答也行：浏览器收到命令就开始退出，应答不一定来得及送到。连不上、地址缺失、超时都抛错，由调用方退到强杀。
+ */
+export async function cdpBrowserClose(port, { timeoutMs = 3000 } = {}) {
+    const res = await fetch(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout(timeoutMs) });
+    const { webSocketDebuggerUrl } = await res.json();
+    if (!webSocketDebuggerUrl) throw new Error("/json/version 没给浏览器级调试地址");
+    const ws = new WebSocket(webSocketDebuggerUrl);
+    try {
+        await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error("连浏览器级调试端口超时")), timeoutMs);
+            ws.addEventListener(
+                "open",
+                () => {
+                    clearTimeout(timer);
+                    resolve();
+                },
+                { once: true },
+            );
+            ws.addEventListener(
+                "error",
+                () => {
+                    clearTimeout(timer);
+                    reject(new Error("连不上浏览器级调试端口"));
+                },
+                { once: true },
+            );
+        });
+        await new Promise((resolve) => {
+            const done = () => {
+                clearTimeout(timer);
+                resolve();
+            };
+            const timer = setTimeout(done, timeoutMs);
+            for (const ev of ["message", "close", "error"]) ws.addEventListener(ev, done, { once: true });
+            ws.send(JSON.stringify({ id: 1, method: "Browser.close" }));
+        });
+    } finally {
+        try {
+            ws.close();
+        } catch {
+            // 已经关了
+        }
+    }
+}
+
+/** 强杀进程树。Windows 上 Chromium 还有 GPU / 工具子进程握着 profile 里的文件：只杀主进程，子进程一直不放，目录就删不掉；连子进程一起结束。 */
+function killProcessTree(proc) {
+    try {
+        if (process.platform === "win32" && proc.pid)
+            spawnSync("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore" });
+        proc.kill();
+    } catch {
+        // 已经退出
+    }
+}
+
+const hasExited = (proc) => proc.exitCode != null || proc.signalCode != null;
+
+/** 等进程的 exit 事件，最多 ms 毫秒；等到返回 true。 */
+function waitForExit(proc, ms) {
+    if (hasExited(proc)) return Promise.resolve(true);
+    return new Promise((resolve) => {
+        const onExit = () => {
+            clearTimeout(timer);
+            resolve(true);
+        };
+        const timer = setTimeout(() => {
+            proc.removeListener?.("exit", onExit);
+            resolve(false);
+        }, ms);
+        proc.once("exit", onExit);
+    });
+}
+
+/**
+ * 收掉浏览器进程。有调试端口就先发 Browser.close，等进程 exit（最多 graceMs）；没退出、或根本发不出去，才强杀进程树，
+ * 并往标准错误写一行说明为什么要强杀。没有可用的调试端口（没开出来、端口被 fetch 禁用）时没法对话，直接强杀，不算“退到强杀”，不写这一行。
+ * 返回 "gone"（早已退出）、"graceful"（自己退出的）或 "killed"（强杀的）。
+ * closeBrowser、killTree、graceMs 只为自测注入。
+ */
+export async function stopBrowser(
+    proc,
+    port,
+    { closeBrowser = cdpBrowserClose, killTree = killProcessTree, graceMs = 5000 } = {},
+) {
+    if (hasExited(proc)) return "gone";
+    if (port) {
+        let why = "";
+        try {
+            await closeBrowser(port);
+        } catch (e) {
+            why = e.message;
+        }
+        // 命令没送出去也可能是浏览器已经在退出了：给它一小段时间，而不是立刻强杀
+        if (await waitForExit(proc, why ? Math.min(graceMs, 1000) : graceMs)) return "graceful";
+        console.error(`[浏览器] 没能正常关闭（${why || `${graceMs / 1000} 秒内没退出`}），已强制结束进程树`);
+    }
+    killTree(proc);
+    return "killed";
+}
+
+/**
  * 起一次浏览器：新的临时 profile，等 waitMs 看它写不写出调试端口。写出来且 fetch 连得上（不在禁用端口表里）返回 { port, cleanup }；
  * 没写出来，或写出来的端口在 fetch 的禁用端口表里，就收掉这一次的进程树与 profile，返回 null（由 withLaunchRetry 决定还起不起）。
- * spawnProc 只为自测注入假浏览器，正常调用不传。
+ * cleanup() 先让浏览器自己退出、不行再强杀（见 stopBrowser），然后删 profile，返回 stopBrowser 的结果。
+ * spawnProc、closeBrowser、killTree、graceMs 只为自测注入假浏览器，正常调用不传。
  */
-export async function launchOnce(exe, waitMs, { spawnProc = spawn } = {}) {
+export async function launchOnce(exe, waitMs, { spawnProc = spawn, ...stopOpts } = {}) {
     const profile = makeTempDir("miciri-pv-");
     const proc = spawnProc(
         exe,
         [
             "--headless=new",
+            // Linux 上不带沙箱：CI 的 Ubuntu 限制了非发行版自带浏览器的用户命名空间，带沙箱起不来；Playwright 自己启动时默认也不带。
+            // 这里只加载本机静态服务给的预览页，profile 是一次性的。
+            ...(process.platform === "linux" ? ["--no-sandbox"] : []),
             "--disable-gpu",
             "--hide-scrollbars",
             "--no-first-run",
@@ -229,23 +408,18 @@ export async function launchOnce(exe, waitMs, { spawnProc = spawn } = {}) {
             // 还没写出来
         }
     }
-    const cleanup = async () => {
-        try {
-            // Windows 上 Chromium 还有 GPU / 工具子进程握着 profile 里的文件：只杀主进程，子进程一直不放，目录就删不掉；连子进程一起结束
-            if (process.platform === "win32" && proc.pid)
-                spawnSync("taskkill", ["/pid", String(proc.pid), "/T", "/F"], { stdio: "ignore" });
-            proc.kill();
-        } catch {
-            // 已经退出
-        }
-        await sleep(300);
+    // talkPort 是能对话的调试端口；没有就是 0，直接强杀
+    const cleanupWith = async (talkPort) => {
+        const how = await stopBrowser(proc, talkPort, stopOpts);
+        if (how === "killed") await sleep(300);
         let why;
         for (let i = 0; i < 20; i++) {
             why = removeTempDir(profile);
-            if (why === null) return;
+            if (why === null) return how;
             await sleep(300); // 浏览器进程还握着文件：等一等再删
         }
         console.error(`浏览器的临时 profile 没清掉：${why}`);
+        return how;
     };
     // 主进程被强杀（超时）时 finally 不会执行；正常退出和未捕获异常时 exit 事件还能尽力清一次
     process.once("exit", () => {
@@ -258,7 +432,7 @@ export async function launchOnce(exe, waitMs, { spawnProc = spawn } = {}) {
         port = 0;
     }
     if (!port) {
-        await cleanup();
+        await cleanupWith(0);
         if (spawnError) console.error(`[浏览器] 这一次没起来：${spawnError.message}`);
         if (badPort)
             console.error(
@@ -266,7 +440,7 @@ export async function launchOnce(exe, waitMs, { spawnProc = spawn } = {}) {
             );
         return null;
     }
-    return { port, cleanup };
+    return { port, cleanup: () => cleanupWith(port) };
 }
 
 /**
@@ -277,7 +451,7 @@ export async function launchOnce(exe, waitMs, { spawnProc = spawn } = {}) {
  */
 export async function launchBrowser({ width = 1280, height = 900 } = {}) {
     const exe = findBrowser();
-    if (!exe) throw new Error("找不到 Chromium 系浏览器（可用环境变量 MICIRI_BROWSER 指定）");
+    if (!exe) throw new Error(`找不到 Chromium 系浏览器：${NO_BROWSER_HINT}`);
     const got = await withLaunchRetry(() => launchOnce(exe, LAUNCH_POLICY.waitMs), LAUNCH_POLICY, {
         onRetry: (k, pause) =>
             console.error(
