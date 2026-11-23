@@ -104,7 +104,8 @@ std::vector<PlosiveEvent> plosiveEvents(const std::vector<double>& samples, doub
             }
         if (static_cast<long long>(steady.size()) < std::max<long long>(1, frames(p::vowel_kept_min_ms)))
             continue;
-        // 稳态得是真的元音：元音频带的电平比这一步的同频带底噪高出 vowel_over_floor_db。
+        // 稳态得是真的元音：元音频带的电平要比整段录音同频带的底噪高出 vowel_over_floor_db，
+        // 底噪取法与上面相同（帧的 floor_percentile 百分位）。
         // 碰到话筒架这类低频闷响后面只有底噪，“稳态”就是底噪本身，闷响会被当成一次很重的喷麦
         if (dsp::median(steadyVowel) < vowelFloorDb + p::vowel_over_floor_db)
             continue;
