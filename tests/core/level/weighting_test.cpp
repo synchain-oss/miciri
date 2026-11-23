@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 加权滤波器与重采样原件：A 加权对 IEC 61672 的标准表，K 加权各采样率对 48 kHz 公布系数的频响，
-// 抽取器的直流增益与分块一致性，百分位的定义。
+// 抽取器的直流增益与分块一致性，百分位的定义，重叠帧的均方，滑动窗口的中位数与截尾平均。
 #include <catch2/catch_test_macros.hpp>
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
 
 #include "core/level/Synth.h"
 #include "level/Dsp.h"
@@ -98,6 +102,73 @@ TEST_CASE("percentile interpolates like the usual definition")
     CHECK(core::dsp::percentile(v, 50) == within(3.0, 1e-12));
     CHECK(core::dsp::percentile(v, 100) == within(5.0, 1e-12));
     CHECK(core::dsp::percentile({}, 50) == 0.0);
+}
+
+TEST_CASE("overlapped mean squares equal frame-by-frame means and drop the partial tail")
+{
+    const std::vector<double> x = whiteNoise(1003, 0.3, 17);
+    const std::size_t hop = 10, parts = 5;
+    const auto frames = core::dsp::overlappedMeanSquares(x, hop, parts);
+    REQUIRE(frames.size() == x.size() / hop - parts + 1);
+    for (std::size_t f = 0; f < frames.size(); ++f)
+    {
+        double sum = 0.0;
+        for (std::size_t i = f * hop; i < f * hop + parts * hop; ++i)
+            sum += x[i] * x[i];
+        CHECK(frames[f] == within(sum / static_cast<double>(parts * hop), 1e-12));
+    }
+    CHECK(core::dsp::overlappedMeanSquares(x, hop, 1).size() == x.size() / hop);
+    CHECK(core::dsp::overlappedMeanSquares(x, 500, 3).empty());
+    CHECK(core::dsp::overlappedMeanSquares(x, 0, 3).empty());
+}
+
+namespace
+{
+// 逐个窗口重新排序：与增量归并的实现比较，归并时移出、移入差一个值就会对不上
+std::vector<double> sortedCentres(const std::vector<double>& v, std::size_t length, std::size_t step, double trim)
+{
+    std::vector<double> out;
+    for (std::size_t from = 0; from + length <= v.size(); from += step)
+    {
+        std::vector<double> w(v.begin() + static_cast<std::ptrdiff_t>(from),
+                              v.begin() + static_cast<std::ptrdiff_t>(from + length));
+        std::sort(w.begin(), w.end());
+        const auto cut = static_cast<std::size_t>(trim * static_cast<double>(length));
+        if (cut == 0 || 2 * cut >= length)
+        {
+            out.push_back(core::dsp::median(w));
+            continue;
+        }
+        double sum = 0.0;
+        for (std::size_t i = cut; i + cut < length; ++i)
+            sum += w[i];
+        out.push_back(sum / static_cast<double>(length - 2 * cut));
+    }
+    return out;
+}
+} // namespace
+
+TEST_CASE("sliding centres equal a full sort of every window")
+{
+    // 取值只有 13 种（含 0），窗口里重复值很多
+    Rng rng(29);
+    std::vector<double> v(301);
+    for (auto& s : v)
+        s = 0.25 * std::floor(rng.uniform() * 13.0);
+    for (std::size_t length : {std::size_t{1}, std::size_t{7}, std::size_t{8}, std::size_t{40}})
+        for (std::size_t step : {std::size_t{1}, std::size_t{3}, length, length + 2})
+            for (double trim : {0.0, 0.2, 0.45})
+            {
+                INFO("length " << length << ", step " << step << ", trim " << trim);
+                const auto got = core::dsp::slidingCentres(v, length, step, trim);
+                const auto want = sortedCentres(v, length, step, trim);
+                REQUIRE(got.size() == want.size());
+                REQUIRE(!got.empty());
+                CHECK(got == want);
+            }
+    CHECK(core::dsp::slidingCentres(v, 400, 1, 0.0).empty());
+    CHECK(core::dsp::slidingCentres(v, 0, 1, 0.0).empty());
+    CHECK(core::dsp::slidingCentres(v, 5, 0, 0.0).empty());
 }
 
 TEST_CASE("decimator keeps level, has unit DC gain and does not depend on block size")

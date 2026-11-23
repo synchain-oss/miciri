@@ -40,7 +40,7 @@ export const BANDS = {
     sibilanceResolutionDb: 5.2,
     plosiveReferenceDb: 9,
     sibilanceReferenceDb: -3,
-    clickReferencePerMin: 60,
+    clickReferencePerMin: 75,
 };
 
 /** 推荐距离的占位值，与 thresholds.json 的 recommended_distance 相等；耳机麦为 null。 */

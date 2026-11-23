@@ -42,6 +42,89 @@ double median(std::vector<double> values)
     return percentile(std::move(values), 50.0);
 }
 
+std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::size_t hop, std::size_t parts)
+{
+    std::vector<double> out;
+    if (hop == 0 || parts == 0 || x.size() / hop < parts)
+        return out;
+    std::vector<double> sums(x.size() / hop);
+    for (std::size_t b = 0; b < sums.size(); ++b)
+    {
+        double sum = 0.0;
+        for (std::size_t i = b * hop; i < (b + 1) * hop; ++i)
+            sum += x[i] * x[i];
+        sums[b] = sum;
+    }
+    const auto length = static_cast<double>(parts * hop);
+    out.resize(sums.size() - parts + 1);
+    for (std::size_t f = 0; f < out.size(); ++f)
+    {
+        double sum = 0.0;
+        for (std::size_t j = f; j < f + parts; ++j)
+            sum += sums[j];
+        out[f] = sum / length;
+    }
+    return out;
+}
+
+std::vector<double> slidingCentres(const std::vector<double>& v, std::size_t length, std::size_t step, double trim)
+{
+    if (length == 0 || step == 0 || v.size() < length)
+        return {};
+    const std::size_t count = (v.size() - length) / step + 1;
+    const auto at = [&v](std::size_t i) { return v.begin() + static_cast<std::ptrdiff_t>(i); };
+    std::vector<double> out(count), window(at(0), at(length)), next, gone, added;
+    std::sort(window.begin(), window.end());
+    const auto cut = static_cast<std::size_t>(trim * static_cast<double>(length));
+    const auto centre = [&window, cut] {
+        if (cut > 0 && 2 * cut < window.size())
+        {
+            double sum = 0.0;
+            for (std::size_t i = cut; i + cut < window.size(); ++i)
+                sum += window[i];
+            return sum / static_cast<double>(window.size() - 2 * cut);
+        }
+        const std::size_t upper = window.size() / 2;
+        if (window.size() % 2 == 1)
+            return window[upper];
+        return window[upper - 1] + (window[upper] - window[upper - 1]) * 0.5;
+    };
+    out[0] = centre();
+    for (std::size_t k = 1; k < count; ++k)
+    {
+        const std::size_t from = k * step;
+        if (step >= length)
+        {
+            window.assign(at(from), at(from + length));
+            std::sort(window.begin(), window.end());
+            out[k] = centre();
+            continue;
+        }
+        gone.assign(at(from - step), at(from));
+        added.assign(at(from - step + length), at(from + length));
+        std::sort(gone.begin(), gone.end());
+        std::sort(added.begin(), added.end());
+        next.clear();
+        std::size_t g = 0, n = 0;
+        for (double w : window)
+        {
+            if (g < gone.size() && w == gone[g])
+            {
+                ++g;
+                continue;
+            }
+            while (n < added.size() && added[n] < w)
+                next.push_back(added[n++]);
+            next.push_back(w);
+        }
+        while (n < added.size())
+            next.push_back(added[n++]);
+        window.swap(next);
+        out[k] = centre();
+    }
+    return out;
+}
+
 BiquadCascade::BiquadCascade(std::vector<Biquad> stages) : stages_(std::move(stages)), state_(stages_.size())
 {
     reset();

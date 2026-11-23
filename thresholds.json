@@ -752,7 +752,13 @@
     },
     "lpc_order": { "value": 32, "state": "pending", "source": "规格起始值", "date": null },
     "lpc_window_ms": { "value": 25.0, "state": "pending", "source": "规格起始值", "date": null },
-    "lpc_block_ms": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "lpc_block_ms": {
+      "value": 2.0,
+      "state": "synthetic",
+      "source": "合成验证：起点在一个周期内逐样本平移，读数的变化在容差内",
+      "date": "2026-11-22",
+      "note": "a predictor is estimated at the centre of every block; each sample interpolates the coefficients of the two nearest centres"
+    },
     "lpc_white_noise_frac": {
       "value": 0.0001,
       "state": "pending",
@@ -761,6 +767,20 @@
       "note": "added to the zero-lag autocorrelation so the predictor stays stable"
     },
     "scale_block_ms": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
+    "scale_hop_ms": {
+      "value": 1.0,
+      "state": "synthetic",
+      "source": "合成验证：起点在一个周期内逐样本平移，读数的变化在容差内",
+      "date": "2026-11-22",
+      "note": "one block median this often; each sample interpolates the scale of the two nearest block centres"
+    },
+    "scale_trim_frac": {
+      "value": 0.45,
+      "state": "synthetic",
+      "source": "合成验证：起点在一个周期内逐样本平移，读数的变化在容差内；合成元音起止处的基音脉冲仍在计数门限以下",
+      "date": "2026-11-22",
+      "note": "the local scale is the mean of the block medians within the half width after dropping this share at each end; a plain median jumps between the speech and the pause blocks, a wider kept band lowers the scale near speech edges and lets pitch pulses through"
+    },
     "scale_halfwidth_ms": {
       "value": 150.0,
       "state": "pending",
@@ -786,6 +806,13 @@
     "plosive_after_ms": { "value": [10.0, 60.0], "state": "pending", "source": "规格起始值", "date": null },
     "plosive_rise_db": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
     "speech_frame_ms": { "value": 50.0, "state": "pending", "source": "规格起始值", "date": null },
+    "speech_hop_ms": {
+      "value": 1.0,
+      "state": "synthetic",
+      "source": "合成验证：起点在一个周期内逐样本平移，读数的变化在容差内",
+      "date": "2026-11-22",
+      "note": "speech level frames overlap; one frame this often, each frame a whole number of these"
+    },
     "speech_percentile": { "value": 95, "state": "pending", "source": "规格起始值", "date": null },
     "speech_within_db": { "value": 15.0, "state": "pending", "source": "规格起始值", "date": null },
     "speech_floor_percentile": { "value": 10, "state": "pending", "source": "规格起始值", "date": null },
@@ -809,9 +836,9 @@
     "cluster_gap_ms": { "value": 100.0, "state": "pending", "source": "规格起始值", "date": null },
     "evidence_max_marks": { "value": 40, "state": "pending", "source": "规格起始值", "date": null },
     "reference_max_per_min": {
-      "value": 60.0,
+      "value": 75.0,
       "state": "pending",
-      "source": "经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在约 15 cm 处每分钟的读数都低于它，刻意咂嘴时高于它；检出里仍有送气音的误报，只作参考",
+      "source": "经验值，依据实录（3 间房、2 位说话人、2 支话筒，2026-11）：两位说话人在约 15 cm 处的自然读数都低于它，一位刻意咂嘴时高于它，另一位刻意咂嘴时与正常读数相近；检出里仍有送气音（t、k）的误报，只作参考",
       "date": null,
       "note": "reference for clicks per minute; above it the card gives a light hint, no grade"
     }

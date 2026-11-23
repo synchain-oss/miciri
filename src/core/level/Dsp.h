@@ -29,6 +29,18 @@ double dbToPower(double db);
 double percentile(std::vector<double> values, double pct);
 double median(std::vector<double> values);
 
+// 互相重叠的帧均方：帧长 parts × hop 个样本，每 hop 个样本一帧（parts 为 1 时不重叠）。
+// 先求每 hop 个样本的平方和，每帧再把相邻 parts 个加起来：每帧都从头加，不靠滑动相减，长输入也没有累积误差。
+// 帧数为 长度 / hop - parts + 1，不够一帧时为空。
+std::vector<double> overlappedMeanSquares(const std::vector<double>& x, std::size_t hop, std::size_t parts);
+
+// 滑动窗口的中心值。窗口 [k·step, k·step + length)，k = 0, 1, …，直到窗口越过末尾；v 短于一个窗口时为空。
+// trim 为 0 时取中位数，与 median 的值相同（偶数个时取中间两个的平均）；
+// 否则把窗口排序后两端各去掉 trim 的比例，取剩下的平均（去掉之后不剩时取中位数）。
+// 窗口滑动时只换掉 step 个值：移出与移入的各自排序后，和有序窗口线性归并，不必每个窗口重新排序；
+// step 不小于 length 时窗口不重叠，逐个排序。v 不能含 NaN。
+std::vector<double> slidingCentres(const std::vector<double>& v, std::size_t length, std::size_t step, double trim);
+
 // 定长帧的均方值：逐样本累加，帧满了就记一项。累加顺序只取决于样本顺序，所以与分块方式无关。
 class FrameMeanSquare
 {

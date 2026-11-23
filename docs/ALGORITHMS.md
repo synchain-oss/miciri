@@ -42,10 +42,10 @@
 - **喷麦。** 同一个阈值只在一位说话人身上能分开近与远，所以不分档，只给数值、参考值与前后对比。
 - **齿音。** 绝对电平随挪远的方向一致，偏轴 15° 只差 1 到 2 dB，所以没有“偏轴再测、比一比”这一步，前后对比只用固定增益下的绝对电平；
   对元音的比值随距离的方向不稳（近讲效应，挪远后反而可能变大），只作参考。
-- **参考值。** 喷麦 9 dB、齿音 −3 dB、口水音每分钟 60 次，都是经验值，不是档界，也不是合格线，超过不等于有问题。各自的依据：
+- **参考值。** 喷麦 9 dB、齿音 −3 dB、口水音每分钟 75 次，都是经验值，不是档界，也不是合格线，超过不等于有问题。各自的依据：
   - 喷麦 9 dB：两位说话人在 5 cm 处，每遍字表的最大值都超过它，在 60 cm 处都低于它；一位在 15 cm 处有一遍超过。
   - 齿音 −3 dB：常见做法的默认；同一批录音里两位说话人在唱歌位置（约 15 cm）的中位比值是 −5.4 与 −7.1 dB，都低于它。
-  - 口水音每分钟 60 次：两位说话人在约 15 cm 处每分钟的读数都低于它，刻意咂嘴时高于它；检出里仍有送气音（t、k）的误报。
+  - 口水音每分钟 75 次：两位说话人在约 15 cm 处的自然读数都低于它，一位刻意咂嘴时高于它，另一位刻意咂嘴时与正常读数相近；检出里仍有送气音（t、k）的误报。
 - **推荐距离。** 静态的常见做法（电容与 USB 约 15 cm，动圈约 5 到 10 cm），不是测量，也不是这批样本的结论。
 
 还缺的录音包括：很干与很大的房间、更多的说话人与话筒类型、真正响的电流声与真正的啸叫。每一项缺什么，见阈值表里它自己的“依据”。
@@ -102,6 +102,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
   底噪取带内帧功率的第 2 百分位（数字静音的帧不算）；连续 2 个频点不满足才停，所以一个窄谷不会让它提前停下。读数是 500 Hz 的整数倍。
   不按能量占比算：人声能量大多在低频，按占比会误关高频项。
 - **口水音**：LPC 残差里超过局部尺度很多倍的尖峰；之后高频持续的（擦音）、之后低频和元音一起上来的（爆破）、高频背景本来就响的（齿音起头、送气）都不算。
+  预测系数在相邻两块之间逐样本插值，局部尺度与语音电平用互相重叠的块，读数不随分析起点变化。
   只作“可能有口水音”的提示，不作距离证据。
 
 三项的 `severity` 停在最低档只表示“未分档”，不表示“良好”，上层不要拿它直接着色。
@@ -135,7 +136,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 <!-- prettier-ignore-start -->
 <!-- thresholds:begin 以下由 scripts/gen-algorithms.mjs 按 thresholds.json 生成，不要手改 -->
-共 290 项，分 17 组：合成验证 101 项、待标定 183 项、实录标定 6 项。
+共 293 项，分 17 组：合成验证 105 项、待标定 182 项、实录标定 6 项。
 
 ### `no_signal`
 
@@ -412,9 +413,11 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `candidate_multiple` | 10 | 待标定 | 规格起始值 | residual samples over this multiple are grouped into candidates; the candidate's own peak must reach residual_median_multiple |
 | `lpc_order` | 32 | 待标定 | 规格起始值 |  |
 | `lpc_window_ms` | 25 | 待标定 | 规格起始值 |  |
-| `lpc_block_ms` | 10 | 待标定 | 规格起始值 |  |
+| `lpc_block_ms` | 2 | 合成验证 2026-11-22 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内 | a predictor is estimated at the centre of every block; each sample interpolates the coefficients of the two nearest centres |
 | `lpc_white_noise_frac` | 0.0001 | 待标定 | 规格起始值 | added to the zero-lag autocorrelation so the predictor stays stable |
 | `scale_block_ms` | 10 | 待标定 | 规格起始值 |  |
+| `scale_hop_ms` | 1 | 合成验证 2026-11-22 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内 | one block median this often; each sample interpolates the scale of the two nearest block centres |
+| `scale_trim_frac` | 0.45 | 合成验证 2026-11-22 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内；合成元音起止处的基音脉冲仍在计数门限以下 | the local scale is the mean of the block medians within the half width after dropping this share at each end; a plain median jumps between the speech and the pause blocks, a wider kept band lowers the scale near speech edges and lets pitch pulses through |
 | `scale_halfwidth_ms` | 150 | 待标定 | 规格起始值 | running median of the block medians of the residual magnitude |
 | `spike_merge_ms` | 5 | 待标定 | 规格起始值 |  |
 | `peak_window_ms` | [-2, 4] | 待标定 | 规格起始值 |  |
@@ -428,6 +431,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `plosive_after_ms` | [10, 60] | 待标定 | 规格起始值 |  |
 | `plosive_rise_db` | 10 | 待标定 | 规格起始值 |  |
 | `speech_frame_ms` | 50 | 待标定 | 规格起始值 |  |
+| `speech_hop_ms` | 1 | 合成验证 2026-11-22 | 合成验证：起点在一个周期内逐样本平移，读数的变化在容差内 | speech level frames overlap; one frame this often, each frame a whole number of these |
 | `speech_percentile` | 95 | 待标定 | 规格起始值 |  |
 | `speech_within_db` | 15 | 待标定 | 规格起始值 |  |
 | `speech_floor_percentile` | 10 | 待标定 | 规格起始值 |  |
@@ -438,7 +442,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `context_max_rel_db` | -14 | 待标定 | 规格起始值，待实录标定 | high-frequency background around the spike, relative to the speech; louder backgrounds are sibilant onsets or aspiration; adjusted on real recordings, uncalibrated |
 | `cluster_gap_ms` | 100 | 待标定 | 规格起始值 |  |
 | `evidence_max_marks` | 40 | 待标定 | 规格起始值 |  |
-| `reference_max_per_min` | 60 | 待标定 | 经验值，依据实录标定：3 间房、2 位说话人、2 支话筒（2026-11）：两位说话人在约 15 cm 处每分钟的读数都低于它，刻意咂嘴时高于它；检出里仍有送气音的误报，只作参考 | reference for clicks per minute; above it the card gives a light hint, no grade |
+| `reference_max_per_min` | 75 | 待标定 | 经验值，依据实录（3 间房、2 位说话人、2 支话筒，2026-11）：两位说话人在约 15 cm 处的自然读数都低于它，一位刻意咂嘴时高于它，另一位刻意咂嘴时与正常读数相近；检出里仍有送气音（t、k）的误报，只作参考 | reference for clicks per minute; above it the card gives a light hint, no grade |
 
 ### `direction`
 
