@@ -73,20 +73,34 @@ TEST_CASE("the JUCE frontend helper is served at js/juce/index.js", "[plugin][re
     CHECK_FALSE(provider.lookup("js/juce/missing.js").has_value());
 }
 
-TEST_CASE("every relative import of the JUCE frontend helper is served too", "[plugin][resources]")
+TEST_CASE("every relative import of every staged JUCE frontend file is served too", "[plugin][resources]")
 {
     const auto provider = frontendProvider();
-    const auto hit = provider.lookup("js/juce/index.js");
-    REQUIRE(hit.has_value());
-    const auto imports = relativeImports(std::string(hit->data, static_cast<std::size_t>(hit->size)));
-    // JUCE 8 的 index.js 至少 import 一个同目录文件；一个都没扫到说明扫描本身坏了，检查就是空转。
-    REQUIRE_FALSE(imports.empty());
-    for (const auto& spec : imports)
+    REQUIRE(provider.lookup("js/juce/index.js").has_value());
+
+    // 编进来的每个 JUCE 前端脚本都扫一遍（资源名里的 "__" 就是页面路径里的 "/"），
+    // 它们的相对 import 必须全部取得到：哪一级缺一个，模块图就断，页面的桥调用一个都发不出去。
+    int scripts = 0;
+    int resolved = 0;
+    for (int i = 0; i < MiciriJuceFrontendTestData::namedResourceListSize; ++i)
     {
-        const auto path = resolveFrom("js/juce/index.js", juce::String(spec));
-        INFO("js/juce/index.js imports " << spec << " -> " << path);
-        CHECK(provider.lookup(path).has_value());
+        const auto page = juce::String(MiciriJuceFrontendTestData::originalFilenames[i]).replace("__", "/");
+        if (!page.endsWith(".js"))
+            continue;
+        const auto hit = provider.lookup(page);
+        REQUIRE(hit.has_value());
+        ++scripts;
+        for (const auto& spec : relativeImports(std::string(hit->data, static_cast<std::size_t>(hit->size))))
+        {
+            const auto path = resolveFrom(page, juce::String(spec));
+            INFO(page << " imports " << spec << " -> " << path);
+            CHECK(provider.lookup(path).has_value());
+            ++resolved;
+        }
     }
+    CHECK(scripts >= 1);
+    // JUCE 8 的 index.js 至少 import 一个同目录文件；一个都没扫到说明扫描本身坏了，检查就是空转。
+    CHECK(resolved >= 1);
 }
 
 TEST_CASE("the import scanner finds the forms the helper uses", "[plugin][resources]")
