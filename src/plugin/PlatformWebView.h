@@ -47,6 +47,12 @@ struct ShellHalo
 inline constexpr float kShellHaloDiameter = 320.0f;
 inline constexpr float kShellHaloBlur = 52.0f;
 
+// 页面里的柔光球是 filter: blur 的实心圆，这里用三段径向渐变近似它的衰减：只要求颜色、位置、直径与模糊量
+// （上面几项，由 smoke-tokens 对拍）和页面一致，下面三个衰减参数是看着页面调的近似，不要求和页面逐像素相同。
+inline constexpr float kShellHaloCoreAlpha = 0.85f; // 半径减一个模糊量处（还在实心部分里）的不透明度比例
+inline constexpr float kShellHaloEdgeAlpha = 0.5f; // 半径处（模糊带的中线）的不透明度比例
+inline constexpr float kShellHaloFadeBlurs = 2.0f; // 从半径往外再过几个模糊量淡到全透明
+
 inline constexpr ShellHalo kShellHalos[] = {
     {-90.0f, -80.0f, false, false, 0xb5acc9, 0.62f},
     {-70.0f, -110.0f, true, true, 0xf8cedb, 0.50f},
@@ -135,18 +141,18 @@ inline juce::Colour opaqueRgb(juce::uint32 rgb)
                         static_cast<juce::uint8>(rgb & 0xffu));
 }
 
-// 一个柔光球：中心到“半径减模糊”几乎实色，到半径处一半，再往外两个模糊量淡到 0。
+// 一个柔光球：中心到“半径减模糊”几乎实色，到半径处一半，再往外淡到 0（比例见上面的 kShellHalo* 衰减参数）。
 inline void paintShellHalo(juce::Graphics& g, juce::Point<float> centre, float zoom, const ShellHalo& halo)
 {
     const float radius = kShellHaloDiameter * 0.5f;
-    const float outer = (radius + 2.0f * kShellHaloBlur) * zoom;
+    const float outer = (radius + kShellHaloFadeBlurs * kShellHaloBlur) * zoom;
     if (!(outer > 0.0f))
         return;
     const auto colour = opaqueRgb(halo.rgb).withAlpha(halo.alpha);
     juce::ColourGradient gradient(colour, centre.x, centre.y, colour.withAlpha(0.0f), centre.x + outer, centre.y, true);
     gradient.addColour(static_cast<double>((radius - kShellHaloBlur) * zoom / outer),
-                       colour.withMultipliedAlpha(0.85f));
-    gradient.addColour(static_cast<double>(radius * zoom / outer), colour.withMultipliedAlpha(0.5f));
+                       colour.withMultipliedAlpha(kShellHaloCoreAlpha));
+    gradient.addColour(static_cast<double>(radius * zoom / outer), colour.withMultipliedAlpha(kShellHaloEdgeAlpha));
     g.setGradientFill(gradient);
     g.fillEllipse(centre.x - outer, centre.y - outer, outer * 2.0f, outer * 2.0f);
 }
