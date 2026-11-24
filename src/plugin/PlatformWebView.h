@@ -2,7 +2,8 @@
 // Derived from synchain-oss/rinne; see upstream/plugin.json
 //
 // 平台 WebView 的差异收口：Windows 用 WebView2（含运行时探测、用户数据目录），macOS 用系统 WebKit。
-// 另含开窗前的占位底色：页面首帧到来之前先画一层和页面背景一致的底，避免闪白。
+// 另含开局画面：窗口一出现、页面首帧到来之前，原生侧先画一层和外壳页面同形的底（深色外圈、圆角渐变、柔光球），
+// 页面就绪后揭开 WebView 时只多出内容，不跳色、不闪白。
 #pragma once
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -14,7 +15,8 @@
 
 namespace miciri::webview
 {
-// 占位渐变的一个色标。色标和角度要与页面最外层背景保持一致，否则首帧前后会跳色。
+// 占位渐变的一个色标。色标和角度与外壳页面的 --page-gradient（web/shared/tokens.css）逐一相同，
+// 页面冒烟 smoke-tokens 对拍这里的数组，改一边不改另一边会变红。
 struct ShellBackdropStop
 {
     juce::uint32 rgb;
@@ -24,8 +26,31 @@ struct ShellBackdropStop
 inline constexpr float kShellBackdropAngleDeg = 157.0f;
 
 inline constexpr ShellBackdropStop kShellBackdropStops[] = {
-    {0xdfe3ea, 0.00f},
-    {0xf1f3f7, 1.00f},
+    {0xb5acc9, 0.00f},
+    {0xccbfd5, 0.32f},
+    {0xe3d2e0, 0.64f},
+    {0xfde8ed, 1.00f},
+};
+
+// 外壳背后的柔光球：位置按页面写法记成到外壳某条边的距离（shell-glass.css 的 .sc-halo--N），
+// 直径、模糊与颜色取自 tokens.css 的 --halo-*，同样由 smoke-tokens 对拍。页面里是模糊过的实心圆，这里用径向渐变近似。
+struct ShellHalo
+{
+    float insetX; // fromRight 为真时是到右边的距离，否则到左边
+    float insetY; // fromBottom 为真时是到底边的距离，否则到顶边
+    bool fromRight;
+    bool fromBottom;
+    juce::uint32 rgb;
+    float alpha;
+};
+
+inline constexpr float kShellHaloDiameter = 320.0f;
+inline constexpr float kShellHaloBlur = 52.0f;
+
+inline constexpr ShellHalo kShellHalos[] = {
+    {-90.0f, -80.0f, false, false, 0xb5acc9, 0.62f},
+    {-70.0f, -110.0f, true, true, 0xf8cedb, 0.50f},
+    {480.0f, 250.0f, false, false, 0xc4b0de, 0.46f},
 };
 
 inline juce::Colour shellBackdropMid()
@@ -104,19 +129,51 @@ inline juce::Rectangle<float> shellPlaceholderBounds(juce::Rectangle<float> area
     return juce::Rectangle<float>(designW * zoom, designH * zoom).withCentre(area.getCentre());
 }
 
-// 占位绘制：外圈铺深色，设计盒比例的圆角矩形里按渐变填充。
+inline juce::Colour opaqueRgb(juce::uint32 rgb)
+{
+    return juce::Colour(static_cast<juce::uint8>((rgb >> 16) & 0xffu), static_cast<juce::uint8>((rgb >> 8) & 0xffu),
+                        static_cast<juce::uint8>(rgb & 0xffu));
+}
+
+// 一个柔光球：中心到“半径减模糊”几乎实色，到半径处一半，再往外两个模糊量淡到 0。
+inline void paintShellHalo(juce::Graphics& g, juce::Point<float> centre, float zoom, const ShellHalo& halo)
+{
+    const float radius = kShellHaloDiameter * 0.5f;
+    const float outer = (radius + 2.0f * kShellHaloBlur) * zoom;
+    if (!(outer > 0.0f))
+        return;
+    const auto colour = opaqueRgb(halo.rgb).withAlpha(halo.alpha);
+    juce::ColourGradient gradient(colour, centre.x, centre.y, colour.withAlpha(0.0f), centre.x + outer, centre.y, true);
+    gradient.addColour(static_cast<double>((radius - kShellHaloBlur) * zoom / outer),
+                       colour.withMultipliedAlpha(0.85f));
+    gradient.addColour(static_cast<double>(radius * zoom / outer), colour.withMultipliedAlpha(0.5f));
+    g.setGradientFill(gradient);
+    g.fillEllipse(centre.x - outer, centre.y - outer, outer * 2.0f, outer * 2.0f);
+}
+
+// 开局画面：外圈铺深色，设计盒比例的圆角矩形里按渐变填充，再在圆角里叠三个柔光球。
 inline void paintShellPlaceholder(juce::Graphics& g, juce::Rectangle<float> area, float designW, float designH)
 {
-    g.setColour(juce::Colour(static_cast<juce::uint8>((kShellRimRgb >> 16) & 0xffu),
-                             static_cast<juce::uint8>((kShellRimRgb >> 8) & 0xffu),
-                             static_cast<juce::uint8>(kShellRimRgb & 0xffu)));
+    g.setColour(opaqueRgb(kShellRimRgb));
     g.fillRect(area);
     const auto shell = shellPlaceholderBounds(area, designW, designH);
     if (shell.isEmpty())
         return;
     const float zoom = shellFitZoom(area.getWidth(), area.getHeight(), designW, designH);
+    juce::Path outline;
+    outline.addRoundedRectangle(shell, kShellCornerRadiusPx * zoom);
     g.setGradientFill(shellBackdropGradient(shell));
-    g.fillRoundedRectangle(shell, kShellCornerRadiusPx * zoom);
+    g.fillPath(outline);
+
+    juce::Graphics::ScopedSaveState saved(g);
+    g.reduceClipRegion(outline);
+    const float r = kShellHaloDiameter * 0.5f;
+    for (const auto& halo : kShellHalos)
+    {
+        const juce::Point<float> centre{halo.fromRight ? designW - halo.insetX - r : halo.insetX + r,
+                                        halo.fromBottom ? designH - halo.insetY - r : halo.insetY + r};
+        paintShellHalo(g, shell.getTopLeft() + centre * zoom, zoom, halo);
+    }
 }
 
 // 无状态的静态工具集合：运行时探测、选项装配、诊断文案。

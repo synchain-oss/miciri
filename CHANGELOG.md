@@ -29,6 +29,9 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
 - Plug-in window (English and Simplified Chinese): the step bar and stacked cards, the level meter with result marks, the
   large-type mode for testing from a distance, the report with retest and "last time → now", the detail view with evidence
   waveforms, and a seven-step in-app guide that opens once on first launch.
+- Opening screen of the plug-in window: until the page draws its first frame, the plug-in paints the page's own purple-to-pink
+  gradient with its three soft halos, instead of a pale grey that looked like a white window. A page smoke test checks that its
+  colours, angle and halo positions match the page's design tokens.
 - Offline fonts for the window: subsets of Space Grotesk, IBM Plex (shipped as Miciri Sans and Miciri Mono) and Noto Sans SC under
   the SIL Open Font License, compiled into the plug-in. They are rebuilt by `scripts/fetch_fonts.py` and checked by the local checks.
 - Installers and zips: Windows installer (with a Simplified Chinese wizard) and zip, macOS package and zip. All unsigned.
