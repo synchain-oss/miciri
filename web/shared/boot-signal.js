@@ -25,7 +25,7 @@
     var EVENT_STAGE = "__miciri__bootStage";
     var EVENT_FRAME = "__miciri__firstFrame";
     var EVENT_ERROR = "__miciri__bootError";
-    // 外壳迟迟画不出来时首帧信号的保险：宿主还有自己的超时兜底，这里只是让它少等一会儿。
+    // 外壳画出来以后两拍迟迟等不到（合成停摆）时首帧信号的保险：宿主还有自己的超时兜底，这里只是让它少等一会儿。
     var FRAME_GUARD_MS = 2500;
     var DETAIL_MAX = 300;
 
@@ -70,6 +70,10 @@
     function shellDrawn() {
         if (frameArmed) return;
         frameArmed = true;
+        // 保险不绕两拍：合成停摆（窗口最小化、被完全遮挡）时 requestAnimationFrame 也不回调。
+        // 保险只在外壳画出来之后才上：外壳没画出来就不发首帧，诊断里的 frame 不会冒充“外壳已画出”，
+        // 揭开窗口交给原生侧自己的超时。
+        setTimeout(sendFrame, FRAME_GUARD_MS);
         if (typeof window.requestAnimationFrame !== "function") {
             sendFrame();
             return;
@@ -89,6 +93,9 @@
     window.addEventListener(
         "error",
         function (e) {
+            // 浏览器的 “ResizeObserver loop …” 是良性通知，不是启动失败（外壳的缩放适配用了 ResizeObserver）
+            if (e && !e.error && typeof e.message === "string" && e.message.indexOf("ResizeObserver loop") === 0)
+                return;
             var t = e && e.target;
             if (t && t !== window && (t.src || t.href)) {
                 // 只认脚本和样式表：图片之类的失败不该把整个界面换成兜底面板
@@ -119,8 +126,6 @@
     } catch (e) {
         // 没有 PerformanceObserver：诊断里少一个差值，不影响信号
     }
-    // 保险不绕两拍：合成停摆（窗口最小化、被完全遮挡）时 requestAnimationFrame 也不回调
-    setTimeout(sendFrame, FRAME_GUARD_MS);
 
     window.__miciriBoot = { shellDrawn: shellDrawn, ready: ready, fail: fail };
     post(EVENT_STAGE, { stage: "script" });

@@ -60,6 +60,25 @@ TEST_CASE("the fallback panel follows the UI language", "[plugin][startup]")
               .message.contains("WebKit"));
 }
 
+TEST_CASE("each diagnostics note stays on the line it belongs to", "[plugin][startup]")
+{
+    using miciri::webview::diagnosticsTail;
+    const juce::String stage = "script 412 ms > frame 530 ms > bridge - > ready -";
+
+    // 数据目录的说明跟在 udf 行末尾，不会挂到启动阶段那一行上
+    const auto all =
+        juce::StringArray::fromLines(diagnosticsTail("udf WebView2", "not writable", stage, "boot shell: x"));
+    REQUIRE(all.size() == 3);
+    CHECK(all[0] == "udf WebView2  [not writable]");
+    CHECK(all[1] == stage);
+    CHECK(all[2] == "boot shell: x");
+
+    const auto plain = juce::StringArray::fromLines(diagnosticsTail("udf WebView2", {}, stage, {}));
+    REQUIRE(plain.size() == 2);
+    CHECK(plain[0] == "udf WebView2");
+    CHECK(plain[1] == stage);
+}
+
 TEST_CASE("the startup trace names every stage and shows the ones never reached", "[plugin][startup]")
 {
     StartupTrace trace;

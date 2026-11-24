@@ -42,6 +42,11 @@ bool isChineseUi(const juce::String& lang);
 
 FallbackText fallbackText(FallbackKind kind, bool chinese, WebEngine engine);
 
+// 诊断信息从 udf 行往下的几行：udf 行（数据目录有问题时，方括号说明紧跟在这一行末尾）、启动阶段行、
+// 页面报告的出错位置（有才写）。每条说明跟着它所属的那一行，用户贴回来时不会读串。
+juce::String diagnosticsTail(const juce::String& udfLine, const juce::String& udfIssue, const juce::String& stageLine,
+                             const juce::String& bootError);
+
 // 一次加载尝试里各阶段第一次出现的时刻（相对这次尝试开始的毫秒数）。
 // 阶段按发生的先后排：页面脚本开始运行、页面画出外壳、页面第一次调到原生（桥通了）、页面应用了首个快照（启动完成）。
 // 诊断行把四个都写出来，没到的写“-”，用户贴回来就能看出卡在哪一步。

@@ -80,7 +80,8 @@ endif()
 # JUCE 的前端桥脚本：页面里的 bridge.js 在真实宿主中按页面根下的 js/juce/index.js 取它。文件不进本仓，
 # 配置期从 JUCE 检出里复制到构建目录，按同样的扁平名编进二进制，ResourceProvider 照常按页面路径提供。
 # index.js 第一行就 import 同目录的 check_native_interop.js：少了它整个模块加载失败，页面的桥调用一个都发不出去，
-# 所以两个文件一起复制（ui_bridge_imports_test 逐个核对相对 import 都能取到）。
+# 所以两个文件一起复制（tests/plugin/frontend_resource_test.cpp 逐个核对编进来的脚本的相对 import 都能取到，
+# 由 ctest 的 plugin_editor_open_close 运行）。
 # stage_dir 是构建目录里的暂存目录，复制后的文件路径列表写进 out_var。测试也用这个函数，保证两边是同一份映射。
 # 常量放在函数里：函数在调用者的作用域里运行，tests/ 下调用时看不到本目录的变量。
 function(miciri_stage_juce_frontend stage_dir out_var)

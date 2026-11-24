@@ -106,6 +106,18 @@ FallbackText fallbackText(FallbackKind kind, bool chinese, WebEngine engine)
     return t;
 }
 
+juce::String diagnosticsTail(const juce::String& udfLine, const juce::String& udfIssue, const juce::String& stageLine,
+                             const juce::String& bootError)
+{
+    juce::String d = udfLine;
+    if (udfIssue.isNotEmpty())
+        d << "  [" << udfIssue << "]";
+    d << "\n" << stageLine;
+    if (bootError.isNotEmpty())
+        d << "\n" << bootError;
+    return d;
+}
+
 bool StartupTrace::note(Stage stage, int elapsedMs) noexcept
 {
     auto& slot = ms_[static_cast<std::size_t>(stage)];

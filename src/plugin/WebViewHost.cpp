@@ -319,12 +319,8 @@ juce::String WebViewHost::buildDiagnostics(bool basenameOnly) const
     d << "  |  host " << juce::File::getSpecialLocation(juce::File::hostApplicationPath).getFileName() << " pid "
       << juce::String(PlatformWebView::processId());
     d << "\n"
-      << "udf " << PlatformWebView::userDataFolderDisplay(userDataFolder_, basenameOnly);
-    d << "\n" << trace_.line();
-    if (userDataFolderIssue_.isNotEmpty())
-        d << "  [" << userDataFolderIssue_ << "]";
-    if (bootError_.isNotEmpty())
-        d << "\n" << bootError_;
+      << diagnosticsTail("udf " + PlatformWebView::userDataFolderDisplay(userDataFolder_, basenameOnly),
+                         userDataFolderIssue_, trace_.line(), bootError_);
     return d;
 }
 
@@ -526,9 +522,12 @@ juce::WebBrowserComponent::Options WebViewHost::makeOptions()
 void WebViewHost::dispatchBridgeCall(const juce::String& name, const juce::Array<juce::var>& args,
                                      NativeCompletion complete)
 {
-    // 每个回到页面的回执算一次桥往返（测试构建的宿主探针据此判断桥通没通）。回执都在本次调用里同步发出。
-    complete = [this, inner = std::move(complete)](juce::var result) {
-        onUiEvent(UiEvent::bridgeRoundTrip);
+    // 每个回到页面的回执算一次桥往返（测试构建的宿主探针据此判断桥通没通）。现在的回执都在本次调用里同步发出；
+    // 仍用 SafePointer：以后哪个回执改成延后发出，编辑器先被关掉时也不会碰到已经销毁的对象。
+    complete = [safeThis = juce::Component::SafePointer<WebViewHost>(this),
+                inner = std::move(complete)](juce::var result) {
+        if (safeThis != nullptr)
+            safeThis->onUiEvent(UiEvent::bridgeRoundTrip);
         inner(std::move(result));
     };
     if (fallback_ != nullptr)
