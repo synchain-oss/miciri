@@ -44,14 +44,16 @@ off, where audio arriving faster than real time voids the step: it is covered by
 ## 宿主兼容（DAW）
 
 下表是摘要，只写实测过的结果。**没测过的一律写“未测”**；测完后每行补上宿主版本、日期和证据，超过 6 个月没有重测的行降回“未验证”。
-目前只有 REAPER（Windows，VST3）有自动化测试记录，没有任何一行做过手测。每一行的版本、日期、证据和没有测到的部分，
+目前只有 REAPER（Windows，VST3）有自动化测试记录；Cubase 15（Windows）由维护者手动打开过一次，发现了界面启动的问题（已修复，待复测），
+其余都没有做过手测。每一行的版本、日期、证据和没有测到的部分，
 见 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)。开发中用 pluginval（strictness 5）检查插件的基本行为，那是格式校验，不等于在宿主里能用。
 
 | 宿主 | 系统与格式 | 状态 |
 |---|---|---|
-| REAPER | Windows，VST3 | 自动化测试通过，手测未做（REAPER 7.82，2026-11-23） |
+| REAPER | Windows，VST3 | 音频的自动化测试通过（REAPER 7.82，2026-11-23）；界面启动 2026-11-24 才查；手测未做 |
 | REAPER | macOS，VST3 与 AU | 未测 |
-| Cubase | Windows 与 macOS，VST3 | 未测 |
+| Cubase | Windows，VST3 | 界面没完成启动，原因是所有宿主共有的打包缺陷，已修复，待复测；音频未测（Cubase 15，2026-11-24） |
+| Cubase | macOS，VST3 | 未测 |
 | FL Studio | Windows 与 macOS，VST3 | 未测 |
 | GarageBand、Logic | macOS，AU | 未测 |
 | 其他宿主 | - | 未测 |
@@ -63,16 +65,18 @@ off, where audio arriving faster than real time voids the step: it is covered by
 
 The table is a summary and records results that were actually observed. **A host that has not been tested is listed as "Not
 tested".** When a host is tested, its row gets the host version, the date and the evidence, and a row that has not been retested
-for 6 months goes back to "Unverified". At the moment only REAPER on Windows (VST3) has automated test results, and no row has been
-tested by hand. The version, date, evidence and the parts that were not covered for each row are in
+for 6 months goes back to "Unverified". At the moment only REAPER on Windows (VST3) has automated test results; Cubase 15 on
+Windows was opened once by a maintainer, which found a UI start-up problem (fixed, re-test pending); nothing else has been tested by
+hand. The version, date, evidence and the parts that were not covered for each row are in
 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md). During development the plug-in is checked with pluginval (strictness 5); that
 validates the plug-in format and does not mean it works in a host.
 
 | Host | OS and format | Status |
 |---|---|---|
-| REAPER | Windows, VST3 | Automated tests pass, manual test not done (REAPER 7.82, 2026-11-23) |
+| REAPER | Windows, VST3 | Automated audio tests pass (REAPER 7.82, 2026-11-23); UI start-up first checked on 2026-11-24; manual test not done |
 | REAPER | macOS, VST3 and AU | Not tested |
-| Cubase | Windows and macOS, VST3 | Not tested |
+| Cubase | Windows, VST3 | UI did not finish starting, caused by a packaging defect shared by all hosts; fixed, re-test pending; audio not tested (Cubase 15, 2026-11-24) |
+| Cubase | macOS, VST3 | Not tested |
 | FL Studio | Windows and macOS, VST3 | Not tested |
 | GarageBand, Logic | macOS, AU | Not tested |
 | Any other host | - | Not tested |
@@ -192,6 +196,27 @@ The macOS package and plug-ins are not signed or notarized, so macOS blocks them
 quarantine flag yourself; the steps are in [USER_GUIDE.md](USER_GUIDE.md). The Windows installer is not signed either, and
 SmartScreen may show "unknown publisher".
 
+## 插件窗口停在兜底面板
+
+插件窗口起不来时，会换成一块说明面板（兜底面板），文字跟随界面语言，下面有一个“重试”按钮和几行诊断信息。音频不受影响，照常直通。
+诊断信息里有一行 `script … > frame … > bridge … > ready …`，依次是页面脚本开始运行、外壳画出来、页面第一次调到插件、
+页面拿到并应用了第一份数据的毫秒数，没走到的那一步写“-”；页面脚本出错时最后一行会写出错的位置。反馈问题时请把这几行原样发来。
+
+2026-11-24 之前的构建（包括预览构建 `bd472d4`）有一个打包缺陷：页面调插件用的脚本缺了一个文件，所以在**任何宿主**里界面都起不来，
+外壳出来以后主区一直空着，15 秒后切到这块面板。修复后的构建没有这个问题。
+
+## The plug-in window stays on the fallback panel
+
+When the plug-in window cannot start, it is replaced by an explanation panel (the fallback panel) in the UI language, with a Retry
+button and a few lines of diagnostics. Audio is not affected and still passes through. One diagnostics line reads
+`script … > frame … > bridge … > ready …`: the milliseconds at which the page script started, the shell was drawn, the page first
+reached the plug-in, and the page received and applied its first data; a step that was never reached shows "-". When a page script
+fails, the last line says where. When you report a problem, please send these lines as they are.
+
+Builds before 2026-11-24 (including the preview build `bd472d4`) have a packaging defect: the script the page uses to call the
+plug-in was missing a file, so the UI could not start in **any host**; after the shell appeared the main area stayed empty, and
+after 15 s the window switched to this panel. Builds with the fix do not have this problem.
+
 ## Windows 上缺 WebView2 运行时
 
 插件窗口用 Microsoft Edge WebView2 运行时绘制，新版 Windows 10 和 11 自带。缺它时插件显示一块说明面板，而不是正常窗口；
@@ -209,7 +234,7 @@ affected and still passes through.
 用两个测试进程同时开着试过：后开的窗口接入已经在跑的浏览器进程，没有冲突。REAPER 与 Cubase 这样的真实宿主的组合没有测过。
 目录里只有网页缓存，没有录音和测量结果。限制：
 
-- 窗口开不出来、显示英文说明面板 “The WebView2 environment did not start” 时，常见原因是这个目录不可写，或被别的程序用不同的设置占着。
+- 窗口开不出来、说明面板写着“WebView2 环境没有启动”（英文界面下是 “The WebView2 environment did not start”）时，常见原因是这个目录不可写，或被别的程序用不同的设置占着。
   先确认目录可写；仍不行就关掉所有开着 Miciri 窗口的宿主，删掉这个目录再打开，Miciri 会重建它。
 - 宿主以不同权限级别运行（一个以管理员身份、一个不是）时没有测过。若后开的窗口开不出来，会是上面那块说明面板；
   请先让两个宿主以同一权限级别运行再试。

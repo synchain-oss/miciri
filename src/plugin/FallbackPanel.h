@@ -21,6 +21,8 @@ public:
         juce::String title;
         juce::String message;
         juce::String details; // 诊断行；空则不显示
+        juce::String retryText = "Retry"; // 按钮文字跟随界面语言，由调用方给
+        juce::String installText = "Install WebView2 Runtime";
         bool showInstall = false; // 运行时缺失或过旧时显示“安装”按钮
         std::function<void()> onInstall;
         std::function<void()> onRetry;

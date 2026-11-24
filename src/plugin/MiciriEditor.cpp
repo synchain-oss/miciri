@@ -68,6 +68,25 @@ MiciriEditor::~MiciriEditor()
 #endif
 }
 
+#ifdef MICIRI_HOST_PROBE
+// 测试构建：界面启动的三种事件记进宿主探针，宿主测试据此判断页面有没有完成启动、桥通没通。
+void MiciriEditor::onUiEvent(UiEvent event)
+{
+    switch (event)
+    {
+    case UiEvent::uiReady:
+        probe::counters().noteUiReady();
+        break;
+    case UiEvent::fallbackShown:
+        probe::counters().noteUiFallback();
+        break;
+    case UiEvent::bridgeRoundTrip:
+        probe::counters().noteBridgeRoundTrip();
+        break;
+    }
+}
+#endif
+
 double MiciriEditor::observeCallbackAgeSec()
 {
     const auto now = wallClockMs();

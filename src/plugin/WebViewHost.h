@@ -4,7 +4,8 @@
 // 网页编辑器的宿主：装配 WebView、接线桥函数与事件、管理缩放与语言，并在 WebView 起不来时换上兜底面板。
 // 看门狗：页面在预算时间内没有让桥就绪就判超时，切到兜底面板，用户可以重试。
 // 派生类（MiciriEditor）只需要覆盖三个钩子：buildSnapshot（快照）、emitTick（定时推送）、
-// handleBridgeCall（核心四个函数以外的桥函数）。
+// handleBridgeCall（核心四个函数以外的桥函数）；测试构建另外覆盖 onUiEvent 给宿主探针计数。
+// 兜底面板的文案跟随界面语言，诊断行写出启动各阶段到达的毫秒数（见 StartupText.h）。
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -18,6 +19,7 @@
 #include "FallbackPanel.h"
 #include "PlatformWebView.h"
 #include "ResourceProvider.h"
+#include "StartupText.h"
 #include "WebViewRevealGate.h"
 
 namespace miciri::webview
@@ -45,6 +47,9 @@ public:
     void setScaleLocked(bool locked);
     bool bridgeReady() const { return bridgeReady_; }
     bool showingFallback() const { return fallback_ != nullptr; }
+    // 页面报告了启动完成（第一份快照已应用）。在这之前看门狗一直在跑，页面报的启动错误一律切兜底面板。
+    bool uiReady() const { return uiReady_; }
+    const StartupTrace& startupTrace() const { return trace_; }
 
     // 定时器频率：电平事件的推送节拍，也是看门狗与遮挡闸的检查节拍。
     static constexpr int kTickHz = 30;
@@ -57,12 +62,25 @@ public:
     static_assert(RevealGate::kRevealFallbackMs < kAfterNavBudgetMs,
                   "遮挡闸的超时必须先于看门狗触发，否则占位阶段会被兜底面板直接顶掉");
 
-    // 页面侧的两个诊断事件，不属于桥契约：启动失败上报和首帧信号。
+    // 页面侧的三个诊断事件，不属于桥契约：启动失败上报、首帧信号和启动阶段信号。
+    // 页面一侧由 web/shared/boot-signal.js 发出，事件名两边逐字相同，改名要在同一个提交里一起改。
     static constexpr const char* kBootErrorEventId = "__miciri__bootError";
     static constexpr const char* kFirstFrameEventId = "__miciri__firstFrame";
+    static constexpr const char* kBootStageEventId = "__miciri__bootStage";
     static constexpr const char* kPaintDeltaField = "paintDeltaMs";
 
 protected:
+    // 启动过程里值得计数的三件事：页面完成启动、切到兜底面板、一次桥往返（页面调原生、拿到回执）。
+    enum class UiEvent
+    {
+        uiReady,
+        fallbackShown,
+        bridgeRoundTrip
+    };
+
+    // 上面三件事发生时调用（消息线程）。基类什么都不做；测试构建的派生类拿它给宿主探针计数。
+    virtual void onUiEvent(UiEvent) {}
+
     // 完整快照。基类只给最小内容，派生类覆盖。
     virtual juce::var buildSnapshot();
 
@@ -116,6 +134,7 @@ private:
     void onNavigationError(const juce::String& errorInfo);
     void handleBootError(const juce::var& payload);
     void handleFirstFrame(const juce::var& payload);
+    void handleBootStage(const juce::var& payload);
 
     void timerCallback() override;
 
@@ -135,8 +154,10 @@ private:
     juce::File userDataFolder_;
     juce::String userDataFolderIssue_;
     bool countedAsReady_ = false;
+    bool uiReady_ = false; // 只在消息线程读写
     RevealGate revealGate_;
     bool revealLogged_ = false;
+    StartupTrace trace_;
 
     std::unique_ptr<HostWebView> webView_;
     std::unique_ptr<FallbackPanel> fallback_;

@@ -10,6 +10,8 @@
 #include <cmath>
 #include <cstddef>
 
+#include "StartupText.h"
+
 namespace miciri::webview
 {
 // 占位渐变的一个色标。色标和角度要与页面最外层背景保持一致，否则首帧前后会跳色。
@@ -171,21 +173,12 @@ public:
 
     static BackgroundColourSupport backgroundColourSupport(const RuntimeInfo& info);
 
-    enum class Engine
-    {
-        webView2,
-        systemWebKit
-    };
+    using Engine = WebEngine;
 #if JUCE_WINDOWS
     static constexpr Engine kEngine = Engine::webView2;
 #else
     static constexpr Engine kEngine = Engine::systemWebKit;
 #endif
-
-    static juce::String missingRuntimeMessage(Engine engine = kEngine);
-    static juce::String tooOldRuntimeMessage(Engine engine = kEngine);
-
-    static juce::String envNotStartedMessage(Engine engine = kEngine);
 
     static juce::String runtimeDiagnosticsField(const RuntimeInfo& info, Engine engine = kEngine);
 

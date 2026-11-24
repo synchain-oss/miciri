@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <string>
@@ -28,9 +29,10 @@ namespace probe = miciri::probe;
 using namespace miciri::probe_test;
 
 const char* const kFieldNames[] = {
-    "schema",       "pid",          "sampleRate",        "maxBlockSize",     "numInputChannels", "numOutputChannels",
-    "prepareCount", "blocksTotal",  "blocksNonRealtime", "blocksRealtime",   "blocksAllZero",    "blocksNonZero",
-    "editorOpens",  "editorCloses", "analysisCount",     "lastIsNonRealtime"};
+    "schema",           "pid",          "sampleRate",        "maxBlockSize",   "numInputChannels", "numOutputChannels",
+    "prepareCount",     "blocksTotal",  "blocksNonRealtime", "blocksRealtime", "blocksAllZero",    "blocksNonZero",
+    "editorOpens",      "editorCloses", "analysisCount",     "uiReady",        "uiFallback",       "bridgeRoundTrips",
+    "lastIsNonRealtime"};
 } // namespace
 
 TEMPLATE_TEST_CASE("isAllZero: plus and minus zero are silence, anything else is content", "[plugin][probe]", float,
@@ -110,6 +112,9 @@ TEST_CASE("Counters start at zero", "[plugin][probe]")
     CHECK(s.editorOpens == 0);
     CHECK(s.editorCloses == 0);
     CHECK(s.analysisCount == 0);
+    CHECK(s.uiReady == 0);
+    CHECK(s.uiFallback == 0);
+    CHECK(s.bridgeRoundTrips == 0);
     CHECK_FALSE(s.lastIsNonRealtime);
 }
 
@@ -165,6 +170,12 @@ TEST_CASE("prepare, editor and analysis counters", "[plugin][probe]")
     c.noteEditorClosed();
     c.noteAnalysis();
     c.noteAnalysis();
+    c.noteUiReady();
+    c.noteUiFallback();
+    c.noteUiFallback();
+    c.noteBridgeRoundTrip();
+    c.noteBridgeRoundTrip();
+    c.noteBridgeRoundTrip();
 
     const auto s = c.snapshot();
     CHECK(s.prepareCount == 2);
@@ -175,6 +186,9 @@ TEST_CASE("prepare, editor and analysis counters", "[plugin][probe]")
     CHECK(s.editorOpens == 3);
     CHECK(s.editorCloses == 1);
     CHECK(s.analysisCount == 2);
+    CHECK(s.uiReady == 1);
+    CHECK(s.uiFallback == 2);
+    CHECK(s.bridgeRoundTrips == 3);
 }
 
 TEST_CASE("the JSON is a flat object with exactly the documented fields", "[plugin][probe]")
@@ -186,6 +200,9 @@ TEST_CASE("the JSON is a flat object with exactly the documented fields", "[plug
     c.noteBlock(false, true);
     c.noteEditorOpened();
     c.noteAnalysis();
+    c.noteUiReady();
+    c.noteBridgeRoundTrip();
+    c.noteBridgeRoundTrip();
 
     const auto json = probe::toJson(c.snapshot(), 4242);
     const juce::var v = parseJson(json);
@@ -212,6 +229,9 @@ TEST_CASE("the JSON is a flat object with exactly the documented fields", "[plug
     CHECK(intField(v, "editorOpens") == 1);
     CHECK(intField(v, "editorCloses") == 0);
     CHECK(intField(v, "analysisCount") == 1);
+    CHECK(intField(v, "uiReady") == 1);
+    CHECK(intField(v, "uiFallback") == 0);
+    CHECK(intField(v, "bridgeRoundTrips") == 2);
     CHECK(v.getProperty("lastIsNonRealtime", juce::var(1)).isBool());
     CHECK_FALSE(static_cast<bool>(v.getProperty("lastIsNonRealtime", juce::var(true))));
 }
@@ -361,7 +381,8 @@ TEST_CASE("a reader never sees a half-written file while the writer keeps replac
             continue;
         }
         const juce::var v = parseJson(text);
-        if (v.isObject() && intField(v, "schema") == 1 && v.getDynamicObject()->getProperties().size() == 16)
+        if (v.isObject() && intField(v, "schema") == 1 &&
+            v.getDynamicObject()->getProperties().size() == static_cast<int>(std::size(kFieldNames)))
             ++valid;
         else
             ++invalid;

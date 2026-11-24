@@ -46,6 +46,9 @@ struct Snapshot
     std::uint64_t editorOpens = 0;
     std::uint64_t editorCloses = 0;
     std::uint64_t analysisCount = 0;
+    std::uint64_t uiReady = 0;
+    std::uint64_t uiFallback = 0;
+    std::uint64_t bridgeRoundTrips = 0;
     bool lastIsNonRealtime = false;
 };
 
@@ -125,6 +128,10 @@ public:
     void noteEditorClosed() noexcept { editorCloses_.fetch_add(1, std::memory_order_relaxed); }
     // 分析线程每做一次分析调一次；离线渲染时它必须保持为 0。
     void noteAnalysis() noexcept { analysisCount_.fetch_add(1, std::memory_order_relaxed); }
+    // 界面启动（消息线程）：页面应用了首个快照、切到兜底面板、页面调原生并拿到一次回执。
+    void noteUiReady() noexcept { uiReady_.fetch_add(1, std::memory_order_relaxed); }
+    void noteUiFallback() noexcept { uiFallback_.fetch_add(1, std::memory_order_relaxed); }
+    void noteBridgeRoundTrip() noexcept { bridgeRoundTrips_.fetch_add(1, std::memory_order_relaxed); }
 
     Snapshot snapshot() const noexcept
     {
@@ -145,6 +152,9 @@ public:
         s.editorOpens = editorOpens_.load(std::memory_order_relaxed);
         s.editorCloses = editorCloses_.load(std::memory_order_relaxed);
         s.analysisCount = analysisCount_.load(std::memory_order_relaxed);
+        s.uiReady = uiReady_.load(std::memory_order_relaxed);
+        s.uiFallback = uiFallback_.load(std::memory_order_relaxed);
+        s.bridgeRoundTrips = bridgeRoundTrips_.load(std::memory_order_relaxed);
         s.lastIsNonRealtime = lastNonRealtime_.load(std::memory_order_relaxed);
         return s;
     }
@@ -161,6 +171,9 @@ private:
     std::atomic<std::uint64_t> editorOpens_{0};
     std::atomic<std::uint64_t> editorCloses_{0};
     std::atomic<std::uint64_t> analysisCount_{0};
+    std::atomic<std::uint64_t> uiReady_{0};
+    std::atomic<std::uint64_t> uiFallback_{0};
+    std::atomic<std::uint64_t> bridgeRoundTrips_{0};
     std::atomic<double> sampleRate_{0.0};
     std::atomic<int> maxBlockSize_{0};
     std::atomic<int> numInputChannels_{0};

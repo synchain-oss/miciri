@@ -8,9 +8,9 @@
 
 | 宿主 | 平台与格式 | 状态 | 版本 | 验证日期 | 证据 |
 |---|---|---|---|---|---|
-| REAPER | Windows，VST3 | 自动化测试通过，手测未做 | 7.82 (x64) | 2026-11-23 | 见下面“REAPER（Windows，VST3）” |
+| REAPER | Windows，VST3 | 音频的自动化测试通过；界面启动 2026-11-24 才查（见下）；手测未做 | 7.82 (x64) | 2026-11-23 | 见下面“REAPER（Windows，VST3）” |
 | REAPER | macOS，VST3 / AU | 未测 | | | |
-| Cubase | | 未测 | | | |
+| Cubase | Windows，VST3 | 界面没完成启动（所有宿主共有的打包缺陷），已修复，修复后待复测；音频未测 | 15 | 2026-11-24 | 见下面“Cubase（Windows，VST3）” |
 | FL Studio | | 未测 | | | |
 | GarageBand / Logic | macOS，AU | 未测 | | | |
 | 其他宿主 | | 未测 | | | |
@@ -49,6 +49,8 @@
 
 **开关编辑器窗口 20 次。** 在走带播放、arm、监听开的状态下，工具开关插件浮窗 20 次：打开 20 次、关闭 20 次，插件自己数到的 `editorOpens`、`editorCloses` 各 +20；期间链运行的块数与设备的块数相同（2016 / 2016），音频不中断。这不证明页面渲染成功：工具只给每次打开留了十圈消息循环。
 
+**界面启动：之前没查，2026-11-24 才查。** 上面这些项都只看音频和计数，分析由测试构建的探针从原生一侧驱动，不经过页面；开关窗口那一项也不等页面起来。所以在这之前，界面在任何宿主里都没有验证过。2026-11-24 在 REAPER 7.82 里把插件窗口打开 20 秒（私有配置的副本，测试构建）：提交 `bd472d4` 的构建先显示外壳，主区一直空着，15 秒后切到兜底面板“页面加载完了，但插件界面一直没有完成启动”，和 Cubase 15 里的表现一样（原因见下面 Cubase 一节）。修复后同样打开 20 秒，页面完成启动，步骤卡、电平、采样率与缓冲都在，探针的 `uiReady` 为 1、`uiFallback` 为 0。之后由 ctest 的 `plugin_editor_open_close` 在真实 WebView2 里装真页面、走真桥守着（只在 Windows 上跑）；宿主矩阵里还没有界面这一项，要等宿主测试工具能让窗口多开一会儿。
+
 **这一栏没有测、需要别的办法的：**
 
 - **静音轨自动旁路（`force_auto_bypass`）：未测。** 工具设不了这个标志。
@@ -56,12 +58,21 @@
 - 真实硬件输入、运行中改采样率、48 kHz / 512 以外的采样率与缓冲大小：未测。
 - macOS 上的 REAPER、其他格式（AU）：未测。
 
+## Cubase（Windows，VST3）
+
+**发现了什么。** 2026-11-24 维护者在 Cubase 15（Windows）里打开提交 `bd472d4` 的预览构建：窗口先是很久的浅色占位（看起来像白屏），然后外壳出来了，但主区空白、电平没有动静、下拉框是空的，切语言没有反应；约 15 秒后切到兜底面板“页面加载完了，但插件界面一直没有完成启动”，点重试也一样。
+
+**原因（所有宿主都一样，不是 Cubase 特有）。** 页面经 JUCE 的前端桥脚本 `js/juce/index.js` 调原生，这个脚本第一行就 import 同目录的 `check_native_interop.js`，而构建只把前者编进了插件。真宿主里这个 import 失败，整个桥脚本加载不了，页面一个桥调用都发不出去：拿不到第一份快照，看门狗 15 秒后切兜底面板。浏览器预览用的是假桥，从不加载这个脚本，所以页面冒烟没发现。REAPER 里同样复现（见上）。浅色占位是另一个问题：原生一侧的开窗占位还是早期的浅灰配色，和页面的紫粉渐变对不上；页面也没有发首帧信号，窗口每次都要等 3 秒超时才揭开。
+
+**修复。** 两个脚本一起编进插件（单元测试核对桥脚本的每个相对 import 都取得到）；新增真页面启动测试；页面在启动早期就报告各阶段，出错时立刻切兜底面板，诊断行写出卡在哪一步；外壳一画出来就揭开窗口，不再固定等 3 秒（开局画面的配色另外单独修改）；兜底面板跟随界面语言。修复后还没有在 Cubase 里复测，所以这一行的状态是“待复测”。音频（走带、arm、监听、离线导出）在 Cubase 里都还没测。
+
 ## 待手测（需要人在机器前）
 
 | 项 | 做法 | 结果 |
 |---|---|---|
 | REAPER 关掉“Inform plug-ins of offline rendering state”后，开始一步的同时渲染 | 应该看到这一步作废，原因显示为离线渲染 | 待测 |
 | 静音轨自动旁路 | 把挂着 Miciri 的轨静音，看测试能不能照常收音 | 待测 |
+| Cubase 15（Windows）界面复测 | 用修复后的构建打开插件窗口，等页面完成启动；切一次语言；万一还出兜底面板，把诊断行（含 `script … > frame … > bridge … > ready …` 那一行）发回来 | 待测 |
 | Cubase、FL Studio、GarageBand / Logic、macOS 上的 REAPER | 走带、arm、监听各状态下能否收到音频，开关编辑器 20 次，离线导出 | 待测 |
 
 ## 没有单声道轨的宿主：提示文案
@@ -83,9 +94,9 @@ This table is checked by `scripts/checks.d/compat-table.mjs`: a tested row must 
 
 | Host | Platform and format | Status | Version | Date | Evidence |
 |---|---|---|---|---|---|
-| REAPER | Windows, VST3 | Automated tests pass, manual test not done | 7.82 (x64) | 2026-11-23 | See "REAPER (Windows, VST3)" below |
+| REAPER | Windows, VST3 | Automated audio tests pass; UI start-up first checked on 2026-11-24 (below); manual test not done | 7.82 (x64) | 2026-11-23 | See "REAPER (Windows, VST3)" below |
 | REAPER | macOS, VST3 / AU | Untested | | | |
-| Cubase | | Untested | | | |
+| Cubase | Windows, VST3 | UI did not finish starting (a packaging defect shared by all hosts), fixed, re-test after the fix pending; audio untested | 15 | 2026-11-24 | See "Cubase (Windows, VST3)" below |
 | FL Studio | | Untested | | | |
 | GarageBand / Logic | macOS, AU | Untested | | | |
 | Other hosts | | Untested | | | |
@@ -124,6 +135,8 @@ In about 190 blocks per cell, the tool's probe and the plug-in's own counts of a
 
 **Opening and closing the editor window 20 times.** While playing, armed and monitoring, the tool opened and closed the plug-in's floating window 20 times: 20 opens and 20 closes, and the plug-in's own `editorOpens` and `editorCloses` each grew by 20; the chain ran the same number of blocks as the device (2016 / 2016), so audio did not stop. This does not prove that the page rendered: the tool gives each opening ten turns of the message loop.
 
+**UI start-up: not checked before, first checked on 2026-11-24.** Everything above looks only at audio and counters; analysis is driven by the test build's probe from the native side, not through the page, and the window toggles do not wait for the page either. So until then the UI had not been verified in any host. On 2026-11-24 the plug-in window was kept open for 20 s in REAPER 7.82 (a copy of a private configuration, test build): the build at commit `bd472d4` showed the shell with an empty main area and after 15 s switched to the fallback panel "The page loaded, but the plugin UI never finished starting up", the same as in Cubase 15 (cause in the Cubase section below). After the fix, kept open for 20 s again, the page finished starting: step cards, meters, sample rate and buffer size all shown, the probe's `uiReady` 1 and `uiFallback` 0. From now on ctest's `plugin_editor_open_close` loads the real page through the real bridge in a real WebView2 (Windows only); the host matrix has no UI item yet, it waits for the host-test tool to keep a window open longer.
+
 **Not tested here:**
 
 - **Automatic bypass of muted tracks (`force_auto_bypass`): untested.** The tool cannot set that flag.
@@ -131,12 +144,21 @@ In about 190 blocks per cell, the tool's probe and the plug-in's own counts of a
 - Real hardware input, changing the sample rate while running, sample rates and buffer sizes other than 48 kHz / 512: untested.
 - REAPER on macOS and the AU format: untested.
 
+## Cubase (Windows, VST3)
+
+**What was found.** On 2026-11-24 a maintainer opened the preview build at commit `bd472d4` in Cubase 15 (Windows): the window first showed a pale placeholder for a long time (it looked white), then the shell appeared but the main area stayed empty, the meter did not move, the drop-down was empty and switching the language did nothing; after about 15 s it switched to the fallback panel "The page loaded, but the plugin UI never finished starting up", and Retry did the same again.
+
+**Cause (the same in every host, not specific to Cubase).** The page calls the native side through JUCE's front-end bridge script `js/juce/index.js`, whose first line imports `check_native_interop.js` from the same folder, and the build only compiled the former into the plug-in. In a real host that import fails, the bridge script cannot load and the page cannot make a single bridge call: it never gets its first snapshot, and the watchdog switches to the fallback panel after 15 s. The browser preview uses a mock bridge and never loads this script, so the page smoke tests did not catch it. REAPER shows the same (above). The pale placeholder is a separate problem: the native placeholder still had an early light-grey palette that does not match the page's purple-to-pink gradient, and the page sent no first-frame signal, so the window always waited for the 3 s timeout before it was revealed.
+
+**Fix.** Both scripts are compiled in (a unit test checks that every relative import of the bridge script is served); a new test starts the real page; the page reports its start-up stages early and a failure switches to the fallback panel at once, with a diagnostics line that shows where it stopped; the window is revealed as soon as the shell is drawn instead of always waiting 3 s (the opening screen's colours are changed separately); the fallback panel follows the UI language. The fix has not been re-tested in Cubase yet, so this row says "re-test pending". Audio (transport, arm, monitoring, offline export) is still untested in Cubase.
+
 ## To test by hand (a person at the machine)
 
 | Item | How | Result |
 |---|---|---|
 | Turn off "Inform plug-ins of offline rendering state" in REAPER, start a step and render at the same time | The step should be voided, with offline rendering shown as the reason | To do |
 | Automatic bypass of muted tracks | Mute the track with Miciri and see whether a test still receives audio | To do |
+| Cubase 15 (Windows) UI re-test | Open the plug-in window with the fixed build and wait for the page to finish starting; switch the language once; if the fallback panel still appears, send back the diagnostics (including the `script … > frame … > bridge … > ready …` line) | To do |
 | Cubase, FL Studio, GarageBand / Logic, REAPER on macOS | Audio received in each transport, arm and monitoring state, opening the editor 20 times, offline export | To do |
 
 ## Hosts without mono tracks: suggested wording

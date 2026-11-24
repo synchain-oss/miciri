@@ -125,6 +125,13 @@
       "from": "web-preview/tests/run-all.mjs",
       "fromBlob": "5f920de92deefb7363d0527b6131f69bd9700292",
       "mode": "forked"
+    },
+    {
+      "path": "web/shared/boot-signal.js",
+      "source": "rinne",
+      "from": "web/input/index.html",
+      "fromBlob": "bd0e4c77fa62d7cecb82fe979b46840f66e55c49",
+      "mode": "forked"
     }
   ]
 }

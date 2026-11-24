@@ -53,6 +53,7 @@ set(MICIRI_PLUGIN_UI_SOURCES
   "${CMAKE_CURRENT_LIST_DIR}/PlatformWebView.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/PlatformWebViewRuntime.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/ResourceProvider.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/StartupText.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/UiDefaultsStore.cpp"
   "${CMAKE_CURRENT_LIST_DIR}/WebViewHost.cpp")
 set_property(GLOBAL PROPERTY MICIRI_PLUGIN_UI_SOURCES "${MICIRI_PLUGIN_UI_SOURCES}")
@@ -78,18 +79,24 @@ endif()
 
 # JUCE 的前端桥脚本：页面里的 bridge.js 在真实宿主中按页面根下的 js/juce/index.js 取它。文件不进本仓，
 # 配置期从 JUCE 检出里复制到构建目录，按同样的扁平名编进二进制，ResourceProvider 照常按页面路径提供。
-# stage_dir 是构建目录里的暂存目录，复制后的文件路径写进 out_var。测试也用这个函数，保证两边是同一份映射。
+# index.js 第一行就 import 同目录的 check_native_interop.js：少了它整个模块加载失败，页面的桥调用一个都发不出去，
+# 所以两个文件一起复制（tests/plugin/frontend_resource_test.cpp 逐个核对编进来的脚本的相对 import 都能取到，
+# 由 ctest 的 plugin_editor_open_close 运行）。
+# stage_dir 是构建目录里的暂存目录，复制后的文件路径列表写进 out_var。测试也用这个函数，保证两边是同一份映射。
 # 常量放在函数里：函数在调用者的作用域里运行，tests/ 下调用时看不到本目录的变量。
 function(miciri_stage_juce_frontend stage_dir out_var)
-  set(_rel "modules/juce_gui_extra/native/javascript/index.js")
-  set(_page_path "js/juce/index.js")
-  set(_src "${_miciri_juce_dir}/${_rel}")
-  if(NOT EXISTS "${_src}" OR IS_DIRECTORY "${_src}")
-    message(FATAL_ERROR "找不到 JUCE 的前端桥脚本 ${_rel}（JUCE_PATH 要指向 JUCE 8.0.8 的检出）")
-  endif()
-  string(REPLACE "/" "__" _flat "${_page_path}")
-  configure_file("${_src}" "${stage_dir}/${_flat}" COPYONLY)
-  set(${out_var} "${stage_dir}/${_flat}" PARENT_SCOPE)
+  set(_src_dir "modules/juce_gui_extra/native/javascript")
+  set(_staged)
+  foreach(_name IN ITEMS index.js check_native_interop.js)
+    set(_src "${_miciri_juce_dir}/${_src_dir}/${_name}")
+    if(NOT EXISTS "${_src}" OR IS_DIRECTORY "${_src}")
+      message(FATAL_ERROR "找不到 JUCE 的前端桥脚本 ${_src_dir}/${_name}（JUCE_PATH 要指向 JUCE 8.0.8 的检出）")
+    endif()
+    string(REPLACE "/" "__" _flat "js/juce/${_name}")
+    configure_file("${_src}" "${stage_dir}/${_flat}" COPYONLY)
+    list(APPEND _staged "${stage_dir}/${_flat}")
+  endforeach()
+  set(${out_var} "${_staged}" PARENT_SCOPE)
 endfunction()
 
 set(_web_root "${CMAKE_SOURCE_DIR}/web")

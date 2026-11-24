@@ -93,6 +93,9 @@ std::string toJson(const Snapshot& s, long long pid)
       << "  \"editorOpens\": " << s.editorOpens << ",\n"
       << "  \"editorCloses\": " << s.editorCloses << ",\n"
       << "  \"analysisCount\": " << s.analysisCount << ",\n"
+      << "  \"uiReady\": " << s.uiReady << ",\n"
+      << "  \"uiFallback\": " << s.uiFallback << ",\n"
+      << "  \"bridgeRoundTrips\": " << s.bridgeRoundTrips << ",\n"
       << "  \"lastIsNonRealtime\": " << (s.lastIsNonRealtime ? "true" : "false") << "\n"
       << "}\n";
     return o.str();

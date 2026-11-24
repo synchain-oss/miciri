@@ -16,8 +16,8 @@ constexpr float kTitleFontPx = 20.0f;
 constexpr float kDetailsFontPx = 11.0f;
 constexpr int kPad = 16;
 constexpr int kTitleH = 30;
-constexpr int kMessageH = 64;
-constexpr int kDetailsH = 56;
+constexpr int kMessageH = 80; // 最长的文案（环境没起来）有四行
+constexpr int kDetailsH = 72; // 诊断最多四行：运行时与宿主、数据目录、启动各阶段、页面报的错
 constexpr int kButtonH = 32;
 constexpr int kGap = 8;
 constexpr int kInstallInsetX = 24;
@@ -52,7 +52,7 @@ FallbackPanel::FallbackPanel(Options options) : options_(std::move(options))
     if (options_.showInstall)
     {
         install_.setComponentID("fallback.install");
-        install_.setButtonText("Install WebView2 Runtime");
+        install_.setButtonText(options_.installText);
         install_.onClick = [this] {
             if (options_.onInstall)
                 options_.onInstall();
@@ -61,7 +61,7 @@ FallbackPanel::FallbackPanel(Options options) : options_(std::move(options))
     }
 
     retry_.setComponentID("fallback.retry");
-    retry_.setButtonText("Retry");
+    retry_.setButtonText(options_.retryText);
     retry_.onClick = [this] {
         if (options_.onRetry)
             options_.onRetry();
