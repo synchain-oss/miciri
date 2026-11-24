@@ -47,6 +47,9 @@ public:
     void setScaleLocked(bool locked);
     bool bridgeReady() const { return bridgeReady_; }
     bool showingFallback() const { return fallback_ != nullptr; }
+    // 页面报告了启动完成（第一份快照已应用）。在这之前看门狗一直在跑，页面报的启动错误一律切兜底面板。
+    bool uiReady() const { return uiReady_; }
+    const StartupTrace& startupTrace() const { return trace_; }
 
     // 定时器频率：电平事件的推送节拍，也是看门狗与遮挡闸的检查节拍。
     static constexpr int kTickHz = 30;
@@ -151,6 +154,7 @@ private:
     juce::File userDataFolder_;
     juce::String userDataFolderIssue_;
     bool countedAsReady_ = false;
+    bool uiReady_ = false; // 只在消息线程读写
     RevealGate revealGate_;
     bool revealLogged_ = false;
     StartupTrace trace_;

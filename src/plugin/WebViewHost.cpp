@@ -151,6 +151,7 @@ void WebViewHost::beginLoadAttempt()
 {
     releaseReadyBridge();
     bridgeReady_ = false;
+    uiReady_ = false;
     navState_ = NavState::notStarted;
     navDetail_ = {};
     bootError_ = {};
@@ -449,8 +450,10 @@ void WebViewHost::handleBootError(const juce::var& payload)
         ": " +
         ResourceProvider::asciiForLog(payload.getProperty("detail", juce::var("")).toString(), kBootDetailMaxChars);
     logDiag("front-end " + bootError_);
-    if (bridgeReady_ || fallback_ != nullptr)
-        return; // 桥已经起来后的运行期错误归界面自己处理，不砸掉一个能用的界面
+    // 启动完成以页面报告 ready 为准（第一份快照已应用），不以桥调通为准：桥调通之后、快照应用之前出错，
+    // 界面停在只有外壳的半成品，必须切兜底面板。ready 之后的运行期错误归界面自己处理，不砸掉一个能用的界面。
+    if (uiReady_ || fallback_ != nullptr)
+        return;
     showFallback(FallbackReason::BootError);
 }
 
@@ -465,11 +468,20 @@ void WebViewHost::handleBootStage(const juce::var& payload)
         return;
     }
     const int elapsed = static_cast<int>(juce::Time::getMillisecondCounter() - startMs_);
+    if (*stage == StartupTrace::Stage::uiReady && fallback_ != nullptr)
+    {
+        // 兜底面板已经盖住了页面（看门狗到点或启动出错），迟到的 ready 不算启动完成，也不计数
+        logDiag("boot stage ready after " + juce::String(elapsed) + " ms ignored: the fallback panel is shown");
+        return;
+    }
     if (!trace_.note(*stage, elapsed))
         return;
     logDiag("boot stage " + name + " after " + juce::String(elapsed) + " ms");
     if (*stage == StartupTrace::Stage::uiReady)
+    {
+        uiReady_ = true;
         onUiEvent(UiEvent::uiReady);
+    }
 }
 
 void WebViewHost::handleFirstFrame(const juce::var& payload)
@@ -603,7 +615,8 @@ void WebViewHost::timerCallback()
             noteRevealed();
         }
     }
-    if (!bridgeReady_ && fallback_ == nullptr &&
+    // 看门狗一直跑到页面报告启动完成：桥调通了但快照没应用上（页面卡住、没报错）同样要切兜底面板
+    if (!uiReady_ && fallback_ == nullptr &&
         static_cast<juce::int32>(juce::Time::getMillisecondCounter() - deadlineMs_) > 0)
     {
         showFallback(FallbackReason::LoadTimeout);
