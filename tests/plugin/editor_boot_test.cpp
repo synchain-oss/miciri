@@ -42,11 +42,15 @@ const char* patchedResource(const char* name, int& size)
     const char* original = MiciriWebData::getNamedResourceOriginalFilename(name);
     if (data == nullptr || original == nullptr || !juce::String(original).endsWith("__shell-main.js"))
         return data;
-    const auto source = juce::String::fromUTF8(data, size);
-    if (!source.contains(gPatch.from))
-        return data;
+    // 替换后的文本每个用例只生成一次，之后复用同一块缓冲：先前返回给 WebView 的指针一直有效
+    if (gPatch.text.empty())
+    {
+        const auto source = juce::String::fromUTF8(data, size);
+        if (!source.contains(gPatch.from))
+            return data;
+        gPatch.text = source.replace(gPatch.from, gPatch.to).toStdString();
+    }
     ++gPatch.hits;
-    gPatch.text = source.replace(gPatch.from, gPatch.to).toStdString();
     size = static_cast<int>(gPatch.text.size());
     return gPatch.text.data();
 }
