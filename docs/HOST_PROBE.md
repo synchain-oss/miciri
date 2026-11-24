@@ -46,6 +46,9 @@
 | `blocksNonZero` | 有内容的块数 |
 | `editorOpens`、`editorCloses` | 编辑器被创建、被销毁的次数 |
 | `analysisCount` | 测试的工作线程每调一次分析函数加一（房间步边收边看拍手也算）；验证宿主与宿主报离线渲染时不开始测试，必须是 0。例外：宿主没报的离线渲染要等快于实时的判断，房间步在那之前边收边看拍手的几次会计入（这一步随后作废），见 `KNOWN_ISSUES.md` |
+| `uiReady` | 页面完成启动的次数：页面拿到并应用了第一份快照，向插件报告启动完成。每打开一次窗口（或点一次重试）且页面起来了，加一 |
+| `uiFallback` | 编辑器切到兜底面板的次数（缺运行时、页面缺失、启动出错、看门狗超时都算） |
+| `bridgeRoundTrips` | 桥往返次数：页面调一次插件的桥函数并拿到回执，加一（兜底面板显示时回的 not-ready 也算）。为 0 说明页面一次都没调到插件 |
 | `lastIsNonRealtime` | 最近一个块收到时的离线标志；还没收到任何块时为 `false` |
 
 示例（离线渲染 3 块之后）：
@@ -67,9 +70,15 @@
   "editorOpens": 0,
   "editorCloses": 0,
   "analysisCount": 0,
+  "uiReady": 0,
+  "uiFallback": 0,
+  "bridgeRoundTrips": 0,
   "lastIsNonRealtime": true
 }
 ```
+
+界面的三个计数只在编辑器打开时变化。宿主测试判“界面起来了”时，看一次打开窗口之后 `uiReady` 增量为 1、`uiFallback` 增量为 0；
+页面要等 WebView2 起来再加载，冷启动要几秒，所以窗口要开够时间再读。
 
 ## 自动操作
 

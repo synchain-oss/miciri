@@ -40,10 +40,23 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
   plosives, sibilance, mouth noise and direction. The host-test build can run the test steps from a script and write the readings
   of each step to a file ([docs/HOST_PROBE.md](docs/HOST_PROBE.md)); releases do not contain it.
 
+### Fixed
+
+- Plug-in window: the UI never finished starting in any host (first seen in Cubase 15 on Windows, then reproduced in REAPER).
+  The JUCE front-end bridge script was compiled in without the file it imports, so the page could not make a single call to the
+  plug-in and switched to the fallback panel after 15 s. Both files are compiled in now, and a test starts the real page through
+  the real bridge in WebView2.
+- Plug-in window start-up: the page reports its start-up stages, so a failure switches to the fallback panel at once instead of
+  after the 15 s watchdog, and the diagnostics show which stage was reached (`script … > frame … > bridge … > ready …`). The
+  window is revealed as soon as the shell is drawn instead of after a 3 s timeout. The fallback panel follows the UI language
+  (English or Simplified Chinese).
+- Host-test build: the probe JSON also counts `uiReady`, `uiFallback` and `bridgeRoundTrips`.
+
 ### Known limits
 
 - Most thresholds are starting values or have only been checked on synthetic signals; a few are calibrated on real recordings,
   and those come from a small batch (3 rooms, 2 speakers, 2 microphones). The bands are starting judgements, not a certification.
-- Only REAPER on Windows (VST3) has automated host test results; no host has been tested by hand, and the macOS builds have only
-  passed the checks on the continuous-integration runner.
+- Only REAPER on Windows (VST3) has automated host test results, and those cover audio; the UI start-up was first checked on
+  2026-11-24. Cubase 15 on Windows has been opened once by hand (which found the start-up defect above, re-test pending); no other
+  host has been tested by hand, and the macOS builds have only passed the checks on the continuous-integration runner.
   See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) and [docs/DAW_COMPATIBILITY.md](docs/DAW_COMPATIBILITY.md).

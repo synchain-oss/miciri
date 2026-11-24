@@ -27,6 +27,9 @@ public:
     static constexpr int kExternalUrlMaxChars = 2048;
 
 protected:
+#ifdef MICIRI_HOST_PROBE
+    void onUiEvent(UiEvent event) override;
+#endif
     juce::var buildSnapshot() override;
     void emitTick() override;
     void handleBridgeCall(const juce::String& name, const juce::Array<juce::var>& args,

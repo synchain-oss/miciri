@@ -20,30 +20,6 @@ namespace
 {
 constexpr const char* kFallbackTitle = "Miciri";
 
-juce::String navStalledMessage()
-{
-    return "The page started loading but never finished.\n"
-           "Click Retry, or close and reopen this plugin window.";
-}
-
-juce::String bridgeStalledMessage()
-{
-    return "The page loaded, but the plugin UI never finished starting up.\n"
-           "Click Retry; if it keeps failing, report the diagnostics line below.";
-}
-
-juce::String bootErrorMessage()
-{
-    return "The plugin UI failed to start (front-end script error).\n"
-           "Click Retry; if it keeps failing, report the diagnostics line below.";
-}
-
-juce::String pageMissingMessage()
-{
-    return "The UI page is missing from this build of the plugin.\n"
-           "Reinstall the plugin; if it keeps failing, report the diagnostics line below.";
-}
-
 // 本进程里已经桥就绪的编辑器个数：大于零说明 WebView 环境已经热了，看门狗预算可以收紧。
 std::atomic<int>& readyBridgeCount()
 {
@@ -181,6 +157,7 @@ void WebViewHost::beginLoadAttempt()
     navBudgetApplied_ = false;
     revealGate_.beginLoadAttempt();
     revealLogged_ = false;
+    trace_.reset();
     startMs_ = juce::Time::getMillisecondCounter();
     runtime_ = PlatformWebView::runtimeInfo();
 
@@ -343,6 +320,7 @@ juce::String WebViewHost::buildDiagnostics(bool basenameOnly) const
       << juce::String(PlatformWebView::processId());
     d << "\n"
       << "udf " << PlatformWebView::userDataFolderDisplay(userDataFolder_, basenameOnly);
+    d << "\n" << trace_.line();
     if (userDataFolderIssue_.isNotEmpty())
         d << "  [" << userDataFolderIssue_ << "]";
     if (bootError_.isNotEmpty())
@@ -362,51 +340,50 @@ void WebViewHost::showFallback(FallbackReason reason)
     revealGate_.onFallbackShown();
     noteRevealed();
     webView_->setVisible(false);
+    onUiEvent(UiEvent::fallbackShown);
 
     const bool missing = (reason == FallbackReason::MissingRuntime);
     const bool tooOld = (reason == FallbackReason::RuntimeTooOld);
-    juce::String message;
-    const char* tag = "loadTimeout";
+    FallbackKind kind = FallbackKind::navStalled;
+    const char* tag = "navStalled";
     if (missing)
     {
-        message = PlatformWebView::missingRuntimeMessage();
+        kind = FallbackKind::missingRuntime;
         tag = "missingRuntime";
     }
     else if (tooOld)
     {
-        message = PlatformWebView::tooOldRuntimeMessage();
+        kind = FallbackKind::runtimeTooOld;
         tag = "runtimeTooOld";
     }
     else if (reason == FallbackReason::PageMissing)
     {
-        message = pageMissingMessage();
+        kind = FallbackKind::pageMissing;
         tag = "pageMissing";
     }
     else if (reason == FallbackReason::BootError)
     {
-        message = bootErrorMessage();
+        kind = FallbackKind::bootError;
         tag = "bootError";
     }
     else if (navState_ == NavState::notStarted)
     {
-        message = PlatformWebView::envNotStartedMessage();
+        kind = FallbackKind::envNotStarted;
         tag = "envNotStarted";
     }
     else if (navState_ == NavState::finished)
     {
-        message = bridgeStalledMessage();
+        kind = FallbackKind::bridgeStalled;
         tag = "bridgeStalled";
-    }
-    else
-    {
-        message = navStalledMessage();
-        tag = "navStalled";
     }
     logDiag(juce::String("fallback ") + tag + " - " + buildDiagnostics(false).replaceCharacter('\n', ' '));
 
+    const auto text = fallbackText(kind, isChineseUi(lang_), PlatformWebView::kEngine);
     FallbackPanel::Options options;
     options.title = kFallbackTitle;
-    options.message = message;
+    options.message = text.message;
+    options.retryText = text.retry;
+    options.installText = text.install;
     options.details = buildDiagnostics(true);
     options.showInstall = (missing || tooOld) && PlatformWebView::offersRuntimeDownload();
     options.onInstall = [] { juce::URL(PlatformWebView::runtimeDownloadUrl()).launchInDefaultBrowser(); };
@@ -481,8 +458,27 @@ void WebViewHost::handleBootError(const juce::var& payload)
     showFallback(FallbackReason::BootError);
 }
 
+// 页面的启动阶段信号：脚本开始运行、首个快照已应用（启动完成）。每次加载尝试只记第一次。
+void WebViewHost::handleBootStage(const juce::var& payload)
+{
+    const auto name = payload.getProperty("stage", juce::var("")).toString();
+    const auto stage = StartupTrace::fromPageName(name);
+    if (!stage.has_value())
+    {
+        logDiag("unknown boot stage from the page: " + ResourceProvider::asciiForLog(name, kBootStageMaxChars));
+        return;
+    }
+    const int elapsed = static_cast<int>(juce::Time::getMillisecondCounter() - startMs_);
+    if (!trace_.note(*stage, elapsed))
+        return;
+    logDiag("boot stage " + name + " after " + juce::String(elapsed) + " ms");
+    if (*stage == StartupTrace::Stage::uiReady)
+        onUiEvent(UiEvent::uiReady);
+}
+
 void WebViewHost::handleFirstFrame(const juce::var& payload)
 {
+    trace_.note(StartupTrace::Stage::firstFrame, static_cast<int>(juce::Time::getMillisecondCounter() - startMs_));
     logDiag(juce::String("first-frame signal after ") +
             juce::String(static_cast<int>(juce::Time::getMillisecondCounter() - startMs_)) + " ms" +
             (revealGate_.parked()                   ? " (still parked)"
@@ -521,6 +517,8 @@ juce::WebBrowserComponent::Options WebViewHost::makeOptions()
                                         [this](const juce::var& payload) { handleBootError(payload); });
     options = options.withEventListener(juce::Identifier(kFirstFrameEventId),
                                         [this](const juce::var& payload) { handleFirstFrame(payload); });
+    options = options.withEventListener(juce::Identifier(kBootStageEventId),
+                                        [this](const juce::var& payload) { handleBootStage(payload); });
     return options;
 }
 
@@ -528,6 +526,11 @@ juce::WebBrowserComponent::Options WebViewHost::makeOptions()
 void WebViewHost::dispatchBridgeCall(const juce::String& name, const juce::Array<juce::var>& args,
                                      NativeCompletion complete)
 {
+    // 每个回到页面的回执算一次桥往返（测试构建的宿主探针据此判断桥通没通）。回执都在本次调用里同步发出。
+    complete = [this, inner = std::move(complete)](juce::var result) {
+        onUiEvent(UiEvent::bridgeRoundTrip);
+        inner(std::move(result));
+    };
     if (fallback_ != nullptr)
     {
         logDiag("bridge request ignored while the fallback panel is shown (" + name + ")");
@@ -543,6 +546,7 @@ void WebViewHost::handleBridgeCall(const juce::String& name, const juce::Array<j
     if (name == "requestInitialState")
     {
         bridgeReady_ = true; // 前端确认就绪，此后定时器才允许推送事件
+        trace_.note(StartupTrace::Stage::bridge, static_cast<int>(juce::Time::getMillisecondCounter() - startMs_));
         if (revealGate_.onBridgeReady(juce::Time::getMillisecondCounter()))
             logDiag("bridge ready while still held before navigation; reveal deadline starts now");
         if (!countedAsReady_)

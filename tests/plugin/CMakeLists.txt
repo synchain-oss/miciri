@@ -31,6 +31,11 @@ miciri_add_test(NAME plugin_host_probe
   SOURCES host_probe_test.cpp host_probe_script_test.cpp "${_plugin_src}/HostProbe.cpp" "${_plugin_src}/HostProbeScript.cpp"
   LINK juce::juce_core)
 
+# 兜底面板的中英文案与启动阶段的诊断行：纯数据，只用 juce_core。
+miciri_add_test(NAME plugin_startup_text
+  SOURCES startup_text_test.cpp "${_plugin_src}/StartupText.cpp"
+  LINK juce::juce_core)
+
 # 带探针的处理器：同一份 MiciriProcessor.cpp 在 MICIRI_HOST_PROBE=1 下再编一遍，守住处理器里的接线（计数、写文件的时机、
 # 定时器）。数据块的内容、逐位直通同样在这个配置下验证。测试里要自己跑一会儿消息循环，需要放开模态循环。
 miciri_add_test(NAME plugin_host_probe_processor
@@ -47,7 +52,7 @@ miciri_add_test(NAME alloc_processblock_host_probe
   DEFINITIONS MICIRI_HOST_PROBE=1
   LABELS alloc)
 
-# 编辑器开关：编辑器源码要自己的 WebView2 链接，所以用 juce_add_console_app 建目标，不走 miciri_add_test。
+# 编辑器开关与真页面启动：编辑器源码要自己的 WebView2 链接，所以用 juce_add_console_app 建目标，不走 miciri_add_test。
 # 没有显示器（无法开窗）时测试自己 SKIP，退出码 4 登记为“跳过”而不是失败。
 get_property(_ui_sources GLOBAL PROPERTY MICIRI_PLUGIN_UI_SOURCES)
 # JUCE 前端桥脚本的资源测试：用与插件相同的暂存函数（src/plugin/CMakeLists.txt）把脚本编进测试自己的二进制数据，
@@ -59,7 +64,7 @@ miciri_stage_juce_frontend("${CMAKE_CURRENT_BINARY_DIR}/juce-frontend" _juce_fro
 juce_add_binary_data(MiciriJuceFrontendTestData
   NAMESPACE MiciriJuceFrontendTestData
   HEADER_NAME MiciriJuceFrontendTestData.h
-  SOURCES "${_juce_frontend_file}")
+  SOURCES ${_juce_frontend_file})
 
 juce_add_console_app(plugin_editor_open_close
   PRODUCT_NAME "plugin_editor_open_close"
@@ -67,6 +72,7 @@ juce_add_console_app(plugin_editor_open_close
   NEEDS_WEBVIEW2 TRUE)
 target_sources(plugin_editor_open_close PRIVATE
   editor_open_close_test.cpp
+  editor_boot_test.cpp
   frontend_resource_test.cpp
   "${_plugin_src}/MiciriProcessor.cpp"
   "${_plugin_src}/HostProbe.cpp"
@@ -87,6 +93,11 @@ target_link_libraries(plugin_editor_open_close PRIVATE
   juce::juce_audio_processors
   juce::juce_data_structures
   juce::juce_gui_extra)
+# 真页面的启动测试要编进插件的那份页面资源；web/ 里没有资源时不建这个目标，测试文件自己整段跳过。
+if(TARGET MiciriWebData)
+  target_link_libraries(plugin_editor_open_close PRIVATE MiciriWebData)
+  target_compile_definitions(plugin_editor_open_close PRIVATE MICIRI_HAVE_WEB_ASSETS=1)
+endif()
 miciri_target_warnings(plugin_editor_open_close PRIVATE)
 miciri_warnings_as_errors(plugin_editor_open_close)
 add_test(NAME plugin_editor_open_close COMMAND plugin_editor_open_close WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")

@@ -34,17 +34,17 @@ int PlatformWebView::processId()
 // 用户数据目录固定在本机应用数据下：所有实例、所有宿主进程共用这一个，不按进程拆开。
 //
 // WebView2 的浏览器进程组按用户数据目录共享：同一个目录就接入同一组 msedgewebview2.exe，请求来自同一进程还是
-// 另一个进程都一样。REAPER 与 Cubase 同时开着 Miciri 时，后开的进程接入已经在跑的浏览器进程。失败条件只有一个：
-// 环境选项与那组进程已有的不一致（控制器创建返回 ERROR_INVALID_STATE），和“来自另一个进程”无关。
+// 另一个进程都一样：两个宿主进程（比如两个不同的 DAW）同时开着 Miciri 时，后开的那个接入已经在跑的浏览器进程。
+// 失败条件只有一个：环境选项与那组进程已有的不一致（控制器创建返回 ERROR_INVALID_STATE），和“来自另一个进程”无关。
 // 本插件的环境选项是常量（JUCE 用默认选项创建环境，目录又是固定的），所有进程拿到的完全一致，所以可以安全共享。
-// 在本机用独立的小程序对拍过：两个进程同一目录、默认选项，同时创建与先后创建都成功，共用一个浏览器进程；
-// 第二个进程换一个浏览器参数，环境创建成功、控制器创建失败（0x8007139F）。
+// 这一条是用两个独立的小测试程序对拍出来的，没有在两个真实 DAW 同时开着时验证过：两个进程同一目录、默认选项，
+// 同时创建与先后创建都成功，共用一个浏览器进程；第二个进程换一个浏览器参数，环境创建成功、控制器创建失败（0x8007139F）。
 //
 // 不按进程拆开的理由：每个目录各起一整套浏览器进程，进程组不再复用，每多开一个宿主就多一整套进程、内存与句柄；
 // 还会留下残留目录，清理时要判断所属进程是否已退出，删错一个正在用的目录会让别的宿主里的窗口出问题。
 // 目录放在 LocalAppData 而不是 Temp（磁盘清理可能在会话中途删掉它），也不是 Roaming（缓存会随漫游配置同步）。
 // 目录里只有网页缓存，见 docs/PRIVACY.md。万一仍然创建失败，构造期的可写性探针（probeUserDataFolder）与
-// “导航从未开始”的说明面板（envNotStartedMessage）会如实说出来。
+// “导航从未开始”的说明面板（StartupText 里的 envNotStarted 文案）会如实说出来。
 //
 // 维护约束：“选项一致”是靠 JUCE 的默认值保证的。升级钉版的 JUCE、或以后自己传环境选项（浏览器参数、语言等）之前，
 // 先想清楚：新旧两个版本的 Miciri 同时开在两个宿主里时，选项就不一致了，后开的会创建失败。
@@ -138,37 +138,6 @@ PlatformWebView::BackgroundColourSupport PlatformWebView::backgroundColourSuppor
 
     return major >= kBackgroundColourMinRuntimeMajor ? BackgroundColourSupport::available
                                                      : BackgroundColourSupport::unavailable;
-}
-
-juce::String PlatformWebView::missingRuntimeMessage(Engine engine)
-{
-    if (engine == Engine::webView2)
-        return "Microsoft Edge WebView2 Runtime was not found, so the full UI cannot load.\n"
-               "Install the runtime once, then reopen this plugin window.";
-    return "The system web view (WebKit) is not available, so the full UI cannot load.\n"
-           "Update macOS, then reopen this plugin window.";
-}
-
-juce::String PlatformWebView::tooOldRuntimeMessage(Engine engine)
-{
-    if (engine == Engine::webView2)
-        return "The installed Microsoft Edge WebView2 Runtime is too old for this plugin.\n"
-               "Update to the Evergreen runtime, then reopen this plugin window.";
-    return "The system web view (WebKit) is too old for this plugin.\n"
-           "Update macOS, then reopen this plugin window.";
-}
-
-juce::String PlatformWebView::envNotStartedMessage(Engine engine)
-{
-    if (engine == Engine::webView2)
-        return "The WebView2 environment did not start (no navigation ever began).\n"
-               "This is usually the user-data folder being unwritable or held by another program that\n"
-               "opened it with different web view settings, or the host blocking the msedgewebview2.exe\n"
-               "child process.";
-
-    return "The system web view (WebKit) did not start (no navigation ever began).\n"
-           "This is usually the host blocking the WebKit web content process, or the\n"
-           "system running low on memory. Click Retry, or close and reopen this plugin window.";
 }
 
 juce::String PlatformWebView::runtimeDiagnosticsField(const RuntimeInfo& info, Engine engine)
