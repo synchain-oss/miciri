@@ -98,8 +98,9 @@
                 return;
             var t = e && e.target;
             if (t && t !== window && (t.src || t.href)) {
-                // 只认脚本和样式表：图片之类的失败不该把整个界面换成兜底面板
-                if (t.tagName === "SCRIPT" || t.tagName === "LINK") fail("resource", t.src || t.href);
+                // 只认脚本和样式表（rel="stylesheet"）：图片、图标、preload 之类与启动无关的失败不该把整个界面换成兜底面板
+                var sheet = t.tagName === "LINK" && /(^|\s)stylesheet(\s|$)/i.test(t.rel || "");
+                if (t.tagName === "SCRIPT" || sheet) fail("resource", t.src || t.href);
                 return;
             }
             fail("script", (e && (e.error || e.message)) || "unknown error");
