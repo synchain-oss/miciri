@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 处理器：逐位直通（含 NaN、Inf、非规格化数、负零）、电平与削波锁存、布局声明、心跳。
+// 处理器：逐位直通（含 NaN、Inf、非规格化数、负零）、电平（真峰值与均方根）与削波灯、布局声明、心跳。
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -76,14 +76,14 @@ bool bitIdentical(const juce::AudioBuffer<Sample>& a, const juce::AudioBuffer<Sa
     return true;
 }
 
-void configure(MiciriProcessor& p, int channels, int blockSize)
+void configure(MiciriProcessor& p, int channels, int blockSize, double sampleRate = 48000.0)
 {
     const auto set = channels == 1 ? juce::AudioChannelSet::mono() : juce::AudioChannelSet::stereo();
     juce::AudioProcessor::BusesLayout layout;
     layout.inputBuses.add(set);
     layout.outputBuses.add(set);
     REQUIRE(p.setBusesLayout(layout));
-    p.prepareToPlay(48000.0, blockSize);
+    p.prepareToPlay(sampleRate, blockSize);
 }
 
 template<class Sample>
@@ -163,7 +163,7 @@ TEST_CASE("an empty block changes nothing: no heartbeat, no meter movement", "[p
     CHECK(p.heartbeat() == beatBefore);
 
     const auto m = p.readMeters();
-    CHECK(m.levelDbfs[0] == Catch::Approx(-6.0206).margin(0.001)); // 0.5 的均方根仍是最近一块的值
+    CHECK(m.levelDbfs[0] == Catch::Approx(-6.0206).margin(0.001)); // 空块不清零也不稀释均方根
     CHECK(m.peakDbfs[0] == Catch::Approx(-6.0206).margin(0.001));
 }
 
@@ -224,7 +224,10 @@ TEST_CASE("NaN and Inf never poison the meters", "[plugin]")
         (void)p.readMeters();
         p.clearClipLatch();
 
+        // 先读掉一块 0.5：插值历史里的 NaN 与 Inf 已经当 0，从 0 到 0.5 的台阶本来就有真峰值的过冲，读数要等历史稳定
         constantBlock(buffer, 0.5f);
+        p.processBlock(buffer, midi);
+        (void)p.readMeters();
         p.processBlock(buffer, midi);
         const auto m = p.readMeters();
         const double expected = 20.0 * std::log10(0.5);
@@ -237,7 +240,7 @@ TEST_CASE("NaN and Inf never poison the meters", "[plugin]")
     }
 }
 
-TEST_CASE("the clip latch holds until cleared, and the peak resets on read", "[plugin]")
+TEST_CASE("the peak resets on read", "[plugin]")
 {
     MiciriProcessor p;
     configure(p, 2, 128);
@@ -249,19 +252,157 @@ TEST_CASE("the clip latch holds until cleared, and the peak resets on read", "[p
     constantBlock(buffer, 0.1f);
     p.processBlock(buffer, midi);
 
-    auto m = p.readMeters();
-    CHECK(m.clipLatch[0]);
-    CHECK(m.clipLatch[1]);
-    CHECK(m.peakDbfs[0] == Catch::Approx(0.0).margin(1e-6)); // 峰值保留了整个读取间隔里的最大值
+    auto m = p.readMeters(0);
+    // 峰值保留了整个读取间隔里的最大值；真峰值不低于样本峰值，从 1.0 落到 0.1 的台阶只会略有过冲
+    CHECK(m.peakDbfs[0] >= -1e-6);
+    CHECK(m.peakDbfs[0] < 1.0);
+    // 均方根是整个间隔的：两块各 128 个样本，(1.0² + 0.1²) / 2
+    CHECK(m.levelDbfs[0] == Catch::Approx(20.0 * std::log10(std::sqrt(0.505))).margin(1e-6));
 
-    m = p.readMeters();
-    CHECK(m.clipLatch[0]); // 锁存保持
+    m = p.readMeters(33);
     CHECK(m.peakDbfs[0] == pl::kMeterFloorDbfs); // 峰值读后清零
+    CHECK(m.levelDbfs[0] == pl::kMeterFloorDbfs); // 没有新样本，均方根也不沿用旧值
+}
 
-    p.clearClipLatch();
-    m = p.readMeters();
-    CHECK_FALSE(m.clipLatch[0]);
-    CHECK_FALSE(m.clipLatch[1]);
+TEST_CASE("the meter reads the true peak between samples", "[plugin]")
+{
+    // 四分之一采样率的正弦、相位 45 度：样本全是 ±0.707 A，连续波形的峰是 A，样本峰值会少报约 3 dB
+    constexpr double amplitude = 0.9;
+    MiciriProcessor p;
+    configure(p, 2, 256);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> buffer(2, 256);
+    for (int ch = 0; ch < 2; ++ch)
+        for (int i = 0; i < 256; ++i)
+            buffer.getWritePointer(ch)[i] = static_cast<float>(
+                amplitude * std::sin(std::acos(-1.0) * 0.5 * static_cast<double>(i) + std::acos(-1.0) / 4.0));
+    p.processBlock(buffer, midi);
+    const auto m = p.readMeters(0);
+    const double samplePeakDb = 20.0 * std::log10(amplitude * std::sqrt(0.5));
+    const double truePeakDb = 20.0 * std::log10(amplitude);
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        CHECK(m.peakDbfs[ch] > samplePeakDb + 2.0); // 不是样本峰值
+        CHECK(m.peakDbfs[ch] == Catch::Approx(truePeakDb).margin(0.1));
+    }
+}
+
+TEST_CASE("the interpolation factor follows the sample rate: 4x up to 96 kHz, 2x above", "[plugin]")
+{
+    // 四分之一采样率的正弦、相位 45 度：样本全是 ±0.707 A。两倍插值的点正好落在波峰上（读到 A），四倍也读到 A；
+    // 倍数错成 1（只剩样本峰值）会少报约 3 dB，所以两个采样率都要读到 A。
+    constexpr double amplitude = 0.9;
+    for (const double rate : {44100.0, 96000.0, 192000.0})
+    {
+        MiciriProcessor p;
+        configure(p, 1, 256, rate);
+        juce::MidiBuffer midi;
+        juce::AudioBuffer<float> buffer(1, 256);
+        for (int i = 0; i < 256; ++i)
+            buffer.getWritePointer(0)[i] = static_cast<float>(
+                amplitude * std::sin(std::acos(-1.0) * 0.5 * static_cast<double>(i) + std::acos(-1.0) / 4.0));
+        p.processBlock(buffer, midi);
+        const auto m = p.readMeters(0);
+        CHECK(m.peakDbfs[0] == Catch::Approx(20.0 * std::log10(amplitude)).margin(0.1));
+        CHECK(m.peakDbfs[0] > 20.0 * std::log10(amplitude * std::sqrt(0.5)) + 2.0);
+    }
+}
+
+TEST_CASE("non-finite samples stay out of the mean square, count and sum alike", "[plugin]")
+{
+    MiciriProcessor p;
+    configure(p, 1, 256);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> buffer(1, 256);
+    constantBlock(buffer, 0.5f);
+    for (int i = 128; i < 256; ++i)
+        buffer.getWritePointer(0)[i] = std::numeric_limits<float>::quiet_NaN();
+    p.processBlock(buffer, midi);
+    CHECK(p.readMeters(0).levelDbfs[0] == Catch::Approx(20.0 * std::log10(0.5)).margin(1e-6));
+}
+
+TEST_CASE("resetMeters drops what piled up while nobody was reading", "[plugin]")
+{
+    MiciriProcessor p;
+    configure(p, 2, 128);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> buffer(2, 128);
+    constantBlock(buffer, 1.0f); // 编辑器关着时的一次削波
+    p.processBlock(buffer, midi);
+    constantBlock(buffer, 0.1f); // 台阶之后多走一块，让插值历史里不再有那个台阶
+    p.processBlock(buffer, midi);
+    p.resetMeters();
+    p.processBlock(buffer, midi);
+    const auto m = p.readMeters(0);
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        CHECK_FALSE(m.clipLatch[ch]);
+        CHECK(m.peakDbfs[ch] == Catch::Approx(-20.0).margin(1e-6)); // 只剩 0.1 的块，不是之前累计的 0 dBFS
+        CHECK(m.levelDbfs[ch] == Catch::Approx(-20.0).margin(1e-6));
+    }
+}
+
+TEST_CASE("the clip lamp goes out five seconds after the last clip and clears at once on click", "[plugin]")
+{
+    MiciriProcessor p;
+    configure(p, 2, 128);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> buffer(2, 128);
+    const auto clipOnce = [&] {
+        constantBlock(buffer, 1.0f);
+        p.processBlock(buffer, midi);
+        constantBlock(buffer, 0.1f);
+        p.processBlock(buffer, midi);
+    };
+    // 起点贴着 32 位毫秒计数的回绕点，顺带验证回绕
+    const std::uint32_t t0 = 0xFFFFFC00u;
+
+    SECTION("lit by a clip, still lit just before the hold ends, out at the hold, and quiet blocks do not relight it")
+    {
+        CHECK_FALSE(p.readMeters(t0).clipLatch[0]);
+        clipOnce();
+        CHECK(p.readMeters(t0 + 33).clipLatch[0]);
+        CHECK(p.readMeters(t0 + 33).clipLatch[1]);
+        CHECK(p.readMeters(t0 + 33 + pl::kClipLampHoldMs - 1).clipLatch[0]);
+        const auto out = p.readMeters(t0 + 33 + pl::kClipLampHoldMs);
+        CHECK_FALSE(out.clipLatch[0]);
+        CHECK_FALSE(out.clipLatch[1]);
+        constantBlock(buffer, 0.1f);
+        p.processBlock(buffer, midi);
+        CHECK_FALSE(p.readMeters(t0 + 33 + pl::kClipLampHoldMs + 33).clipLatch[0]);
+    }
+
+    SECTION("a new clip restarts the five seconds")
+    {
+        clipOnce();
+        CHECK(p.readMeters(t0).clipLatch[0]);
+        clipOnce();
+        CHECK(p.readMeters(t0 + 3000).clipLatch[0]);
+        CHECK(p.readMeters(t0 + 3000 + pl::kClipLampHoldMs - 1).clipLatch[0]); // 距第一次已超过 5 秒，仍亮
+        CHECK_FALSE(p.readMeters(t0 + 3000 + pl::kClipLampHoldMs).clipLatch[0]);
+    }
+
+    SECTION("clicking clears at once, the clip already counted does not relight it, a later clip does")
+    {
+        clipOnce();
+        CHECK(p.readMeters(t0).clipLatch[0]);
+        p.clearClipLatch();
+        CHECK_FALSE(p.readMeters(t0 + 33).clipLatch[0]);
+        CHECK_FALSE(p.readMeters(t0 + 66).clipLatch[1]);
+        clipOnce();
+        CHECK(p.readMeters(t0 + 99).clipLatch[0]);
+    }
+
+    SECTION("only the channel that clipped lights")
+    {
+        constantBlock(buffer, 0.1f);
+        for (int i = 0; i < 128; ++i)
+            buffer.getWritePointer(1)[i] = 1.0f;
+        p.processBlock(buffer, midi);
+        const auto m = p.readMeters(t0);
+        CHECK_FALSE(m.clipLatch[0]);
+        CHECK(m.clipLatch[1]);
+    }
 }
 
 TEST_CASE("only mono and stereo are declared, with matching input and output", "[plugin]")

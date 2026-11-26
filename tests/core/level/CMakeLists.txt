@@ -7,6 +7,7 @@ option(MICIRI_UPDATE_GOLDEN "让 golden_dsp 重写 tests/golden/dsp/measures.txt
 
 miciri_add_test(NAME level_weighting SOURCES weighting_test.cpp)
 miciri_add_test(NAME level_gain SOURCES gain_test.cpp)
+miciri_add_test(NAME level_true_peak_stream SOURCES true_peak_stream_test.cpp)
 miciri_add_test(NAME level_signal_device SOURCES signal_device_test.cpp)
 miciri_add_test(NAME level_noise SOURCES noise_test.cpp)
 miciri_add_test(NAME level_hum SOURCES hum_test.cpp)

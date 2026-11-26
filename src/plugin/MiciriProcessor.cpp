@@ -39,6 +39,12 @@ void MiciriProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     numChannels_.store(std::max(1, getMainBusNumInputChannels()), std::memory_order_relaxed);
     // 采样率变了：进行中的一步作废、旧结果标过期；声道数变了：按过期规则处理（见 Session.h）
     session_.prepare(sampleRate, std::max(1, getMainBusNumInputChannels()));
+    // 电平表的真峰值与增益步同一个插值倍数（采样率不同倍数不同），读数才对得上
+    const int oversample =
+        static_cast<int>(sampleRate <= thr::gain::true_peak_rate_split_hz ? thr::gain::true_peak_oversample_le_96k
+                                                                          : thr::gain::true_peak_oversample_gt_96k);
+    for (auto& m : meters_)
+        m.prepare(oversample);
 #ifdef MICIRI_HOST_PROBE
     probe::counters().notePrepare(sampleRate, samplesPerBlock, getMainBusNumInputChannels(),
                                   getMainBusNumOutputChannels());
@@ -116,21 +122,39 @@ MiciriProcessor::DeviceInfo MiciriProcessor::deviceInfo() const
 
 plugin::MeterReadout MiciriProcessor::readMeters()
 {
+    return readMeters(juce::Time::getMillisecondCounter());
+}
+
+plugin::MeterReadout MiciriProcessor::readMeters(std::uint32_t nowMs)
+{
     plugin::MeterReadout out;
     for (int ch = 0; ch < kMeterChannels; ++ch)
     {
-        auto& m = meters_[ch];
-        out.peakDbfs[ch] = plugin::toDbfs(m.peak.exchange(0.0, std::memory_order_relaxed));
-        out.levelDbfs[ch] = plugin::toDbfs(std::sqrt(m.meanSquare.load(std::memory_order_relaxed)));
-        out.clipLatch[ch] = m.clipLatch.load(std::memory_order_relaxed);
+        double peak = 0.0;
+        double meanSquare = 0.0;
+        meters_[ch].take(peak, meanSquare);
+        out.peakDbfs[ch] = plugin::toDbfs(peak);
+        out.levelDbfs[ch] = plugin::toDbfs(std::sqrt(meanSquare));
+        out.clipLatch[ch] = lamps_[ch].update(meters_[ch].clipBlocks.load(std::memory_order_relaxed), nowMs);
     }
     return out;
 }
 
-void MiciriProcessor::clearClipLatch()
+void MiciriProcessor::resetMeters()
 {
     for (auto& m : meters_)
-        m.clipLatch.store(false, std::memory_order_relaxed);
+    {
+        double peak = 0.0;
+        double meanSquare = 0.0;
+        m.take(peak, meanSquare);
+    }
+    clearClipLatch();
+}
+
+void MiciriProcessor::clearClipLatch()
+{
+    for (int ch = 0; ch < kMeterChannels; ++ch)
+        lamps_[ch].clear(meters_[ch].clipBlocks.load(std::memory_order_relaxed));
 }
 
 bool MiciriProcessor::setMicType(int index)

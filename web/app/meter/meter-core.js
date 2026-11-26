@@ -3,7 +3,8 @@
 // 左栏输入卡的纯逻辑：刻度、弹道、信号状态药丸、电平管上的结果标记。
 // 不碰 DOM，Node 里可以直接 import 做测试。所有数值来自快照，这里只有显示用的几何常数。
 //
-// 弹道：液面瞬时升到目标、按固定速度回落；峰值线保持一段时间后慢速回落。
+// 弹道：液面是峰值表，跟着两次读取之间的真峰值（dBTP，与增益步用同一个量）瞬时升起、按固定速度慢落；
+// 峰值线保持一段时间后慢速回落；淡色的内层是同一段里的均方根，同样快起慢落，只在左栏的管上画。
 // 音频线程只发电平，弹道在界面里算，空闲（电平停在底、没有新事件）时不需要任何定时器。
 
 /** 刻度地板（dBFS）：左栏电平管线性刻度的最低点；远距离全宽条是另一套（−60..0）。 */
@@ -13,8 +14,8 @@ export const BAR_FLOOR = -60;
 /** 显示上限：真峰值可以略高于 0 dBFS（采样点之间的过冲），读数照实显示，液面画满即止。 */
 export const CEIL = 6;
 export const TICKS = [0, -6, -12, -24, -36, -48, -60, -80];
-/** 液面回落速度（dB/s）、峰值保持时间（ms）、保持结束后的回落速度（dB/s）。 */
-export const FALL_DB_S = 120;
+/** 液面（和均方根内层）回落速度（dB/s）、峰值保持时间（ms）、保持结束后的回落速度（dB/s）。 */
+export const FALL_DB_S = 30;
 export const PEAK_HOLD_MS = 2200;
 export const PEAK_FALL_DB_S = 20;
 /** 管内上下各留的边（px），与 CSS 里 .lt__slot 的内缩一致；标签间的最小间距（px）。 */
@@ -29,27 +30,30 @@ export function ratio(db, floor = FLOOR) {
 }
 
 /** 一路电平的初始状态：全在底。 */
-export const rest = () => ({ db: FLOOR, peakDb: FLOOR, heldMs: 0 });
-export const atRest = (s) => s.db <= FLOOR && s.peakDb <= FLOOR;
+export const rest = () => ({ db: FLOOR, peakDb: FLOOR, heldMs: 0, rmsDb: FLOOR });
+export const atRest = (s) => s.db <= FLOOR && s.peakDb <= FLOOR && (s.rmsDb ?? FLOOR) <= FLOOR;
+
+const rise = (prev, target, dt) => (target >= prev ? target : Math.max(target, prev - FALL_DB_S * dt));
 
 /**
- * 推进一帧。targetDb 是最新的电平，targetPeakDb 是最新的峰值（缺省取电平）。
- * 纯函数，返回新状态。
+ * 推进一帧。targetPeakDb 是最新读到的真峰值（两次读取之间的最大值），targetRmsDb 是同一段的均方根（缺省没有）。
+ * 液面 db 跟着峰值快起慢落，peakDb 是峰值线，rmsDb 是淡色内层。纯函数，返回新状态。
  */
-export function advance(prev, targetDb, targetPeakDb, dtMs) {
-    const lvl = clamp(Number.isFinite(targetDb) ? targetDb : FLOOR, FLOOR, CEIL);
-    const pk = clamp(Number.isFinite(targetPeakDb) ? targetPeakDb : lvl, FLOOR, CEIL);
+export function advance(prev, targetPeakDb, dtMs, targetRmsDb = FLOOR) {
+    const pk = clamp(Number.isFinite(targetPeakDb) ? targetPeakDb : FLOOR, FLOOR, CEIL);
+    const rms = clamp(Number.isFinite(targetRmsDb) ? targetRmsDb : FLOOR, FLOOR, CEIL);
     const dt = Math.max(0, dtMs) / 1000;
-    const db = lvl >= prev.db ? lvl : Math.max(lvl, prev.db - FALL_DB_S * dt);
+    const db = rise(prev.db, pk, dt);
+    const rmsDb = rise(prev.rmsDb ?? FLOOR, Math.min(rms, db), dt);
     let peakDb = prev.peakDb;
     let heldMs = prev.heldMs + dtMs;
-    if (Math.max(pk, db) >= peakDb) {
-        peakDb = Math.max(pk, db);
+    if (db >= peakDb) {
+        peakDb = db;
         heldMs = 0;
     } else if (heldMs > PEAK_HOLD_MS) {
         peakDb = Math.max(db, peakDb - PEAK_FALL_DB_S * dt);
     }
-    return { db, peakDb, heldMs };
+    return { db, peakDb, heldMs, rmsDb };
 }
 
 /** 数字格式：负号用 U+2212，一位小数。 */
