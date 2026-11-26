@@ -3,7 +3,7 @@
 # 宿主测试（REAPER，Windows，VST3）
 
 用真实的 REAPER 跑插件：走带、arm、监听 12 格，3 种渲染方式 × “通知插件离线状态”偏好的开关，开关编辑器窗口 20 次，
-逐位直通，离线标志与分析次数的真值表，以及界面能否启动完成（开窗保持 10 秒，并在开窗后的几个时刻截图）。**只在本机跑，不进 CI**（CI 上没有 REAPER，也不该有）；结果写进 `docs/DAW_COMPATIBILITY.md`。
+逐位直通，离线标志与分析次数的真值表，以及界面能否启动完成（开窗保持 10 秒，并在开窗后的几个时刻截图），和电平表、削波灯在有输入时的样子（循环喂合成信号，开窗保持并截图）。**只在本机跑，不进 CI**（CI 上没有 REAPER，也不该有）；结果写进 `docs/DAW_COMPATIBILITY.md`。
 
 驱动是公开的 [reaper-harness](https://github.com/synchain-oss/reaper-harness)，**单独克隆、钉提交**，不复制进本仓。
 插件是带探针的测试构建（CMake 选项 `MICIRI_HOST_PROBE=ON`，说明见 `docs/HOST_PROBE.md`），不得发布。
@@ -15,7 +15,8 @@
 | `../../reaper-harness.json` | 场景与判据：每个场景用 `report` 读探针 JSON，逐位直通由工具对比“不挂插件的渲染”得出；另有 5 个自带反例（判据放错必须变红） |
 | `reaper-harness.commit` | 钉住的工具提交（40 位）；`run-host-matrix.ps1` 每次开跑前核对 |
 | `build-probe.ps1` | 只建带探针的 `Miciri.vst3`，输出目录写在最后一行 |
-| `run-host-matrix.ps1` | 一条龙：核对钉版 → 构建 → 确认没有 reaper.exe → 跑 → 打印每一行的判定与数值（含界面截图的张数与位置）→ 核对没有残留进程 |
+| `make-feed.ps1` | 现场生成电平表场景要循环播放的两个合成 WAV（写在被忽略的 `build-host-feeds/` 下）；`run-host-matrix.ps1` 开跑前会调它 |
+| `run-host-matrix.ps1` | 一条龙：核对钉版 → 构建 → 生成合成输入 → 确认没有 reaper.exe → 跑 → 打印每一行的判定与数值（含界面截图的张数与位置）→ 核对没有残留进程 |
 
 ## 准备（一次）
 
@@ -37,9 +38,9 @@ $env:MICIRI_JUCE_PATH = '<JUCE 检出>'
 pwsh tests/host/run-host-matrix.ps1 -HarnessDir <工具目录> -CfgDir <私有配置目录>
 ```
 
-- 全套约 13 分钟，启动 REAPER 近三十次，**会在桌面上弹窗口**（编辑器开关 20 次会反复弹浮窗）。跑的时候别用自己的 REAPER：
+- 全套约 15 分钟，启动 REAPER 三十次左右，**会在桌面上弹窗口**（编辑器开关 20 次会反复弹浮窗）。跑的时候别用自己的 REAPER：
   开跑前有 `reaper.exe` 在就直接拒绝，也不会替你结束它。需要让它让路时用 `-SkipMarker <文件>`：文件存在期间整套跳过（退出码 3），这时脚本不检查 `reaper.exe`。相对路径按你当前所在的目录解析。
-- 只跑一部分：`-Only '<场景 id 的正则>'`，例如 `-Only '^render-'`、`-Only '^transport-12$'`、`-Only '^windows-20$'`、`-Only '^ui-start$'`、`-Only '^neg-'`。
+- 只跑一部分：`-Only '<场景 id 的正则>'`，例如 `-Only '^render-'`、`-Only '^transport-12$'`、`-Only '^windows-20$'`、`-Only '^ui-start$'`、`-Only '^meter-'`、`-Only '^neg-'`。
   第一次在新配置目录里启动 REAPER 会扫描插件，可能让第一次启动失败（INCOMPLETE），重跑即可；REAPER 的评估版提醒也会让单次启动偶尔 INCOMPLETE，工具会自动重试一次。
 - 退出码：0 全 PASS，1 有 FAIL，2 有 INCOMPLETE（不算通过，先重跑，不要为了变绿去放宽判据），3 整套被跳过，64 被守卫或用法错误拒绝。全 PASS 但跑完仍有 reaper.exe 在时脚本改报 2；已经是别的非 0 码时保持原码，残留进程只打印。
 - 工具的结果文件写在 `-ResultDir`（默认 `build-host-probe/host-results/`，已被 `.gitignore` 的 `build-*/` 覆盖），里面没有本机路径。
@@ -66,6 +67,21 @@ pwsh tests/host/run-host-matrix.ps1 -HarnessDir <工具目录> -CfgDir <私有�
   场景变红，图里是兜底面板。跑完把改动还原，不提交。
 - 十秒比页面的启动时间宽得多（本机 REAPER 7.82 上两秒的那张图里页面已经完整）。页面一直不动、又没来得及放弃的情况，由 `uiReady` 增量 0 判红，不靠 `uiFallback`。
 
+## 电平表与削波灯（`meter-steady`、`meter-clip-lamp`）
+
+别的场景里电平表没有输入，什么也不画。这两个场景在“走带播放、arm、监听开”的状态下，用工具的 `feed` 往输入循环喂一个合成 WAV（`channels: "same"`，单声道文件两路相同），
+同时把窗口开着不动、定时截图，看电平表实际画成什么样。WAV 由 `make-feed.ps1` 现场算出，只含合成信号：
+
+| 场景 | 信号 | 开窗保持与截图 | 该看到 |
+|---|---|---|---|
+| `meter-steady` | 1 kHz 正弦，峰值 −9 dBFS，整数个周期 | 保持 10 秒，2000、5000、8000 ms | 液面顶和峰值线约 −9，淡色内芯约 −12（正弦的均方根比峰值低 3 dB），两路相同，灯不亮 |
+| `meter-clip-lamp` | 12 秒一圈：开头 50 ms 满幅方波，其余 −30 dBFS 的 1 kHz 正弦 | 保持 32 秒，每 4 秒一张，从 2000 到 30000 ms 共 8 张 | 每圈削波一次：灯亮 5 秒再熄，12 秒后再亮；削波后液面和内芯以每秒 30 dB 落回 −30、−33，峰值线先停住约 2 秒再落 |
+
+- **工具判的只有这些**：窗口保持到时间、图拿全（没拿全是 INCOMPLETE）、`uiReady` 增量 1、`uiFallback` 增量 0、`bridgeRoundTrips` 增量至少 1，以及喂的信号确实到了输入（两路相同）。
+  **电平表画得对不对不进通过判据**：探针不报电平，工具也不判图里的内容；从图里按像素读液面、峰值线、内芯和灯，要依赖主题颜色和版面尺寸，这些一改读数的办法就要跟着改，所以那是人看图或本机脚本的事，不是矩阵的红绿。
+- 为什么 12 秒一圈、每 4 秒截一张：削波灯只在编辑器开着时才跟着读，打开之前的削波不会亮；灯亮 5 秒，截图间隔取 4 秒，保证每次削波至少落进一张亮着的图，而 12 秒的周期又让一次保持里有亮、有熄、有再亮。工具一个状态最多 8 张图。
+- 合成信号的特征：削波用的是 ±满刻度的 16 位方波（连续多个样本过 0.999 的门限），不是实录，不含任何人声。
+
 ## 环境变量与插件的数据目录
 
 脚本在本进程新建的临时目录里设 `USERPROFILE` 和 `WEBVIEW2_USER_DATA_FOLDER` 再启动工具，不重定向 `APPDATA`、`LOCALAPPDATA`：
@@ -91,5 +107,5 @@ node scripts/run-checks.mjs --only compat-table
 - 静音轨自动旁路（`force_auto_bypass`）：工具设不了，兼容表标“未测”。
 - 分析次数 `analysisCount`：宿主测试里没有东西会“开始一步”，所以只证明渲染不触发分析；拒绝开始由 `tests/session` 守着。
 - 偏好关时“音频快于实时就作废”这一支、真实硬件输入、48 kHz / 512 以外的采样率与缓冲：见 `docs/DAW_COMPATIBILITY.md` 的“待手测”。
-- 界面截图的内容：只判计数，不判图里画了什么，图要人看；截图只在 96 DPI 下量过。
+- 界面截图的内容：只判计数，不判图里画了什么，图要人看（电平表的读数同样是人看图，见上面的“电平表与削波灯”）；截图只在 96 DPI 下量过。
 - Cubase、FL Studio、GarageBand / Logic、macOS 上的 REAPER：要在对应机器上手测。
