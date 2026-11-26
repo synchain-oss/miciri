@@ -441,7 +441,13 @@
           "transport": "stop",
           "arm": false,
           "monitor": "off",
-          "windows": { "plugin": "miciri", "count": 1, "holdMs": 10000, "capture": [300, 2000, 8000], "maxBlockDiff": 4 },
+          "windows": {
+            "plugin": "miciri",
+            "count": 1,
+            "holdMs": 10000,
+            "capture": [300, 2000, 8000],
+            "maxBlockDiff": 4
+          },
           "expect": {
             "report": {
               "miciri": {
@@ -459,7 +465,13 @@
           "transport": "stop",
           "arm": false,
           "monitor": "off",
-          "windows": { "plugin": "miciri", "count": 1, "holdMs": 10000, "capture": [300, 2000, 8000], "maxBlockDiff": 4 },
+          "windows": {
+            "plugin": "miciri",
+            "count": 1,
+            "holdMs": 10000,
+            "capture": [300, 2000, 8000],
+            "maxBlockDiff": 4
+          },
           "expect": {
             "report": {
               "miciri": {
