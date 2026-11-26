@@ -6,7 +6,7 @@
 #       [-JucePath <目录>] [-PluginDir <含 Miciri.vst3 的目录，给了就不重建>] [-ResultDir <目录>]
 #       [-SkipMarker <文件>]... [-Only <场景 id 的正则>] [-Repeat <n>]
 # 做的事：核对 reaper-harness 的钉版提交 → 构建探针版插件 → 开跑前确认没有 reaper.exe → 在新建的临时目录里
-# 设 USERPROFILE 与 WEBVIEW2_USER_DATA_FOLDER 再跑 reaper-harness → 把插件真实写入的目录跑前跑后各列一次 → 打印每一行的判定与数值。
+# 设 USERPROFILE 与 WEBVIEW2_USER_DATA_FOLDER 再跑 reaper-harness → 把插件真实写入的目录跑前跑后各列一次 → 打印每一行的判定与数值（开窗截图只报张数与位置，图留在结果目录里）。
 # 退出码沿用 reaper-harness：0 全 PASS，1 有 FAIL，2 有 INCOMPLETE，3 整套被 SKIPPED，64 被守卫或用法错误拒绝；
 # 其余都通过（0）时，跑完仍有 reaper.exe 在也报 2；已经是 1、2、3、64 时保持原码，残留进程只打印；插件数据目录的前后差异只报告，不当失败。
 [CmdletBinding()]
@@ -50,6 +50,9 @@ if (-not $PluginDir) {
     $PluginDir = $built | Select-Object -Last 1
 }
 if (-not (Test-Path -LiteralPath (Join-Path $PluginDir 'Miciri.vst3/Contents/Resources/moduleinfo.json'))) { throw "$PluginDir 里没有可测的 Miciri.vst3" }
+# 电平表场景要循环播放的合成输入（只含合成信号，写在被忽略的 build-host-feeds/ 下，配置里按相对路径引用）
+$null = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'make-feed.ps1') -OutDir 'build-host-feeds'
+if ($LASTEXITCODE) { throw '生成合成输入失败（tests/host/make-feed.ps1）' }
 if (-not $ResultDir) { $ResultDir = Join-Path $Root 'build-host-probe/host-results' }
 New-Item -ItemType Directory -Force -Path $ResultDir | Out-Null
 
@@ -99,6 +102,11 @@ foreach ($k in $watch.Keys) {
     Write-Host ("插件数据目录 {0}：跑前 {1} 个文件，跑后 {2} 个，差异 {3} 项" -f $k, $before[$k].Count, $after.Count, $changed.Count)
     $changed | Select-Object -First 8 | ForEach-Object { Write-Host "  $_" }
 }
+# 结果 JSON 里某个字段可能没有（比如没有 facts 的行）：严格模式下直接取会报错，所以统一经这里读
+function Get-Prop($Object, [string]$Name) {
+    if ($null -ne $Object -and $Object.PSObject.Properties[$Name]) { $Object.PSObject.Properties[$Name].Value }
+}
+$sawShots = $false
 $result = Get-ChildItem -LiteralPath $ResultDir -Filter '*-miciri-host-host-matrix.json' -File | Where-Object { $_.LastWriteTime -ge $stamp } |
     Sort-Object LastWriteTime | Select-Object -Last 1
 if ($result) {
@@ -110,8 +118,19 @@ if ($result) {
         foreach ($row in $runs[$n].scenarios) {
             Write-Host ("[{0}] {1} ({2:N1}s)" -f $row.status, $row.id, $row.seconds)
             foreach ($part in ($row.detail -split ' \| ')) { Write-Host "    $part" }
+            # 开窗后截的图：每个状态一行（张数、尺寸、相对结果目录的位置）。图只留在本机的结果目录里
+            foreach ($st in @(Get-Prop (Get-Prop $row 'facts') 'states')) {
+                $shots = @(Get-Prop $st 'shots')
+                if (-not $shots.Count) { continue }
+                $taken = @($shots | Where-Object { Get-Prop $_ 'taken' })
+                $first = $taken | Select-Object -First 1
+                $where = if ($first) { '{0}x{1}，{2}' -f (Get-Prop $first 'width'), (Get-Prop $first 'height'), (Split-Path -Parent (Get-Prop $first 'path')) } else { '没有一张存下来' }
+                Write-Host ("    截图 {0}：{1}/{2} 张（{3} ms），{4}" -f (Get-Prop $st 'name'), $taken.Count, $shots.Count, (($shots | ForEach-Object { Get-Prop $_ 'at' }) -join '、'), $where)
+                $sawShots = $true
+            }
         }
     }
+    if ($sawShots) { Write-Host "截图在 $ResultDir 下面，只留在本机：不提交，不贴到 PR 或评论里" }
 } else { $problems += '没找到这次的结果文件' }
 foreach ($p in $problems) { Write-Host "问题：$p" }
 if ($code -eq 0 -and $problems.Count) { $code = 2 }
