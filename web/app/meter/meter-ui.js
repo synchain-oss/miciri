@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// 左栏输入卡：玻璃管电平表（单声道一根、立体声两根）、削波锁存灯、真峰值读数、信号状态药丸、
+// 左栏输入卡：玻璃管电平表（单声道一根、立体声两根）、削波灯、真峰值读数、信号状态药丸、
 // 采样率与缓冲与声道小标签、话筒类型菜单，以及测完后管内的结果标记和悬停提示。
 //
 // 数据：状态来自快照（setState），电平来自 miciri.meters 事件。电平事件只更新目标值，
-// 画面由 requestAnimationFrame 逐帧推进弹道；液面和峰值线都回到底之后停掉循环（空闲时零开销）。
+// 画面由 requestAnimationFrame 逐帧推进弹道；液面、峰值线和均方根内层都回到底之后停掉循环（空闲时零开销）。
+// 液面是峰值表（和读数、目标区、增益步同一个量：真峰值），均方根只是液面里一层淡色的内芯。
+// 削波灯亮多久由原生侧定（最后一次削波后 5 秒，点灯立即清），这里只照事件里的状态画灯。
 // 全程只用 DOM API，文字走词条。
 
 import { el } from "../../shared/dom.js";
@@ -55,10 +57,11 @@ export function createMeterCard(o) {
             on: { click: () => clearLatch() },
         });
         const liquid = el("i", { class: "lt__liquid" });
+        const rms = el("i", { class: "lt__rms" });
         const peak = el("i", { class: "lt__peak" });
         const bands = el("div", { class: "lt__bands", aria: { hidden: "true" } });
         const zone = el("i", { class: "lt__zone" });
-        const slot = el("div", { class: "lt__slot" }, liquid, bands, peak, zone);
+        const slot = el("div", { class: "lt__slot" }, liquid, rms, bands, peak, zone);
         const lbl = el("span", { class: "lt__lbl", text: id, aria: { hidden: "true" } });
         const node = el(
             "div",
@@ -67,7 +70,19 @@ export function createMeterCard(o) {
             el("div", { class: "lt__tube", data: { ch: id } }, slot, el("i", { class: "lt__gloss" })),
             lbl,
         );
-        lanes[id] = { node, lamp, liquid, peak, bands, zone, lvl: rest(), target: -80, targetPeak: -80, clip: false };
+        lanes[id] = {
+            node,
+            lamp,
+            liquid,
+            rms,
+            peak,
+            bands,
+            zone,
+            lvl: rest(),
+            target: -80,
+            targetRms: -80,
+            clip: false,
+        };
         return node;
     };
     const scale = el(
@@ -175,9 +190,9 @@ export function createMeterCard(o) {
             const ln = lanes[id];
             if (silent) {
                 ln.target = -80;
-                ln.targetPeak = -80;
+                ln.targetRms = -80;
             }
-            ln.lvl = advance(ln.lvl, ln.target, ln.targetPeak, dt);
+            ln.lvl = advance(ln.lvl, ln.target, dt, ln.targetRms);
             moving = moving || !atRest(ln.lvl) || ln.target > -80;
         }
         paint();
@@ -194,6 +209,7 @@ export function createMeterCard(o) {
         for (const id of LANES) {
             const ln = lanes[id];
             ln.liquid.style.setProperty("--lv", `${(ratio(ln.lvl.db) * 100).toFixed(2)}%`);
+            ln.rms.style.setProperty("--rl", `${(ratio(ln.lvl.rmsDb) * 100).toFixed(2)}%`);
             ln.peak.style.setProperty("--pk", `${(ratio(ln.lvl.peakDb) * 100).toFixed(2)}%`);
             const alert = !!bands && ln.lvl.peakDb > bands.tpTooLoudDbfs;
             if (alert) ln.peak.setAttribute("data-alert", "1");
@@ -207,10 +223,10 @@ export function createMeterCard(o) {
         if (!m) return;
         lastEvent = performance.now();
         const mono = !state || !state.device || state.device.layout !== "stereo";
-        lanes.L.target = m.levelDbfsL;
-        lanes.L.targetPeak = m.peakDbfsL;
-        lanes.R.target = mono ? -80 : m.levelDbfsR;
-        lanes.R.targetPeak = mono ? -80 : m.peakDbfsR;
+        lanes.L.target = m.peakDbfsL;
+        lanes.L.targetRms = m.levelDbfsL;
+        lanes.R.target = mono ? -80 : m.peakDbfsR;
+        lanes.R.targetRms = mono ? -80 : m.levelDbfsR;
         lanes.L.clip = !!m.clipLatchL;
         lanes.R.clip = !mono && !!m.clipLatchR;
         for (const id of LANES) {
