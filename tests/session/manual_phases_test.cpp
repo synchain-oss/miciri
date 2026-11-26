@@ -195,6 +195,13 @@ TEST_CASE("manual: ending the gain take early keeps the reading and its confiden
     feedUntil(*s, x, [&] { return s->live().canEnd; }, 480);
     REQUIRE(s->live().canEnd);
     CHECK(s->live().heard >= thr::session::gain_min_voice_s);
+    // 够了之后 heard 停在够了的那一刻，canEnd 不会收回
+    const double heard = s->live().heard;
+    REQUIRE(s->progressSec() + 0.2 < thr::session::gain_s);
+    feedAll(*s, voice(kFs, 0.2, fromDb(-15.0), 7));
+    CHECK(s->live().heard == heard);
+    CHECK(s->live().canEnd);
+    CHECK(s->live().needLeft == 0.0);
     REQUIRE(s->end());
     CHECK(s->progressSec() < thr::session::gain_s);
     const auto out = s->finish();

@@ -10,7 +10,7 @@
 |---|---|
 | `BRIDGE_FUNCTIONS` | `startPhase`、`endPhase`（都不带参数） |
 | `BRIDGE_REASONS` | `no-phase`：没有在等开始或可以手动结束的一段；`not-enough`：这一段还没收够最低量 |
-| `SNAPSHOT_LIVE` 末尾 | `waiting`、`canEnd`、`need`、`needLeft`、`heard` |
+| `SNAPSHOT_LIVE` 末尾 | `waiting`、`canEnd`、`need`、`needLeft`、`heard`。`heard` 是这一段朝最低量已收到多少，够了之后停在够了的那一刻、不再增长 |
 | 新枚举 `ENUM_PHASE_NEED` | `none`、`seconds`、`voice-seconds`、`claps`、`syllables` |
 | `ENUM_FLOW_NOTICE` 的含义 | 手动开始时，非 `success` 的提示表示这一阶段已退回待开始，`noticeSec` 为 0，提示留到用户再开始；自动推进时照旧倒数 |
 
