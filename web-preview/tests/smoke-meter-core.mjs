@@ -49,8 +49,8 @@ tail = advance(tail, -80, FRAME, -80);
 run.check(tail.rmsDb < -6 && tail.rmsDb > FLOOR, "内层同样慢落");
 
 // ---- ③ 人声式的读数 ----
-// 每个读取间隔的真峰值：音节里在 −9 到 −1.2 之间起伏，音节之间落到 −40；均方根比峰值低约 12 dB。
-const syllable = [-9, -3, -1.2, -2.5, -6, -14, -40, -40, -40, -40, -40, -40];
+// 每个读取间隔的真峰值：音节里在 −9 到 −2 之间起伏，音节之间落到 −40；均方根比峰值低约 12 dB。
+const syllable = [-9, -3, -2, -2.5, -6, -14, -40, -40, -40, -40, -40, -40];
 let lv = rest();
 let liquidMax = FLOOR;
 let rmsMax = FLOOR;
@@ -60,7 +60,7 @@ for (let rep = 0; rep < 3; rep++)
         liquidMax = Math.max(liquidMax, lv.db);
         rmsMax = Math.max(rmsMax, lv.rmsDb);
     }
-run.eq(liquidMax, -1.2, "液面最高处就是增益步测到的 −1.2，不再低一截");
+run.eq(liquidMax, -2, "液面最高处就是最响音节的真峰值，不再低一截");
 run.check(rmsMax <= liquidMax - 10, "均方根内层比液面低一截（正常的峰均比），不拿它当液面");
 
 // ---- ④ 远距离条与左栏同源 ----
@@ -76,6 +76,6 @@ for (const peak of syllable) {
     old = advance(old, peak - 12, FRAME);
     oldMax = Math.max(oldMax, old.db);
 }
-run.check(oldMax < -1.2 - 10, "反例：按均方根喂液面，最高处低于真峰值一大截");
+run.check(oldMax < -2 - 10, "反例：按均方根喂液面，最高处低于真峰值一大截");
 
 run.finish();
