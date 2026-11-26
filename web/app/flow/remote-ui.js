@@ -6,6 +6,8 @@
 // 结构只在“形状”变了（颜色、有没有字、点、槽位……）时重建，倒计时、指令文字、点亮的点、槽位判定都只改文字和属性，
 // 不重建节点：指令行是 aria-live=assertive，重建会让读屏把同一句话再念一遍。
 // 电平条的数据来自 miciri.meters；只有在显示时才跑 rAF，隐藏后零开销。
+// 手动分段：待开始时底栏是大的“开始”，进行中是“结束”和“还差什么”。“结束”收够之前是 aria-disabled（仍可聚焦，
+// 键盘用户停在上面，够了直接按），点了不发桥。结构一变就把焦点放到这个按钮上，键盘按 Enter 或空格就能开始、结束。
 
 import { el } from "../../shared/dom.js";
 import { advance, BAR_FLOOR, fmtDb, rest, ratio } from "../meter/meter-core.js";
@@ -23,11 +25,15 @@ const setAttr = (node, name, value) => {
 };
 
 /**
- * @param {{host: HTMLElement, t: Function, getLang: Function, onCancel: Function}} o
- *   t 是外壳的取词函数（切语言后自动取新语言）；onCancel 只在用户点“取消”时调用
+ * @param {{host: HTMLElement, t: Function, getLang: Function, onCancel: Function, onStart?: Function, onEnd?: Function}} o
+ *   t 是外壳的取词函数（切语言后自动取新语言）；onCancel 只在用户点“取消”时调用；
+ *   onStart、onEnd 是手动分段的“开始”“结束”（“结束”只在收够最低量时调用）
  */
 export function createRemote(o) {
     const { host, t, getLang, onCancel } = o;
+    const onStart = o.onStart || (() => {});
+    const onEnd = o.onEnd || (() => {});
+    let canEnd = false;
     const tr = (m) => (m ? t(m.key, tv(t, m.vars)) : "");
     let shape = "";
     let refs = null;
@@ -115,12 +121,39 @@ export function createRemote(o) {
                   el("span", { style: { right: "0" }, text: "0 dB" }),
               )
             : null;
+        r.need = m.need ? el("p", { class: "rm__need", id: "rm-need", data: { part: "need" } }) : null;
+        r.go = m.go
+            ? el("button", {
+                  type: "button",
+                  class: "sc-btn rm__go",
+                  text: t("flow.rm.start"),
+                  data: { glow: "1", part: "start" },
+                  on: { click: () => onStart() },
+              })
+            : null;
+        r.end = m.end
+            ? el("button", {
+                  type: "button",
+                  class: "sc-btn rm__go rm__go--end",
+                  text: t("flow.rm.end"),
+                  aria: { describedby: r.need ? "rm-need" : null },
+                  data: { glow: "1", part: "end" },
+                  on: {
+                      click: () => {
+                          if (canEnd) onEnd();
+                      },
+                  },
+              })
+            : null;
         const foot =
             m.struct === "success"
                 ? null
                 : el(
                       "div",
                       { class: "rm__foot" },
+                      r.need,
+                      r.go,
+                      r.end,
                       el("button", {
                           type: "button",
                           class: "sc-btn rm__cancel",
@@ -156,6 +189,12 @@ export function createRemote(o) {
         if (refs.sub2) setText(refs.sub2, tr(m.sub2));
         if (refs.num) setText(refs.num, String(m.count));
         if (refs.aux) setText(refs.aux, tr(m.aux));
+        if (refs.need) setText(refs.need, tr(m.need));
+        canEnd = !!(m.end && m.end.can);
+        if (refs.end) {
+            setAttr(refs.end, "aria-disabled", canEnd ? "false" : "true");
+            setAttr(refs.end, "data-ready", canEnd ? "1" : "0");
+        }
         if (refs.eb) setText(refs.eb, t("flow.rm.step", { name: t(`flow.step.${STEP_KEY[m.step]}`), n: m.stepNo }));
         if (refs.dots && m.dots) {
             [...refs.dots.children].forEach((d, i) => {
@@ -221,16 +260,23 @@ export function createRemote(o) {
                 m.count != null,
                 !!m.aux,
                 !!m.bar,
+                !!m.go,
+                !!m.end,
+                !!m.need,
                 !!zone,
                 zone && zone.lo,
                 zone && zone.hi,
             ]);
-            if (sig !== shape || !refs || !refs.root.isConnected) {
+            const rebuilt = sig !== shape || !refs || !refs.root.isConnected;
+            if (rebuilt) {
                 refs = build(m, zone);
                 shape = sig;
             }
             patch(m);
             host.hidden = false;
+            // 换了结构（待开始 ↔ 进行中、换了一段）：焦点放到这一段的主按钮上
+            const main = refs.go || refs.end;
+            if (rebuilt && main) main.focus({ preventScroll: true });
             if (!shown) {
                 shown = true;
                 lvl = rest();

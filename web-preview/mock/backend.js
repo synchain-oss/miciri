@@ -7,7 +7,8 @@
 //
 // 窗口缩放按「先设置、确认才提交」实现：setUiScale 立刻改窗口（onResize）并推快照；档位与已提交的不同时记为待确认，
 // commitUiScale 提交，没有待确认项回 no-pending；setUiScale 回到已提交的档位时待确认项自动消失（回退走的就是这条）。
-// 流程相关：startStep / cancelStep 交给 flow-sim 推进（只推进进度、阶段和拍手判定，不测量任何东西）；reportChange 按过期规则
+// 流程相关：startStep / cancelStep / startPhase / endPhase 交给 flow-sim 推进（只推进进度、阶段和拍手判定，不测量任何东西；
+// 缺省像插件一样手动开始各段，o.phases = "auto" 时像宿主测试的探针那样自动推进）；reportChange 按过期规则
 // 把对应的步骤和结果标成 stale。测试与预览用 sim.advance(秒) 推进、mutate(fn) 直接改快照、emitMeters(patch) 推电平。
 // getEvidence 给合成的证据波形（evidence.js），只在这一步做完过（evidenceRev > 0）时有。
 // calls 记录全部调用，供冒烟断言；它不属于桥契约。
@@ -50,6 +51,7 @@ const fail = (reason) => {
  * @param {boolean} [o.guideSeen] 指南已看；缺省为真，这样别的冒烟不被首启指南挡住，false 用来演首次启动
  * @param {(f:number)=>void} [o.onResize] 宿主改窗口尺寸的回调：参数是档位
  * @param {boolean} [o.scaleLocked] 为 true 时 setUiScale 回 scale-locked
+ * @param {"manual"|"auto"} [o.phases] 各段怎样分段，缺省 manual
  */
 export function createMockBackend(o = {}) {
     const snap = buildSnapshot({ lang: o.lang, uiScale: o.uiScale, guideSeen: o.guideSeen });
@@ -65,7 +67,7 @@ export function createMockBackend(o = {}) {
         for (const cb of listeners.get(name) || []) cb(payload);
     };
     const pushState = () => emit("miciri.state", structuredClone(snap));
-    const sim = createFlowSim(snap, { push: pushState });
+    const sim = createFlowSim(snap, { push: pushState }, { phases: o.phases });
     let meters = floorMeters();
 
     const impl = {
@@ -112,9 +114,15 @@ export function createMockBackend(o = {}) {
             sim.cancel();
             return OK;
         },
-        // 预览的模拟各段首尾相接、自动推进（原生的自动模式），没有在等开始或可以结束的段
-        startPhase: () => fail("no-phase"),
-        endPhase: () => fail("no-phase"),
+        // 一段的开始与结束：回执与插件相同（ok、no-phase、not-enough）
+        startPhase() {
+            const r = sim.startPhase();
+            return r === "ok" ? OK : fail(r);
+        },
+        endPhase() {
+            const r = sim.endPhase();
+            return r === "ok" ? OK : fail(r);
+        },
         reportChange(kind) {
             if (!ENUM_CHANGE_KIND.includes(kind)) return fail("bad-arg");
             // 过期按区段标；一步里有任何一个区段过期，这一步就是 stale（契约）

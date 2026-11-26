@@ -66,6 +66,16 @@ function start(shell) {
         if (r && r.ok === false) bridgeFailed();
         return r;
     };
+    // 一段的开始与结束：快照还没跟上时点的（这一段刚好到了上限、已经开始过）回 no-phase 或 not-enough，
+    // 界面随下一个快照自己更新，不当作错误
+    const phase = (call) =>
+        Promise.resolve()
+            .then(call)
+            .then((r) => {
+                if (r && r.ok === false && r.reason !== "no-phase" && r.reason !== "not-enough") bridgeFailed();
+                return r;
+            })
+            .catch(bridgeFailed);
 
     // ---- 远距离模式 ----
     const remoteHost = el("div", { id: "remote", class: "remote", hidden: true, data: { part: "remote" } });
@@ -79,6 +89,8 @@ function start(shell) {
                 .then(() => bridge.cancelStep())
                 .then(receipt)
                 .catch(bridgeFailed),
+        onStart: () => phase(() => bridge.startPhase()),
+        onEnd: () => phase(() => bridge.endPhase()),
     });
     bridge.on("miciri.meters", (m) => remote.setMeter(m));
 

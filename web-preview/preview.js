@@ -7,7 +7,7 @@
 // file:// 下 iframe 变成跨源，读不到父窗口。
 //
 // 查询参数：lang=zh|en 开窗语言；scale=档位（须在档位表里）；locked=1 模拟缩放被锁（setUiScale 回 scale-locked）；guide=fresh 演首次启动（指南未看，开窗后自动打开一次）；
-// autorun=1 让模拟的测试自己走（每秒一步）。
+// autorun=1 让模拟的测试自己走（每秒一步）；phases=auto 让各段自动推进（宿主测试的探针那样），缺省像插件一样手动开始各段。
 
 import { DESIGN } from "../web/shared/design-box.js";
 import { createMockBackend } from "./mock/backend.js";
@@ -30,6 +30,7 @@ window.__MICIRI_MOCK__ = createMockBackend({
     guideSeen: query.get("guide") !== "fresh",
     onResize: resize,
     scaleLocked: query.get("locked") === "1",
+    phases: query.get("phases") === "auto" ? "auto" : "manual",
 });
 frame.src = "../web/app/shell/index.html";
 

@@ -24,6 +24,8 @@ MiciriProcessor::MiciriProcessor()
     // 验证宿主（pluginval）下不开始测试。FL Studio 与 REAPER 的轨道可能没有单声道选项，声道提示换一种说法。
     const juce::PluginHostType host;
     session_.setHostTraits({host.isPluginval(), host.isFruityLoops() || host.isReaper()});
+    // 界面驱动时各段由用户开始、收够后可以提前结束；宿主测试的探针有脚本时按脚本另设（缺省自动推进）
+    session_.setPhaseControl(session::PhaseControl::Manual);
 #ifdef MICIRI_HOST_PROBE
     (void)probe::counters(); // 先把计数器建好，音频线程不会是第一个碰它的
     probe_ = ProbeRunner::create(*this, probeSamples_);
