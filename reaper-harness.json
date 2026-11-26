@@ -22,7 +22,10 @@
           "blocksNonZero",
           "editorOpens",
           "editorCloses",
-          "analysisCount"
+          "analysisCount",
+          "uiReady",
+          "uiFallback",
+          "bridgeRoundTrips"
         ]
       }
     }
@@ -426,6 +429,62 @@
           }
         }
       ]
+    },
+    {
+      "id": "ui-start",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "states": [
+        {
+          "name": "ui-cold-start",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "windows": {
+            "plugin": "miciri",
+            "count": 1,
+            "holdMs": 10000,
+            "capture": [300, 2000, 8000],
+            "maxBlockDiff": 4
+          },
+          "expect": {
+            "report": {
+              "miciri": {
+                "editorOpens": { "delta": 1 },
+                "editorCloses": { "delta": 1 },
+                "uiReady": { "delta": 1 },
+                "uiFallback": { "delta": 0 },
+                "bridgeRoundTrips": { "delta": { "min": 1 } }
+              }
+            }
+          }
+        },
+        {
+          "name": "ui-reopen",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "windows": {
+            "plugin": "miciri",
+            "count": 1,
+            "holdMs": 10000,
+            "capture": [300, 2000, 8000],
+            "maxBlockDiff": 4
+          },
+          "expect": {
+            "report": {
+              "miciri": {
+                "editorOpens": { "delta": 1 },
+                "editorCloses": { "delta": 1 },
+                "uiReady": { "delta": 1 },
+                "uiFallback": { "delta": 0 },
+                "bridgeRoundTrips": { "delta": { "min": 1 } }
+              }
+            }
+          }
+        }
+      ]
     }
   ],
   "negative": [
@@ -467,6 +526,24 @@
       ],
       "expect": "FAIL",
       "expectDetail": "miciri\\.editorOpens grew by 3, expected"
+    },
+    {
+      "id": "neg-ui-ready-count-off-by-one",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "states": [
+        {
+          "name": "ui-ready-twice",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "windows": { "plugin": "miciri", "count": 1, "holdMs": 10000, "maxBlockDiff": 4 },
+          "expect": { "report": { "miciri": { "uiReady": { "delta": 2 } } } }
+        }
+      ],
+      "expect": "FAIL",
+      "expectDetail": "miciri\\.uiReady grew by 1, expected"
     },
     {
       "id": "neg-unarmed-has-no-signal",
