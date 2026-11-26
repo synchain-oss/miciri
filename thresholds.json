@@ -1047,7 +1047,7 @@
       "state": "pending",
       "source": "工程起始值",
       "date": null,
-      "note": "how often the room step re-reads the claps so far to give per-clap feedback"
+      "note": "how often the room step re-reads the claps so far to give per-clap feedback; with manual phases the soft claps of the position step are re-read as often, to count the clean ones"
     },
     "soft_claps": { "value": 3, "state": "pending", "source": "规格起始值", "date": null },
     "soft_clap_round_s": { "value": 2.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -1125,11 +1125,11 @@
       "note": "with manual phases, syllables the plosive or the sibilant list needs before the user may end it, counted by that list's own analysis; the shortest list has six words"
     },
     "natural_min_voice_s": {
-      "value": 10.0,
+      "value": 8.0,
       "state": "pending",
       "source": "工程起始值",
       "date": null,
-      "note": "with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading"
+      "note": "with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading. The reading is capped at click.analysis_window_s (15 s) and only about 70 % of natural reading counts as voiced: on six natural-reading recordings every 15 s stretch reached 8 s but only 82 % reached 10 s. To be calibrated on more recordings"
     },
     "direction_min_voice_s": {
       "value": 1.5,

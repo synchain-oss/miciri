@@ -112,8 +112,9 @@ ProbeRunner::ProbeRunner(MiciriProcessor& processor, const std::atomic<std::uint
         scriptActions_ = script.actions.size();
         scheduler_ = probe::Scheduler(std::move(script.actions));
         // 有脚本时按脚本分段：缺省 auto，各段首尾相接，宿主测试的时间轴与手动开始之前相同
-        processor_.session().setPhaseControl(script.manualPhases ? session::PhaseControl::Manual
-                                                                 : session::PhaseControl::Auto);
+        manualPhases_ = script.manualPhases;
+        processor_.session().setPhaseControl(manualPhases_ ? session::PhaseControl::Manual
+                                                           : session::PhaseControl::Auto);
     }
     if (scripted_ || outDir_)
         intervalMs_ = kActionIntervalMs;
@@ -233,7 +234,8 @@ probe::Reply ProbeRunner::execute(const probe::Action& a)
         s.dismissChannelPrompt();
         return {};
     case probe::Op::StartPhase:
-        // 上一段还在进行时回 busy、下一拍再试，脚本可以把 startPhase 写在上一段收完之前
+        // 手动开始时，上一段还在进行就回 busy、下一拍再试，脚本可以把 startPhase 写在上一段收完之前；
+        // 自动推进时没有可以开始的段，直接回 no-phase，不拖住后面的动作
         switch (s.startPhase())
         {
         case session::Session::Phase::Ok:
@@ -242,7 +244,7 @@ probe::Reply ProbeRunner::execute(const probe::Action& a)
         case session::Session::Phase::NoPhase:
             break;
         }
-        return {false, s.running() ? kBusy : kNoPhase};
+        return {false, manualPhases_ && s.running() ? kBusy : kNoPhase};
     case probe::Op::EndPhase:
         switch (s.endPhase())
         {

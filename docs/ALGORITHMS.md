@@ -506,7 +506,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `room_max_s` | 20 | 待标定 | 规格起始值 |  |
 | `room_claps_needed` | 4 | 待标定 | 规格起始值 |  |
 | `room_claps_max` | 8 | 待标定 | 规格起始值 |  |
-| `live_clap_every_s` | 0.5 | 待标定 | 工程起始值 | how often the room step re-reads the claps so far to give per-clap feedback |
+| `live_clap_every_s` | 0.5 | 待标定 | 工程起始值 | how often the room step re-reads the claps so far to give per-clap feedback; with manual phases the soft claps of the position step are re-read as often, to count the clean ones |
 | `soft_claps` | 3 | 待标定 | 规格起始值 |  |
 | `soft_clap_round_s` | 2 | 待标定 | 规格起始值 |  |
 | `word_list_rounds` | 2 | 待标定 | 规格起始值 |  |
@@ -522,7 +522,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `evidence_events_max` | 200 | 待标定 | 工程起始值 | most plosive, sibilance and mouth-noise events in one step's evidence; the earliest are kept |
 | `gain_min_voice_s` | 3 | 待标定 | 工程起始值 | with manual phases, voiced seconds the gain take needs before the user may end it; voiced frames follow the speech level rule of the noise group |
 | `word_list_min_events` | 6 | 待标定 | 工程起始值 | with manual phases, syllables the plosive or the sibilant list needs before the user may end it, counted by that list's own analysis; the shortest list has six words |
-| `natural_min_voice_s` | 10 | 待标定 | 工程起始值 | with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading |
+| `natural_min_voice_s` | 8 | 待标定 | 工程起始值 | with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading. The reading is capped at click.analysis_window_s (15 s) and only about 70 % of natural reading counts as voiced: on six natural-reading recordings every 15 s stretch reached 8 s but only 82 % reached 10 s. To be calibrated on more recordings |
 | `direction_min_voice_s` | 1.5 | 待标定 | 工程起始值 | with manual phases, voiced seconds each direction take needs before the user may end it |
 | `click_guard_s` | 0.3 | 待标定 | 工程起始值 | with manual phases, audio dropped after the user starts a phase and before the user ends it, so the mouse click is not analysed |
 | `live_words_every_s` | 1 | 待标定 | 工程起始值 | with manual phases, how often a word list is re-analysed to count its syllables, until there are enough |

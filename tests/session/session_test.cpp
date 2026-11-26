@@ -422,18 +422,31 @@ TEST_CASE("with manual phases, start and end are taken only when they apply, and
     }
     mix(x, whiteNoise(x.size(), 1e-4, 3)); // 停顿里是底噪，不是数字零（数字零不算安静的底）
     pump(s.tap(), x, 1, fs, 1.3);
-    // 音频停了：要在判成回调中断之前做完下面几件事
-    REQUIRE(waitFor([&] { return s.view().live.canEnd; }, 1.0));
+    // 之后一直慢慢地喂底噪：音频不断（不会判成回调中断），又远赶不上实时（这一段不会先到上限），断言多慢都不受影响
+    std::atomic<bool> stop{false};
+    std::thread keepAlive([&] {
+        const std::vector<double> floor = whiteNoise(48, 1e-4, 4);
+        const double* ptrs[1] = {floor.data()};
+        while (!stop.load())
+        {
+            s.tap().process(ptrs, 1, static_cast<int>(floor.size()), false);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+    });
+    REQUIRE(waitFor([&] { return s.view().live.canEnd; }));
     CHECK(s.view().live.directionIndex == 0);
     CHECK(s.endPhase() == Phase::Ok);
-    REQUIRE(waitFor([&] { return s.view().live.waiting; }, 1.0)); // 没有新音频也执行了
+    REQUIRE(waitFor([&] { return s.view().live.waiting; }));
     CHECK(s.view().live.directionIndex == 1);
     CHECK_FALSE(s.view().live.canEnd);
     CHECK(s.endPhase() == Phase::NoPhase);
     CHECK(s.startPhase() == Phase::Ok);
-    REQUIRE(waitFor([&] { return !s.view().live.waiting; }, 1.0));
+    REQUIRE(waitFor([&] { return !s.view().live.waiting; }));
     CHECK(s.view().live.directionIndex == 1);
+    CHECK(s.running());
     s.cancelStep();
+    stop = true;
+    keepAlive.join();
     CHECK(stepOf(s, StepId::Direction).status == StepStatus::Idle);
 }
 

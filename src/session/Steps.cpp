@@ -255,7 +255,15 @@ void StepScript::restartPhase(FlowNotice notice)
 void StepScript::updateLive()
 {
     if (segment_ >= plan_.size())
+    {
+        // 最后一段已经结束：没有可以开始或结束的段了
+        live_.waiting = false;
+        live_.canEnd = false;
+        live_.need = core::PhaseNeed::None;
+        live_.needLeft = 0.0;
+        live_.heard = 0.0;
         return;
+    }
     const Segment& seg = plan_[segment_];
     live_.phase = seg.phase;
     live_.round = seg.round;
@@ -266,12 +274,16 @@ void StepScript::updateLive()
         live_.directionIndex = seg.round - 1;
     live_.noticeSec = static_cast<double>(noticeLeft_) / ctx_.sampleRate;
     live_.waiting = waiting_;
-    const Need n = manual() ? need(seg) : Need{};
-    if (manual() && !waiting_ && n.left <= 0.0)
-        reached_ = true; // 够了就一直够：后面的音频改变了百分位，也不把已经能按的“结束”收回去
-    live_.need = n.kind;
-    live_.needLeft = reached_ ? 0.0 : std::max(0.0, n.left);
-    live_.heard = n.heard;
+    // 够了就一直够：后面的音频改变了百分位，也不把已经能按的“结束”收回去。够了之后不再数（有声秒数每次要对全部帧
+    // 重算百分位），heard 停在够了的那一刻
+    if (!reached_)
+    {
+        const Need n = manual() ? need(seg) : Need{};
+        reached_ = manual() && !waiting_ && n.left <= 0.0;
+        live_.need = n.kind;
+        live_.needLeft = reached_ ? 0.0 : std::max(0.0, n.left);
+        live_.heard = n.heard;
+    }
     live_.canEnd = manual() && !waiting_ && reached_;
 }
 

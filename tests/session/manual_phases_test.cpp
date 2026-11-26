@@ -118,6 +118,13 @@ TEST_CASE("manual: the first segment starts with the step, the click guard is dr
     CHECK(analysed == Catch::Approx(minSec).margin(480.0 / kFs));
     REQUIRE(s->end());
     CHECK(s->done());
+    // 最后一段结束了：没有可以开始或结束的段
+    CHECK_FALSE(s->live().canEnd);
+    CHECK_FALSE(s->live().waiting);
+    CHECK(s->live().need == PhaseNeed::None);
+    CHECK(s->live().needLeft == 0.0);
+    CHECK(s->live().heard == 0.0);
+    CHECK_FALSE(s->end());
     CHECK(s->progressSec() == Catch::Approx(analysed));
     const auto out = s->finish();
     REQUIRE(out.results.noise.has_value());
