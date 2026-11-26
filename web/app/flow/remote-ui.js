@@ -32,7 +32,7 @@ export function createRemote(o) {
     let shape = "";
     let refs = null;
     let lvl = rest();
-    let target = { db: -80, peak: -80 };
+    let target = { peak: -80 };
     let lastEvent = 0;
     let raf = 0;
     let last = 0;
@@ -186,8 +186,8 @@ export function createRemote(o) {
         if (!shown || !refs || !refs.liq.isConnected) return;
         const dt = last ? Math.min(100, ts - last) : 16;
         last = ts;
-        if (ts - lastEvent > SILENT_MS) target = { db: -80, peak: -80 };
-        lvl = advance(lvl, target.db, target.peak, dt);
+        if (ts - lastEvent > SILENT_MS) target = { peak: -80 };
+        lvl = advance(lvl, target.peak, dt);
         paintBar();
         // 显示期间一直跑：远距离模式下液面是主要反馈，且只在测试进行中显示
         raf = requestAnimationFrame(frame);
@@ -247,19 +247,15 @@ export function createRemote(o) {
             if (raf) cancelAnimationFrame(raf);
             raf = 0;
         },
-        /** miciri.meters 的载荷：两路里取响的那路（远距离条只有一条） */
+        /** miciri.meters 的载荷：两路里取响的那路（远距离条只有一条）。液面和峰值线都按真峰值画，和左栏一致。 */
         setMeter(m) {
             if (!m) return;
             lastEvent = performance.now();
-            const db = Math.max(
-                Number.isFinite(m.levelDbfsL) ? m.levelDbfsL : -80,
-                Number.isFinite(m.levelDbfsR) ? m.levelDbfsR : -80,
-            );
             const peak = Math.max(
                 Number.isFinite(m.peakDbfsL) ? m.peakDbfsL : -80,
                 Number.isFinite(m.peakDbfsR) ? m.peakDbfsR : -80,
             );
-            target = { db, peak };
+            target = { peak };
             kick();
         },
         get shown() {

@@ -4,6 +4,7 @@
 // 不依赖 JUCE，double 精度，没有全局状态。
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -143,6 +144,54 @@ private:
 // 真峰值（线性幅度）：窗函数 sinc 插值 factor 倍后取最大绝对值；factor 小于 2 时就是样本峰值。
 // 两端各留出插值核的一半长度不插值（零延拓会在边缘制造假的过冲），那一段只看样本值。
 double truePeak(const double* samples, std::size_t count, int factor);
+
+// 流式真峰值：与 truePeak 用同一个插值核，按块喂入，历史跨块保留，实时线程可用。
+// prepare 里算好系数（不在实时线程调用）；之后 push 不分配、不加锁、不抛异常，NaN 与 Inf 当 0 进入历史。
+// push 返回这一块里插值点的最大绝对值，样本自己的峰值不计，由调用方与样本峰值取大。
+// 历史没攒满一个插值窗口之前不输出：零延拓会在起点制造假的过冲（和 truePeak 留出两端同理）。
+// 同一段信号不论怎么分块，与样本峰值取大后的结果都与 truePeak 一致（只差浮点舍入）。
+class StreamingTruePeak
+{
+public:
+    static constexpr int kTaps = 20; // 插值核单边长度的两倍，与 truePeak 的核一致
+    static constexpr int kMaxFactor = 4; // 插值倍数上限；更大的倍数按它算
+
+    // factor 小于 2 时 push 恒返回 0（只剩样本峰值）。会清空历史。
+    void prepare(int factor) noexcept;
+    void reset() noexcept;
+
+    template<class Sample>
+    double push(const Sample* samples, int count) noexcept
+    {
+        double peak = 0.0;
+        if (phases_ == 0)
+            return peak;
+        for (int i = 0; i < count; ++i)
+        {
+            pos_ = pos_ == 0 ? kTaps - 1 : pos_ - 1;
+            const double x = finiteOrZero(static_cast<double>(samples[i]));
+            ring_[pos_] = x;
+            ring_[pos_ + kTaps] = x; // 复制一份，让最近的 kTaps 个样本在内存里连续
+            if (filled_ < kTaps && ++filled_ < kTaps)
+                continue;
+            for (int p = 0; p < phases_; ++p)
+            {
+                double y = 0.0;
+                for (int t = 0; t < kTaps; ++t)
+                    y += coef_[p][t] * ring_[pos_ + t]; // ring_[pos_ + t] 是 t 个样本之前的值
+                peak = std::max(peak, std::fabs(y));
+            }
+        }
+        return peak;
+    }
+
+private:
+    int phases_ = 0; // 插值点数：倍数减 1
+    int pos_ = 0;
+    int filled_ = 0;
+    std::array<std::array<double, kTaps>, kMaxFactor - 1> coef_{};
+    std::array<double, 2 * kTaps> ring_{};
+};
 
 // 实数序列的功率谱 |X[k]|²，k = 0 到 n/2，不加窗不缩放。
 void powerSpectrum(const double* samples, std::size_t count, std::vector<double>& out);

@@ -69,9 +69,13 @@ public:
     // 回调计数：每个 processBlock 加一。编辑器的定时器按墙钟观察它有没有在走。
     std::uint64_t heartbeat() const noexcept { return heartbeat_.load(std::memory_order_relaxed); }
 
-    // 读电平：峰值读后清零，均方是最近一块，削波锁存保持。
+    // 读电平（消息线程）：真峰值与均方根都是自上次读取以来的，读后清零；削波灯在最后一次削波之后亮 5 秒，点灯可立即清。
+    // 带时间的重载给测试用，时间是单调毫秒。
     plugin::MeterReadout readMeters();
+    plugin::MeterReadout readMeters(std::uint32_t nowMs);
     void clearClipLatch();
+    // 丢掉累计着的电平并把已有的削波记为已读：编辑器打开时调，关着的这段时间里累计的峰值与削波不该在重新打开时显示出来。
+    void resetMeters();
 
     // 话筒类型：枚举下标，对应桥契约的 ENUM_MIC_TYPE。越界返回 false 且不改。
     int micType() const noexcept { return micType_.load(std::memory_order_relaxed); }
@@ -93,6 +97,7 @@ private:
     static constexpr int kMeterChannels = 2;
 
     plugin::ChannelMeter meters_[kMeterChannels];
+    plugin::ClipLamp lamps_[kMeterChannels]; // 只在消息线程读写
     std::atomic<std::uint64_t> heartbeat_{0};
     std::atomic<double> sampleRate_{0.0};
     std::atomic<int> bufferSize_{0};

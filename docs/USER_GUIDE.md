@@ -72,8 +72,9 @@ The window opens with a large level bar. Speak, and when the bar moves, the sign
 
 ## The window
 
-- **Left: the input panel.** The level meter (with the true peak and the target zone), the buffer size, a clip lamp that you click
-  to clear, and the microphone type (dynamic, condenser, USB, headset or not sure; you can skip it). After tests, the meter also
+- **Left: the input panel.** The level meter (the liquid and the thin line above it are the true peak, with the target zone; a paler core inside
+  the liquid is the average level), the buffer size, a clip lamp that goes out by itself 5 seconds after the last clip (or when you
+  click it), and the microphone type (dynamic, condenser, USB, headset or not sure; you can skip it). After tests, the meter also
   shows marks for the noise floor, hum and the loudest mouth click; hover over a mark to see what it is.
 - **The step bar** across the top: Connect, Gain, Quiet, Room, Position, Direction (advanced) and Report. Each step is marked not done,
   current, done, stale or failed. Click a step, a card above or below, or "Next" to move; scrolling also turns the page.
@@ -98,7 +99,8 @@ the card says what it may be; see [If no signal arrives](#if-no-signal-arrives).
 ### 2. Gain (about 8 seconds)
 
 Sing as loudly as you will record, and keep going until the step finishes. Miciri reads the peak level (true peak) and whether
-the signal clipped. The target zone is shown on the meter. If you clipped, lower the input volume by a good margin and test
+the signal clipped. The target zone is shown on the meter, and the top of the blue liquid is the same true peak that the
+step judges, so the highest you sing should reach the zone. If you clipped, lower the input volume by a good margin and test
 again; if you are far below the zone, raise it. Miciri does not tell you which knob to turn, because it cannot read your
 hardware: for a USB microphone it is the system input volume.
 
@@ -176,6 +178,7 @@ Some of these cannot be told apart from a very quiet room with nobody speaking, 
 
 - **dBFS**: decibels relative to digital full scale. 0 dBFS is the loudest level a digital signal can hold; quieter levels are negative.
 - **Peak / true peak (dBTP)**: the highest level of the signal. True peak also catches the peaks that fall between samples.
+  The level meter shows it. The paler core inside the liquid is the average level (RMS), which for a voice sits well below the peaks.
 - **Clipping**: the signal hit the ceiling and was flattened. It sounds harsh and cannot be repaired afterwards.
 - **Gain**: how much the input is amplified. Too low drowns the voice in noise; too high clips.
 - **Noise floor / SNR**: the steady background noise, and how far your voice sits above it. A larger signal-to-noise ratio is better.

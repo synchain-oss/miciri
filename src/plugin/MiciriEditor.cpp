@@ -73,6 +73,8 @@ MiciriEditor::MiciriEditor(MiciriProcessor& processor, Config config)
       hostName_(juce::PluginHostType().getHostDescription()), guideSeen_(uidefaults::guideSeenGlobal()),
       lastBeat_(processor.heartbeat()), lastBeatChangeMs_(wallClockMs()), lastDevice_(processor.deviceInfo())
 {
+    // 编辑器关着的时候没人读电平：重新打开时丢掉累计的峰值、均方和已有的削波，液面和灯只反映看得见的这段时间。
+    processor.resetMeters();
 #ifdef MICIRI_HOST_PROBE
     probe::counters().noteEditorOpened();
 #endif

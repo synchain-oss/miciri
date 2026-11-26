@@ -316,6 +316,26 @@ void Decimator::push(const double* samples, std::size_t count, std::vector<doubl
     }
 }
 
+namespace
+{
+// 第 p 个插值点（n + p/factor 处）的系数行：值 = Σ_t row[t] * x[n + half - t]，t = d + half，d 取 -half 到 half-1。
+// truePeak 与 StreamingTruePeak 共用这一个核。
+void interpolationRow(int factor, int p, double* row)
+{
+    double sum = 0.0;
+    for (int d = -kKernelHalfLength; d < kKernelHalfLength; ++d)
+    {
+        const double tau = static_cast<double>(p) / factor + d;
+        const double h = sinc(tau) * kaiser(tau / kKernelHalfLength, kKaiserBeta);
+        row[d + kKernelHalfLength] = h;
+        sum += h;
+    }
+    for (int t = 0; t < 2 * kKernelHalfLength; ++t)
+        row[t] /= sum;
+}
+static_assert(StreamingTruePeak::kTaps == 2 * kKernelHalfLength, "流式真峰值的窗口要与插值核等长");
+} // namespace
+
 double truePeak(const double* samples, std::size_t count, int factor)
 {
     double peak = 0.0;
@@ -324,23 +344,9 @@ double truePeak(const double* samples, std::size_t count, int factor)
     const auto half = static_cast<std::size_t>(kKernelHalfLength);
     if (factor < 2 || count < 2 * half + 1)
         return peak;
-    // coef[p - 1][t]：n + p/factor 处的值 = Σ_t coef[t] * x[n + half - t]（t = d + half，d 取 -half 到 half-1，x[n -
-    // d]）
     std::vector<std::vector<double>> coef(static_cast<std::size_t>(factor - 1), std::vector<double>(2 * half));
     for (int p = 1; p < factor; ++p)
-    {
-        auto& row = coef[static_cast<std::size_t>(p - 1)];
-        double sum = 0.0;
-        for (int d = -kKernelHalfLength; d < kKernelHalfLength; ++d)
-        {
-            const double tau = static_cast<double>(p) / factor + d;
-            const double h = sinc(tau) * kaiser(tau / kKernelHalfLength, kKaiserBeta);
-            row[static_cast<std::size_t>(d + kKernelHalfLength)] = h;
-            sum += h;
-        }
-        for (double& h : row)
-            h /= sum;
-    }
+        interpolationRow(factor, p, coef[static_cast<std::size_t>(p - 1)].data());
     for (std::size_t n = half - 1; n + half < count; ++n)
     {
         for (const auto& row : coef)
@@ -352,6 +358,22 @@ double truePeak(const double* samples, std::size_t count, int factor)
         }
     }
     return peak;
+}
+
+void StreamingTruePeak::prepare(int factor) noexcept
+{
+    reset();
+    const int used = std::min(factor, kMaxFactor);
+    phases_ = used < 2 ? 0 : used - 1;
+    for (int p = 1; p <= phases_; ++p)
+        interpolationRow(used, p, coef_[static_cast<std::size_t>(p - 1)].data());
+}
+
+void StreamingTruePeak::reset() noexcept
+{
+    pos_ = 0;
+    filled_ = 0;
+    ring_.fill(0.0);
 }
 
 void powerSpectrum(const double* samples, std::size_t count, std::vector<double>& out)

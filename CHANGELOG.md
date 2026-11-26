@@ -45,6 +45,12 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
 
 ### Fixed
 
+- Level meter: the blue liquid was the average level of only the last audio block while the peak line and the scale were the
+  peak, so a voice's liquid sat far below the line (and below what the gain step then judged). The liquid is now a peak meter:
+  it follows the true peak (4x oversampled, the same interpolation as the gain step) between two reads, rises at once and falls
+  slowly, and the peak line is kept. The average level (RMS over the same interval) is a paler core inside it. The large-type
+  bar in the test view reads the true peak too.
+- Clip lamp: it used to stay on until clicked. It now goes out 5 seconds after the last clip, and a click still clears it at once.
 - Plug-in window: the UI never finished starting in any host (first seen in Cubase 15 on Windows, then reproduced in REAPER).
   The JUCE front-end bridge script was compiled in without the file it imports, so the page could not make a single call to the
   plug-in and switched to the fallback panel after 15 s. Both files are compiled in now, and a test starts the real page through

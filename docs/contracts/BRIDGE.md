@@ -32,7 +32,7 @@ status: frozen
 | `dismissChannelPrompt` | 无 | “两路是同一个声音”的“不再提醒” |
 | `openExternal` | 链接 | 交给系统浏览器，页面不自己打开外链 |
 | `showLicense` | 无 | 打开许可证 |
-| `clearClipLatch` | 无 | 用户点削波灯：清掉锁存，单声道和立体声都清 |
+| `clearClipLatch` | 无 | 用户点削波灯：立即熄灯，单声道和立体声都清；已经发生的削波不会再把灯点亮，之后的新削波会 |
 | `getEvidence` | `ENUM_STEP_ID` 之一 | 追加。回 `{ok: true, evidence}`，`evidence` 是这一步最近一次做完时的证据波形（见下文“证据波形”）；不认识回 `bad-step`，这一步没做完过回 `no-evidence`。只读，不改状态、不推快照 |
 | `startPhase` | 无 | 追加。开始正在等开始（`live.waiting`）的那一段；没有这样的一段回 `no-phase`。见下文“一段的开始与结束” |
 | `endPhase` | 无 | 追加。结束正在进行、已收够最低量（`live.canEnd`）的那一段；还没收够回 `not-enough`，没有正在进行、可以手动结束的一段回 `no-phase` |
@@ -52,7 +52,7 @@ status: frozen
 | 事件 | 载荷 | 说明 |
 |---|---|---|
 | `miciri.state` | 完整快照 | 状态变化时推送，节流在 C++ 侧；界面按整体替换，不做 diff |
-| `miciri.meters` | `METER_FIELDS` | 电平，dBFS；单声道只用 L 一路；高频事件，和快照分开 |
+| `miciri.meters` | `METER_FIELDS` | 电平，dBFS；单声道只用 L 一路；高频事件，和快照分开。`peakDbfs*` 是两次读取之间的真峰值（4 倍插值，采样率高于 96 kHz 时 2 倍，与增益步同一个核），`levelDbfs*` 是同一段的均方根；`clipLatch*` 的字段名沿用，意思是“削波灯亮着”：最后一次削波之后 5 秒内为真，点灯清除后为假（原生侧按墙钟计时，界面只照画） |
 | `miciri.error` | `{reason}` | 带外错误，`reason` 取 `BRIDGE_REASONS` |
 
 ## 快照

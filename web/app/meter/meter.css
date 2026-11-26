@@ -105,6 +105,16 @@
     box-shadow: var(--meter-hl-v);
     border-radius: 3px 3px 0 0;
 }
+/* 均方根内层：液面里一条更窄更淡的芯，高度到这一段的均方根；比液面低是人声的正常峰均比 */
+.lt__rms {
+    position: absolute;
+    left: 28%;
+    right: 28%;
+    bottom: 0;
+    height: var(--rl, 0%);
+    background: rgba(var(--wh), 0.32);
+    border-radius: 2px 2px 0 0;
+}
 .lt__peak {
     position: absolute;
     left: 0;
