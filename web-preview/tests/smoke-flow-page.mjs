@@ -141,9 +141,10 @@ try {
     );
     run.eq(await page.eval(`getComputedStyle(${q("#hdr")}).visibility`), "hidden", "远距离模式下外壳本体不可见");
     run.eq(await page.eval(`${q(".rm")}.dataset.rtone`), "violet", "进行中是紫色");
-    await call(`emitMeters({ levelDbfsL: -14, peakDbfsL: -9 })`);
-    await page.waitFor(`parseFloat(${q(".rm__liq")}.style.getPropertyValue("--lv")) > 50`, {
-        label: "全宽电平条随电平上升",
+    // 均方根很低（−45）、真峰值很高（−9）：全宽条的液面按峰值画（刻度 −60..0 上约 85%），不跟均方根（约 25%）
+    await call(`emitMeters({ levelDbfsL: -45, peakDbfsL: -9 })`);
+    await page.waitFor(`parseFloat(${q(".rm__liq")}.style.getPropertyValue("--lv")) > 80`, {
+        label: "全宽电平条的液面跟真峰值走",
     });
     run.check((await fontPx(".rm__cmd")) >= 48, "指令字号 ≥ 48 px（1.5 米可读）");
     run.eq(await page.eval(`!!${q(".rm__zone")}`), true, "增益测试时电平条上有目标区");

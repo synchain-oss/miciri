@@ -31,7 +31,7 @@ struct ChannelMeter
 {
     std::atomic<double> peak{0.0}; // 自上次读取以来的真峰值（线性）
     std::atomic<double> sumSquares{0.0}; // 自上次读取以来的平方和（线性，只计有限样本）
-    std::atomic<std::uint64_t> sampleCount{0}; // 与平方和对应的样本数
+    std::atomic<std::uint64_t> sampleCount{0}; // 与平方和对应的有限样本数（NaN 与 Inf 不计）
     std::atomic<std::uint32_t> clipBlocks{0}; // 出现过削波的块数，只增不减；灯亮多久由消息线程按墙钟定
 
     // 只在插值用，音频线程独占；prepare 以外的线程不碰
@@ -52,6 +52,7 @@ struct ChannelMeter
     {
         double blockPeak = 0.0;
         double blockSquares = 0.0;
+        std::uint64_t finiteCount = 0;
         bool clipped = false;
         for (int i = 0; i < numSamples; ++i)
         {
@@ -62,19 +63,22 @@ struct ChannelMeter
             if (a >= clipThreshold)
                 clipped = true;
             if (std::isfinite(x))
+            {
                 blockSquares += x * x;
+                ++finiteCount;
+            }
         }
         const double interpolated = truePeak.push(data, numSamples);
         if (interpolated > blockPeak)
             blockPeak = interpolated;
         raiseTo(peak, blockPeak);
         addTo(sumSquares, blockSquares);
-        sampleCount.fetch_add(static_cast<std::uint64_t>(numSamples > 0 ? numSamples : 0), std::memory_order_relaxed);
+        sampleCount.fetch_add(finiteCount, std::memory_order_relaxed);
         if (clipped)
             clipBlocks.fetch_add(1, std::memory_order_relaxed);
     }
 
-    // 消息线程：取走自上次读取以来的真峰值与均方（线性），并清零。
+    // 消息线程：取走自上次读取以来的真峰值与均方（线性），并清零。没有任何有限样本时均方为 0。
     // 平方和与样本数是两次独立的交换，音频线程恰好夹在中间时会有一块的偏差，对显示无碍。
     void take(double& peakOut, double& meanSquareOut) noexcept
     {

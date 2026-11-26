@@ -74,6 +74,8 @@ public:
     plugin::MeterReadout readMeters();
     plugin::MeterReadout readMeters(std::uint32_t nowMs);
     void clearClipLatch();
+    // 丢掉累计着的电平并把已有的削波记为已读：编辑器打开时调，关着的这段时间里累计的峰值与削波不该在重新打开时显示出来。
+    void resetMeters();
 
     // 话筒类型：枚举下标，对应桥契约的 ENUM_MIC_TYPE。越界返回 false 且不改。
     int micType() const noexcept { return micType_.load(std::memory_order_relaxed); }

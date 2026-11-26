@@ -64,9 +64,9 @@ run.eq(liquidMax, -2, "液面最高处就是最响音节的真峰值，不再低
 run.check(rmsMax <= liquidMax - 10, "均方根内层比液面低一截（正常的峰均比），不拿它当液面");
 
 // ---- ④ 远距离条与左栏同源 ----
+// 按峰值推进弹道的行为由 smoke-flow-page 在页面里断言（均方根很低、峰值很高时液面跟峰值走）；这里只守住源码不再读均方根
 const remote = readText(ROOT, "web/app/flow/remote-ui.js");
 run.check(!/levelDbfs/.test(remote), "远距离条不读 levelDbfs（均方根），液面只看峰值");
-run.check(/advance\(lvl, target\.peak, dt\)/.test(remote), "远距离条按峰值推进弹道");
 
 // ---- ⑤ 反例 ----
 // 若液面按均方根画（旧做法），同一串读数里液面最高处会比真峰值低一大截，③ 的断言就会红。

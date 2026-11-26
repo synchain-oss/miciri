@@ -76,14 +76,14 @@ bool bitIdentical(const juce::AudioBuffer<Sample>& a, const juce::AudioBuffer<Sa
     return true;
 }
 
-void configure(MiciriProcessor& p, int channels, int blockSize)
+void configure(MiciriProcessor& p, int channels, int blockSize, double sampleRate = 48000.0)
 {
     const auto set = channels == 1 ? juce::AudioChannelSet::mono() : juce::AudioChannelSet::stereo();
     juce::AudioProcessor::BusesLayout layout;
     layout.inputBuses.add(set);
     layout.outputBuses.add(set);
     REQUIRE(p.setBusesLayout(layout));
-    p.prepareToPlay(48000.0, blockSize);
+    p.prepareToPlay(sampleRate, blockSize);
 }
 
 template<class Sample>
@@ -284,6 +284,61 @@ TEST_CASE("the meter reads the true peak between samples", "[plugin]")
     {
         CHECK(m.peakDbfs[ch] > samplePeakDb + 2.0); // 不是样本峰值
         CHECK(m.peakDbfs[ch] == Catch::Approx(truePeakDb).margin(0.1));
+    }
+}
+
+TEST_CASE("the interpolation factor follows the sample rate: 4x up to 96 kHz, 2x above", "[plugin]")
+{
+    // 四分之一采样率的正弦、相位 45 度：样本全是 ±0.707 A。两倍插值的点正好落在波峰上（读到 A），四倍也读到 A；
+    // 倍数错成 1（只剩样本峰值）会少报约 3 dB，所以两个采样率都要读到 A。
+    constexpr double amplitude = 0.9;
+    for (const double rate : {44100.0, 96000.0, 192000.0})
+    {
+        MiciriProcessor p;
+        configure(p, 1, 256, rate);
+        juce::MidiBuffer midi;
+        juce::AudioBuffer<float> buffer(1, 256);
+        for (int i = 0; i < 256; ++i)
+            buffer.getWritePointer(0)[i] = static_cast<float>(
+                amplitude * std::sin(std::acos(-1.0) * 0.5 * static_cast<double>(i) + std::acos(-1.0) / 4.0));
+        p.processBlock(buffer, midi);
+        const auto m = p.readMeters(0);
+        CHECK(m.peakDbfs[0] == Catch::Approx(20.0 * std::log10(amplitude)).margin(0.1));
+        CHECK(m.peakDbfs[0] > 20.0 * std::log10(amplitude * std::sqrt(0.5)) + 2.0);
+    }
+}
+
+TEST_CASE("non-finite samples stay out of the mean square, count and sum alike", "[plugin]")
+{
+    MiciriProcessor p;
+    configure(p, 1, 256);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> buffer(1, 256);
+    constantBlock(buffer, 0.5f);
+    for (int i = 128; i < 256; ++i)
+        buffer.getWritePointer(0)[i] = std::numeric_limits<float>::quiet_NaN();
+    p.processBlock(buffer, midi);
+    CHECK(p.readMeters(0).levelDbfs[0] == Catch::Approx(20.0 * std::log10(0.5)).margin(1e-6));
+}
+
+TEST_CASE("resetMeters drops what piled up while nobody was reading", "[plugin]")
+{
+    MiciriProcessor p;
+    configure(p, 2, 128);
+    juce::MidiBuffer midi;
+    juce::AudioBuffer<float> buffer(2, 128);
+    constantBlock(buffer, 1.0f); // 编辑器关着时的一次削波
+    p.processBlock(buffer, midi);
+    constantBlock(buffer, 0.1f); // 台阶之后多走一块，让插值历史里不再有那个台阶
+    p.processBlock(buffer, midi);
+    p.resetMeters();
+    p.processBlock(buffer, midi);
+    const auto m = p.readMeters(0);
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        CHECK_FALSE(m.clipLatch[ch]);
+        CHECK(m.peakDbfs[ch] == Catch::Approx(-20.0).margin(1e-6)); // 只剩 0.1 的块，不是之前累计的 0 dBFS
+        CHECK(m.levelDbfs[ch] == Catch::Approx(-20.0).margin(1e-6));
     }
 }
 

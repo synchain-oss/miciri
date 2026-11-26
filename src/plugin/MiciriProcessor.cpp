@@ -140,6 +140,17 @@ plugin::MeterReadout MiciriProcessor::readMeters(std::uint32_t nowMs)
     return out;
 }
 
+void MiciriProcessor::resetMeters()
+{
+    for (auto& m : meters_)
+    {
+        double peak = 0.0;
+        double meanSquare = 0.0;
+        m.take(peak, meanSquare);
+    }
+    clearClipLatch();
+}
+
 void MiciriProcessor::clearClipLatch()
 {
     for (int ch = 0; ch < kMeterChannels; ++ch)
