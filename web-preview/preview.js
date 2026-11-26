@@ -34,5 +34,9 @@ window.__MICIRI_MOCK__ = createMockBackend({
 });
 frame.src = "../web/app/shell/index.html";
 
-// autorun=1：每秒把流程模拟推进 1 秒，手动点开始就能看完整的一轮（冒烟不用它，直接调 sim.advance）
-if (query.get("autorun") === "1") setInterval(() => window.__MICIRI_MOCK__.sim.advance(1), 1000);
+// autorun=1：每秒把流程模拟推进 1 秒，手动点开始就能看完整的一轮（冒烟不用它，直接调 sim.advance）；
+// 接通观察的一轮结束时当作听到了声音，接通页随之变成信号正常
+if (query.get("autorun") === "1") {
+    window.__MICIRI_MOCK__.sim.setInput("ok");
+    setInterval(() => window.__MICIRI_MOCK__.sim.advance(1), 1000);
+}

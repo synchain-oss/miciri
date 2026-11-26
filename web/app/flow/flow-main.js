@@ -5,6 +5,8 @@
 // 数据流：页面只由快照驱动。快照到了就重算“该显示哪一页”，用户的操作经桥回到原生，结果再随快照回来；
 // 界面自己记的只有三样：当前翻到哪一页、哪些步骤被点了“重测”（临时显示准备页）、刚完成的步骤（成功屏的计时）。
 // 测试进行中整窗换成远距离模式，主区不重绘，结束后一次补画。
+// 接通不是测试段：接通页在屏上、还没到“信号正常”时，界面自己一轮接一轮地开接通观察，用户什么都不用做；
+// 离开接通页或开别的步骤时先取消它。它开始、结束都不翻页、不挪焦点。
 //
 // 本文件须排在 shell-main.js 之前加载：外壳就绪的事件只派发一次。
 
@@ -15,7 +17,7 @@ import commonStrings from "../../shared/strings-common.js";
 import { createMeterCard } from "../meter/meter-ui.js";
 import meterStrings from "../meter/meter-strings.js";
 import shellStrings from "../shell/shell-strings.js";
-import { connectModel, initialView, REPORT, remoteModel, visibleSteps } from "./flow-core.js";
+import { connectModel, initialView, REPORT, remoteModel, STEP_IDS, visibleSteps } from "./flow-core.js";
 import { renderStack, renderSteps } from "./flow-ui.js";
 import flowStrings from "./flow-strings.js";
 import { createRemote } from "./remote-ui.js";
@@ -33,6 +35,10 @@ const STACK_SLOT = 492;
 /** 滚轮累计到这个量才翻一页，翻页后锁一小会儿，免得触控板的惯性连翻。 */
 const WHEEL_STEP = 100;
 const WHEEL_LOCK_MS = 450;
+/** 一步刚叫停、工作线程还在收尾时 startStep 回 busy：隔这么久再试，最多这么多次（约 1 秒）。 */
+const BUSY_RETRY_MS = 50;
+const BUSY_RETRIES = 20;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 document.addEventListener("miciri:shell-ready", (e) => start(e.detail));
 
@@ -60,6 +66,12 @@ function start(shell) {
     // “重测这几项”：第一步直接开始，其余的在前一步做完后落在它们的准备页，由用户自己点开始
     let queue = [];
     let retesting = false;
+
+    // 接通观察：界面自动开的那一轮正在路上、用户正在开别的步骤、这次停在接通页时被拒过（离线渲染、验证宿主回 disabled）
+    let observePending = false;
+    let starting = false;
+    let observeRefused = false;
+    const stepRunning = (id) => !!(state && state.steps && state.steps[id] && state.steps[id].status === "running");
 
     const bridgeFailed = () => shell.showToast("shell.err.generic");
     const receipt = (r) => {
@@ -113,7 +125,7 @@ function start(shell) {
         start(id) {
             forcePrep.delete(id);
             return Promise.resolve()
-                .then(() => bridge.startStep(id))
+                .then(() => startAfterObserving(id))
                 .then(receipt)
                 .catch(bridgeFailed);
         },
@@ -125,6 +137,7 @@ function start(shell) {
         },
         // 再检查一次：开一轮接通观察（原生按观察窗给出信号判断），而不是只重读快照；正忙时回 busy，不当作错误
         async recheck() {
+            if (stepRunning("connect")) return; // 这一轮观察还在跑，结果几秒内就到
             try {
                 const r = await bridge.startStep("connect");
                 if (r && r.ok === false && r.reason !== "busy") bridgeFailed();
@@ -228,6 +241,57 @@ function start(shell) {
     }
     meter.onPillAction(openChannelPrompt);
 
+    // 开一步：接通观察在跑就先取消它；刚叫停的那一步还在收尾时回 busy，稍等再试。这期间界面不再自动开接通观察
+    async function startAfterObserving(id) {
+        starting = true;
+        try {
+            let r;
+            for (let i = 0; ; i++) {
+                if (stepRunning("connect")) await bridge.cancelStep();
+                r = await bridge.startStep(id);
+                if (!(r && r.ok === false && r.reason === "busy") || i >= BUSY_RETRIES) return r;
+                await wait(BUSY_RETRY_MS);
+            }
+        } finally {
+            starting = false;
+        }
+    }
+
+    // 接通观察：接通页在屏上、没有步骤在跑、信号还不正常、宿主不在离线渲染时开一轮；离开接通页时取消正在跑的那一轮
+    function syncObserver() {
+        if (!state || observePending || starting) return;
+        const act = (call, after) => {
+            observePending = true;
+            Promise.resolve()
+                .then(call)
+                .then(after, () => after(null))
+                .then(() => {
+                    observePending = false;
+                    // 这期间快照可能已经到了、页面也可能翻走了（那时正在路上，没处理）：稍后再对一次
+                    setTimeout(syncObserver, BUSY_RETRY_MS);
+                });
+        };
+        if (view !== "connect") {
+            observeRefused = false;
+            if (stepRunning("connect"))
+                act(
+                    () => bridge.cancelStep(),
+                    () => {},
+                );
+            return;
+        }
+        const offline = !!(state.device && state.device.offlineRender);
+        if (observeRefused || offline || (state.connect && state.connect.signalState === "ok")) return;
+        if (STEP_IDS.some(stepRunning)) return;
+        act(
+            () => bridge.startStep("connect"),
+            (r) => {
+                // busy：别处刚开了一步，等下一个快照再看；其余失败这次停留期间不再试，也不弹提示
+                if (!r || (r.ok === false && r.reason !== "busy")) observeRefused = true;
+            },
+        );
+    }
+
     // ---- 渲染 ----
     const signature = () =>
         JSON.stringify([
@@ -247,6 +311,7 @@ function start(shell) {
         if (!state) return;
         const ids = pages();
         if (!view || !ids.includes(view)) view = initialView(state);
+        syncObserver();
         const model = remoteModel(state, { justFinished: finished });
         shell.root.setAttribute("data-remote", model ? "1" : "0");
         remote.render(model, state.bands);
@@ -272,7 +337,9 @@ function start(shell) {
         meter.setState(s);
         detail.update(s);
         const ids = visibleSteps(s);
-        const running = ids.find((id) => s.steps && s.steps[id] && s.steps[id].status === "running") || null;
+        // 接通观察不算测试：它开始、结束都不翻页、不挪焦点
+        const running =
+            ids.find((id) => id !== "connect" && s.steps && s.steps[id] && s.steps[id].status === "running") || null;
         if (running) {
             // 开始测试：翻到那一页，旧的成功屏作废
             clearTimeout(successTimer);
@@ -335,14 +402,16 @@ function start(shell) {
             }
         },
     });
-    // 首次启动：页面就绪后指南还没看过，且没有测试在跑，就自动开一次。只开一次：
+    // 首次启动：页面就绪后指南还没看过，且没有测试在跑（接通观察不算），就自动开一次。只开一次：
     // 关掉之后哪怕保存失败、快照里仍是未看，也不再弹。别的窗口占着时，等下一个快照再试。
     let guideAuto = false;
     shell.root.addEventListener("miciri:help", () => {
         if (guide.open()) guideAuto = true; // 用户自己开过，就不再自动开
     });
     const guideWanted = (s) =>
-        !!s && !s.guideSeen && !Object.values(s.steps || {}).some((x) => x && x.status === "running");
+        !!s &&
+        !s.guideSeen &&
+        !Object.entries(s.steps || {}).some(([id, x]) => id !== "connect" && x && x.status === "running");
     shell.onState((s) => {
         if (guideAuto || !guideWanted(s)) return;
         window.requestAnimationFrame(() => {

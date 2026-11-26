@@ -62,12 +62,17 @@ try {
     };
     const show = async (scene, lang = "zh") => {
         const snap = SCENES[scene]();
+        // 开窗时落在接通页，界面已经自己开了一轮接通观察：停掉模拟里的那一轮和换场景放在同一拍里，
+        // 界面再开的一轮落在新场景上，模拟和快照对得上
         await page.eval(
-            `${M}.mutate((s) => Object.assign(s, ${JSON.stringify(snap)}, { lang: ${JSON.stringify(lang)} }))`,
+            `${M}.sim.cancel(), ${M}.mutate((s) => Object.assign(s, ${JSON.stringify(snap)}, { lang: ${JSON.stringify(lang)} }))`,
         );
         await page.eval(`${q('.step[data-step="report"]')}.click()`);
         await page.waitFor(`!!${q('[data-part="report-page"]')}`, { label: `报告页（${scene}）` });
     };
+    // 开始的测量：接通观察是界面在接通页上自己开的，不算
+    const measured = async () =>
+        (await calls()).filter((c) => c[0] === "startStep" && c[1] !== "connect").map((c) => c[1]);
     const settle = () => page.waitFor(`!!${q('[data-part="report-page"]')}`, { label: "报告页" });
 
     // ---- ① 整页报告 ----
@@ -116,18 +121,16 @@ try {
     run.eq((await page.eval(`${qa('.rp .rc[data-st="stale"]')}.length`)) > 0, true, "过期的卡变成虚线灰卡");
     run.check((await text(".fix__head")).includes("增益"), "顶部写“增益改过了”");
     await click(".fix__btns .sc-btn--cta");
-    await page.waitFor(`${M}.calls.some((c) => c.name === "startStep")`, { label: "重测这几项开始第一步" });
-    run.eq(
-        (await calls()).filter((c) => c[0] === "startStep").map((c) => c[1]),
-        ["gain"],
-        "重测这几项：先开第一步（增益）",
-    );
+    await page.waitFor(`${M}.calls.some((c) => c.name === "startStep" && c.args[0] !== "connect")`, {
+        label: "重测这几项开始第一步",
+    });
+    run.eq(await measured(), ["gain"], "重测这几项：先开第一步（增益）");
     await page.eval(`${M}.sim.advance(100)`);
     await page.waitFor(`${q('[data-part="prep"]')}?.dataset.step === "quiet"`, {
         timeout: 8000,
         label: "第一步做完后落在下一步的准备页",
     });
-    run.eq((await calls()).filter((c) => c[0] === "startStep").length, 1, "下一步由用户自己点开始，界面不替他开");
+    run.eq((await measured()).length, 1, "下一步由用户自己点开始，界面不替他开");
 
     // ---- ④ 方向提示、耳机麦 ----
     await load("", "veryBoomy");
@@ -187,18 +190,24 @@ try {
     );
     await page.waitFor(`${q('[data-part="result"]')}?.dataset.step === "gain"`, { label: "缺 bands 时仍是结果页" });
     run.eq(await exists('[data-part="prep"]'), false, "缺 bands：结果页不退回准备页");
+    // 接通页一出现界面就开一轮接通观察；这一轮还在跑时“再检查一次”不重复开，这一轮没了才开新的一轮
+    const connectStarts = async () => (await calls()).filter((c) => c[0] === "startStep" && c[1] === "connect").length;
+    const startsBefore = await connectStarts();
     await page.eval(`${q('.step[data-step="connect"]')}.click()`);
     await page.waitFor(`!!${q('[data-part="connect"]')}`, { label: "接通页" });
     await page.eval(`${M}.mutate((s) => { s.connect.signalState = "no-callback"; s.connect.callbackAgeSec = 3; })`);
     await page.waitFor(`${q('[data-part="connect"]')}?.dataset.mode === "nocb"`, { label: "没收到音频的诊断" });
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "接通页一出现就开一轮接通观察" });
+    run.eq(await connectStarts(), startsBefore + 1, "接通观察是界面自己开的，只开一轮");
     await click(".pn__cta .sc-btn:not(.sc-btn--cta)");
-    await page.waitFor(`${M}.calls.some((c) => c.name === "startStep" && c.args[0] === "connect")`, {
-        label: "再检查一次开一轮接通观察",
-    });
-    run.eq(
-        (await calls()).filter((c) => c[0] === "startStep" && c[1] === "connect").length,
-        1,
-        "接通页的“再检查一次”调 startStep(connect)，只调一次",
+    await page.eval(`new Promise((r) => setTimeout(r, 200))`);
+    run.eq(await connectStarts(), startsBefore + 1, "这一轮还在跑：“再检查一次”不重复开");
+    await page.eval(`${M}.sim.cancel()`);
+    await page.waitFor(
+        `${M}.calls.filter((c) => c.name === "startStep" && c.args[0] === "connect").length === ${startsBefore + 2}`,
+        {
+            label: "这一轮没了、信号仍不正常：界面再开一轮",
+        },
     );
 
     // ---- ⑥ 滚轮、英文 ----
@@ -252,18 +261,14 @@ try {
     await click(".dt__cta .sc-btn");
     run.eq(await shown(), false, "点“去测这一项”后面板关闭");
     run.eq(await page.eval(`${q(".stk")}.dataset.step`), "direction", "去的是方向的准备页");
-    run.eq((await calls()).filter((c) => c[0] === "startStep").length, 0, "没有直接开始测量");
+    run.eq((await measured()).length, 0, "没有直接开始测量");
 
     await load("", "staleGain");
     await open("sib");
     run.eq(await page.eval(`${q('[data-part="detail"]')}.dataset.stale`), "1", "过期的齿音卡：面板标过期");
     run.check((await text(".dt__stale")).includes("调整之前"), "面板写“这是你调整之前的读数”");
     await click(".dt__cta .sc-btn");
-    run.eq(
-        (await calls()).filter((c) => c[0] === "startStep").map((c) => c[1]),
-        ["position"],
-        "点“重测这一项”只开始它所属的位置步",
-    );
+    run.eq(await measured(), ["position"], "点“重测这一项”只开始它所属的位置步");
 
     const withDirection = SCENES.ready();
     Object.assign(withDirection.results, resultsFor("direction"));
@@ -296,7 +301,7 @@ try {
     run.eq(await text(".dt__cta .sc-btn"), "去测方向", "方向过期卡的按钮写“去测方向”");
     await click(".dt__cta .sc-btn");
     run.eq(await page.eval(`${q(".stk")}.dataset.step`), "direction", "“去测方向”去的是方向准备页");
-    run.eq((await calls()).filter((c) => c[0] === "startStep").length, 0, "“去测方向”不直接开始测量");
+    run.eq((await measured()).length, 0, "“去测方向”不直接开始测量");
 
     await load("", "retestedQuiet");
     const firstOf = () => page.eval(`[...${qa('[data-part="first"]')}].map((e) => e.closest(".rc").dataset.card)`);

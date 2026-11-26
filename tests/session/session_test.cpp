@@ -450,6 +450,25 @@ TEST_CASE("with manual phases, start and end are taken only when they apply, and
     CHECK(stepOf(s, StepId::Direction).status == StepStatus::Idle);
 }
 
+TEST_CASE("cancelling only a given step leaves any other running step alone")
+{
+    session::Session s;
+    s.prepare(48000.0, 1);
+    REQUIRE(s.startStep(StepId::Gain) == session::Session::Start::Ok);
+    s.cancelIfRunning(StepId::Connect);
+    CHECK(s.running());
+    CHECK(s.tap().armed());
+    CHECK(stepOf(s, StepId::Gain).status == StepStatus::Running);
+    s.cancelStep();
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Connect) == session::Session::Start::Ok; }));
+    s.cancelIfRunning(StepId::Connect);
+    CHECK_FALSE(s.running());
+    CHECK_FALSE(s.tap().armed());
+    CHECK(stepOf(s, StepId::Connect).status == StepStatus::Idle);
+    s.cancelIfRunning(StepId::Connect); // 没有在跑的：什么也不做
+    CHECK_FALSE(s.running());
+}
+
 TEST_CASE("cancel restores the step's earlier status and stops capturing")
 {
     session::Session s;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 流程页面冒烟（无头浏览器）：预览页用假桥装载真源页面，端到端核对
-//   ① 接通页：首次接通、信号正常、无信号的红色诊断（开始按钮不可用）、立体声一路无声（可点的药丸与声道提示窗）；
+//   ① 接通页：接通观察自己开、一轮接一轮、听到声音后变成信号正常且不挪焦点，离开接通页或开别的步骤时先取消它；首次接通、信号正常、无信号的红色诊断（开始按钮不可用）、立体声一路无声（可点的药丸与声道提示窗）；
 //   ② 叠卡：翻页（点上下露出的卡、PageDown/PageUp、滚轮）、耳机麦没有方向步、步骤条按状态着图标；
 //   ③ 测试中：整窗远距离模式，指令 ≥ 48 px、念的字 ≥ 64 px，倒计时与拍手槽位随模拟推进，取消回到准备页；
 //      手动分段：收够之前“结束”不可用并写明还差什么，够了用键盘结束，之后每段等“开始”、待开始时不倒数也不推进，
@@ -76,6 +76,28 @@ try {
     run.eq(await stackStep(), "connect", "没有结果时落在接通页");
     run.eq(await page.eval(`${q('[data-part="connect"]')}.dataset.mode`), "first", "首次接通页");
     run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), true, "没有声音时开始按钮不可用");
+    // 接通观察：接通页一出现界面就自己开一轮，不用点；没到“信号正常”就一轮接一轮，开始、结束都不挪焦点
+    const connectStarts = () =>
+        page.eval(`${M}.calls.filter((c) => c.name === "startStep" && c.args[0] === "connect").length`);
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "接通页一出现就开一轮接通观察" });
+    run.eq(await connectStarts(), 1, "接通观察是界面自己开的，开了一轮");
+    await page.eval(`${FD}.getElementById("mic-sel").focus()`);
+    await call(`sim.advance(6)`);
+    await page.waitFor(`${M}.calls.filter((c) => c.name === "startStep" && c.args[0] === "connect").length === 2`, {
+        label: "一轮没听到声音：接着开下一轮",
+    });
+    run.eq(await page.eval(`${FD}.activeElement?.id ?? null`), "mic-sel", "一轮结束、再开一轮都不挪焦点");
+    run.eq(await page.eval(`${q('[data-part="connect"]')}.dataset.mode`), "first", "还没听到声音：仍是首次接通页");
+    await call(`sim.setInput("ok")`);
+    await call(`sim.advance(6)`);
+    await page.waitFor(`${q('[data-part="connect"]')}?.dataset.mode === "ok"`, {
+        label: "听到声音：这一轮结束后接通页换成信号正常",
+    });
+    run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号正常：开始增益测试可点");
+    await sleep(200);
+    run.eq(await connectStarts(), 2, "信号正常后不再开新的一轮");
+    run.eq(await page.eval(`${M}.sim.runningStep()`), null, "信号正常后没有在跑的接通观察");
+    await call(`sim.setInput(null)`);
     await call(`mutate((s) => { s.connect.signalState = "ok"; })`);
     await page.waitFor(`${q('[data-part="connect"]')}?.dataset.mode === "ok"`, { label: "信号正常后接通页应换成 ok" });
     run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号正常后开始按钮可用");
@@ -139,6 +161,26 @@ try {
     await page.waitFor(`!${q(".step[data-step='direction']")}`, { label: "耳机麦：步骤条没有方向步" });
     await call(`mutate((s) => { s.micType = "unknown"; })`);
     await page.waitFor(`!!${q(".step[data-step='direction']")}`, { label: "换回别的话筒，方向步回来" });
+
+    // 接通观察在跑时离开接通页：取消那一轮；不挡按钮的琥珀诊断下直接点“开始增益测试”：先取消接通观察，再开增益
+    await call(`mutate((s) => { s.connect.signalState = "very-low-noise"; })`);
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "信号偏低：开一轮接通观察" });
+    await goStep("gain");
+    await page.waitFor(`${M}.sim.runningStep() === null`, { label: "离开接通页就取消那一轮" });
+    run.eq(await stackStep(), "gain", "取消接通观察不把页面拽回接通页");
+    await goStep("connect");
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "回到接通页又开一轮" });
+    run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号偏低：开始增益测试可点");
+    await click('[data-part="cta"]');
+    await page.waitFor(`${M}.sim.runningStep() === "gain"`, { label: "先取消接通观察，再开增益" });
+    run.check(
+        (await page.eval(`${M}.calls.map((c) => c.name)`)).slice(-2).join(",") === "cancelStep,startStep",
+        "开增益之前先取消接通观察",
+    );
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "1"`, { label: "增益进入远距离模式" });
+    await click('[data-part="cancel"]');
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消增益" });
+    await call(`mutate((s) => { s.connect.signalState = "ok"; })`);
 
     // ---- ③ 测试中：远距离模式 ----
     await goStep("gain");

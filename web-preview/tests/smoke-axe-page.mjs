@@ -71,11 +71,11 @@ try {
     };
     await audit("默认页");
     // 远距离模式的手动分段：进行中还不能结束（“结束”是 aria-disabled）、可以结束、待开始（大的“开始”）；审完取消
+    // 接通页上界面自己开着接通观察：让这一轮听到声音、结束，再开位置步
     await page.evaluate(() => {
         const m = window.__MICIRI_MOCK__;
-        m.mutate((st) => {
-            st.connect.signalState = "ok";
-        });
+        m.sim.setInput("ok");
+        m.sim.advance(6);
         return m.startStep("position");
     });
     await frame.waitForSelector('[data-part="end"][aria-disabled="true"]', { state: "visible" });

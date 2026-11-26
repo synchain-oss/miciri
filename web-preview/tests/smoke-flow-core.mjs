@@ -644,6 +644,18 @@ run.eq(meter.markList(snap()), [], "没有结果时没有标记");
     run.eq(auto.endPhase(), "no-phase", "模拟·自动：没有可以结束的段");
     auto.advance(6);
     run.check(!a.live.waiting && a.live.phase === "plosive" && a.live.need === "none", "模拟·自动：段与段首尾相接");
+    // 接通是一轮观察窗：按时长结束；setInput 给了信号状态才写进快照
+    const c = snap();
+    const obs = createFlowSim(c, { push: () => {} });
+    obs.begin("connect");
+    obs.advance(5);
+    run.eq(obs.runningStep(), "connect", "模拟·接通：一轮观察没到时长还在跑");
+    obs.advance(1);
+    run.check(obs.runningStep() === null && c.connect.signalState === "waiting", "模拟·接通：没给输入，信号状态不变");
+    obs.setInput("ok");
+    obs.begin("connect");
+    obs.advance(6);
+    run.eq(c.connect.signalState, "ok", "模拟·接通：给了输入，一轮结束时写进快照");
 }
 
 // ---- ⑥ 反例：检查要能变红 ----

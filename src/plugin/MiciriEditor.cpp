@@ -82,6 +82,8 @@ MiciriEditor::MiciriEditor(MiciriProcessor& processor, Config config)
 
 MiciriEditor::~MiciriEditor()
 {
+    // 接通只是页面停在接通页时的被动观察：窗口关了就停，不在关窗之后再跑完一轮分析。别的步骤关窗照旧继续
+    processor_.session().cancelIfRunning(core::StepId::Connect);
 #ifdef MICIRI_HOST_PROBE
     probe::counters().noteEditorClosed();
 #endif

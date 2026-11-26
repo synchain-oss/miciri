@@ -9,6 +9,9 @@
 //   startPhase 才开始；收够这一段的最低量（假的：按时间线性增长）后 endPhase 可以提前结束，到时长上限照样自动结束。
 //   待开始时 advance 不推进。
 // - 自动推进（phases: "auto"）：各段首尾相接，按时长推进，startPhase、endPhase 回 no-phase。
+//
+// 接通是一轮观察窗（CONNECT_SEC，和插件一样长），只按时长推进；一轮结束时把 setInput 给的信号状态写进快照，
+// 没给就不动（冒烟多半直接改快照里的 signalState）。
 
 import { ENUM_STEP_ID } from "../../web/shared/bridge-api.js";
 import { idleLive } from "./snapshot.js";
@@ -26,6 +29,8 @@ const DIRECTION_PHASES = [
     ["direction", 4, 3],
     ["confirm", 1, 6],
 ];
+/** 接通的一轮观察多长（插件里是 no_signal.low_flat_window_s）。 */
+const CONNECT_SEC = 6;
 const CLAP_PATTERN = ["valid", "too-soft", "valid", "noisy", "valid", "valid"];
 
 /**
@@ -79,6 +84,8 @@ export function createFlowSim(snap, io, o = {}) {
     let inSeg = 0;
     let waiting = false;
     let reached = false;
+    // 下一轮接通观察会看到的信号状态（ENUM_SIGNAL_STATE 之一），null 时不改快照
+    let input = null;
 
     // 做完一步：次数与证据版本各加 1（作废、取消不加，和真插件一样）
     const done = (id) => {
@@ -90,6 +97,12 @@ export function createFlowSim(snap, io, o = {}) {
     const finish = (id) => {
         done(id);
         snap.steps[id].progressSec = snap.steps[id].durationSec;
+        if (id === "connect" && input) {
+            snap.connect.signalState = input;
+            const heard = input === "ok" ? "signal" : "silent";
+            snap.connect.channelStatusL = heard;
+            snap.connect.channelStatusR = snap.device.layout === "stereo" ? heard : "unknown";
+        }
         Object.assign(snap.results, resultsFor(id));
         // 房间步结束后拍手记录保留（结果页的失败说明和槽位小图要用）
         const claps = id === "room" ? snap.live.claps : [];
@@ -103,8 +116,9 @@ export function createFlowSim(snap, io, o = {}) {
     const update = () => {
         const id = running;
         const step = snap.steps[id];
+        const duration = id === "connect" ? CONNECT_SEC : step.durationSec;
         step.progressSec = Math.min(elapsed, step.durationSec);
-        const phases = phasesOf(id, step.durationSec);
+        const phases = phasesOf(id, duration);
         let rest = elapsed;
         for (const [name, rounds, perRound] of phases) {
             const total = rounds * perRound;
@@ -126,7 +140,7 @@ export function createFlowSim(snap, io, o = {}) {
             snap.live.claps = roomClaps(elapsed);
             if (validOf(snap.live.claps) >= snap.live.clapsNeeded) return finish(id);
         }
-        if (elapsed >= step.durationSec) finish(id);
+        if (elapsed >= duration) finish(id);
     };
 
     // ---- 手动开始 ----
@@ -237,6 +251,10 @@ export function createFlowSim(snap, io, o = {}) {
             closeSegment();
             io.push();
             return "ok";
+        },
+        /** 下一轮接通观察结束时快照里的信号状态（例如 "ok"）；null 时不改。 */
+        setInput(state) {
+            input = state;
         },
         /** 按已完成的步骤给出状态，供预览与测试直接跳到某个起点。 */
         complete(ids) {
