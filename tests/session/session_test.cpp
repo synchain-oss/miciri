@@ -389,6 +389,67 @@ TEST_CASE("cancel and prepare do not wait for an analysis in progress; starting 
     }
 }
 
+TEST_CASE("with manual phases, start and end are taken only when they apply, and act before the next audio")
+{
+    using Phase = session::Session::Phase;
+    session::Session s;
+    const double fs = 48000.0;
+    s.prepare(fs, 1);
+    CHECK(s.startPhase() == Phase::NoPhase); // 没有步骤在跑
+    CHECK(s.endPhase() == Phase::NoPhase);
+
+    // 缺省是自动推进：两个意图都不收
+    REQUIRE(s.startStep(StepId::Gain) == session::Session::Start::Ok);
+    CHECK(s.startPhase() == Phase::NoPhase);
+    CHECK(s.endPhase() == Phase::NoPhase);
+    s.cancelStep();
+    REQUIRE(waitFor([&] { return !s.running(); }));
+
+    s.setPhaseControl(session::PhaseControl::Manual);
+    REQUIRE(waitFor([&] { return s.startStep(StepId::Direction) == session::Session::Start::Ok; }));
+    CHECK_FALSE(s.view().live.waiting); // 第一段随这一步开始
+    CHECK(s.view().live.need == core::PhaseNeed::VoiceSeconds);
+    CHECK(s.startPhase() == Phase::NoPhase);
+    CHECK(s.endPhase() == Phase::NotEnough);
+
+    // 点击保护之后一口气数数：0.4 s 有声、0.1 s 停顿
+    std::vector<double> x(static_cast<std::size_t>(fs * thr::session::click_guard_s), 0.0);
+    while (x.size() < static_cast<std::size_t>(fs * (thr::session::direction_take_s - 0.3)))
+    {
+        const auto word = sine(fs, 150.0, 0.1, 0.4);
+        x.insert(x.end(), word.begin(), word.end());
+        x.resize(x.size() + static_cast<std::size_t>(fs * 0.1), 0.0);
+    }
+    mix(x, whiteNoise(x.size(), 1e-4, 3)); // 停顿里是底噪，不是数字零（数字零不算安静的底）
+    pump(s.tap(), x, 1, fs, 1.3);
+    // 之后一直慢慢地喂底噪：音频不断（不会判成回调中断），又远赶不上实时（这一段不会先到上限），断言多慢都不受影响
+    std::atomic<bool> stop{false};
+    std::thread keepAlive([&] {
+        const std::vector<double> floor = whiteNoise(48, 1e-4, 4);
+        const double* ptrs[1] = {floor.data()};
+        while (!stop.load())
+        {
+            s.tap().process(ptrs, 1, static_cast<int>(floor.size()), false);
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+    });
+    REQUIRE(waitFor([&] { return s.view().live.canEnd; }));
+    CHECK(s.view().live.directionIndex == 0);
+    CHECK(s.endPhase() == Phase::Ok);
+    REQUIRE(waitFor([&] { return s.view().live.waiting; }));
+    CHECK(s.view().live.directionIndex == 1);
+    CHECK_FALSE(s.view().live.canEnd);
+    CHECK(s.endPhase() == Phase::NoPhase);
+    CHECK(s.startPhase() == Phase::Ok);
+    REQUIRE(waitFor([&] { return !s.view().live.waiting; }));
+    CHECK(s.view().live.directionIndex == 1);
+    CHECK(s.running());
+    s.cancelStep();
+    stop = true;
+    keepAlive.join();
+    CHECK(stepOf(s, StepId::Direction).status == StepStatus::Idle);
+}
+
 TEST_CASE("cancel restores the step's earlier status and stops capturing")
 {
     session::Session s;

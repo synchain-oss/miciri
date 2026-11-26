@@ -67,6 +67,11 @@ export function idleLive() {
             notice: "none",
             noticeSec: 0,
             clapDetails: [],
+            waiting: false,
+            canEnd: false,
+            need: "none",
+            needLeft: 0,
+            heard: 0,
         },
         "live",
     );

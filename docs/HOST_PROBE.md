@@ -103,11 +103,16 @@
 - `at`：**插件已处理的样本秒**，从探针看到的第一个有样本的块起算（样本数除以收到它们时的采样率；宿主中途换采样率重新准备时，
   之前的样本仍按旧采样率算，时钟不跳），不是墙钟。渲染里样本流是确定的，
   墙钟会被宿主启动、打开工程带偏。还没收到有样本的块时时钟没开始，`at` 为 0 的动作也要等第一块。`at` 不得小于前一个动作的 `at`。
-- `do`：只认桥上已有的函数 `setMicType`、`startStep`、`cancelStep`、`reportChange`、`dismissChannelPrompt`。带参数的三个
-  （`setMicType`、`startStep`、`reportChange`）必须给字符串 `arg`，取值同桥契约的枚举；`cancelStep`、`dismissChannelPrompt` 不带 `arg`。
+- `do`：只认桥上已有的函数 `setMicType`、`startStep`、`cancelStep`、`reportChange`、`dismissChannelPrompt`、`startPhase`、`endPhase`。
+  带参数的三个（`setMicType`、`startStep`、`reportChange`）必须给字符串 `arg`，取值同桥契约的枚举；其余不带 `arg`。
+- `phases`（可选）：`"auto"`（缺省）或 `"manual"`，决定之后开始的步骤怎样分段，取值以外的一律判脚本不合规。
+  缺省的自动推进里各段首尾相接、按时长推进，下面“拼时间轴”的表照用，`startPhase`、`endPhase` 回 `no-phase`。
+  `manual` 时同界面一样：第一段随 `startStep` 开始，之后每一段待开始，等脚本的 `startPhase`；收够最低量后 `endPhase` 可以提前结束，
+  没收够回 `not-enough`（记下，接着往下走）。`startPhase` 在上一段还在进行时回 `busy`、每一拍重试，所以可以写在上一段收完之前；
+  这一步已经结束时回 `no-phase`。规则与各段的最低量见 `docs/contracts/BRIDGE.md` 的“一段的开始与结束”。
 - 动作按顺序执行。到了 `at` 时若回执是 `busy`（上一步还在跑或还在收尾，比如阶段自动重来拖长了；探针最近一眼还看到有一步在跑时也直接回 `busy`，
   保证上一步的 step 文件先写），这个动作每一拍重试，
-  直到不是 `busy`；它后面的动作都等它。其余回执（`bad-step`、`bad-arg`、`disabled`）原样记下，接着往下走。
+  直到不是 `busy`；它后面的动作都等它。其余回执（`bad-step`、`bad-arg`、`disabled`、`no-phase`、`not-enough`）原样记下，接着往下走。
 - 回执与桥相同（`{ok: true}` 或 `{ok: false, reason}`，原因取 `BRIDGE_REASONS`）。
 - 脚本读不到、不是合法 JSON、`schema` 不是 1、任何一个动作不合规（未知的 `do`、缺参数、`at` 倒退等）：**一个动作也不执行**，
   原因写进 final 文件的 `script.error`。
@@ -168,6 +173,9 @@
 
 自动重来：阶段收满时要求重来（轻拍削波、念得太轻、门限让拍手整组作废等），先丢掉 `session.notice_s` 秒的音频作为倒数，再从这一阶段
 的第一遍重来；一步最多自动重来 `session.restarts_max` 次。时间轴上要给这些留余量，后面的 `startStep` 回 `busy` 时会自己等。
+
+上面两张表说的是缺省的自动推进。`"phases": "manual"` 时字表的几遍合成一段（`rounds` 为 1），每段开头的 `session.click_guard_s` 秒
+不进分析，待开始时的音频也不算；阶段要重来时不倒数，退回这一阶段的待开始，等下一个 `startPhase`。
 
 ## 对音频与状态的影响
 

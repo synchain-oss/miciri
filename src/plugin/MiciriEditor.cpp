@@ -33,9 +33,26 @@ constexpr const char* kBadStep = "bad-step";
 constexpr const char* kBusy = "busy";
 constexpr const char* kDisabled = "disabled";
 constexpr const char* kNoEvidence = "no-evidence";
+constexpr const char* kNoPhase = "no-phase";
+constexpr const char* kNotEnough = "not-enough";
 static_assert(bridge::listed(bridge::kReasons, kBadStep) && bridge::listed(bridge::kReasons, kBusy) &&
-                  bridge::listed(bridge::kReasons, kDisabled) && bridge::listed(bridge::kReasons, kNoEvidence),
+                  bridge::listed(bridge::kReasons, kDisabled) && bridge::listed(bridge::kReasons, kNoEvidence) &&
+                  bridge::listed(bridge::kReasons, kNoPhase) && bridge::listed(bridge::kReasons, kNotEnough),
               "错误原因必须出现在 BridgeApi.h 的 kReasons 里");
+
+juce::var phaseResponse(session::Session::Phase outcome)
+{
+    switch (outcome)
+    {
+    case session::Session::Phase::Ok:
+        return bridge::okResponse();
+    case session::Session::Phase::NotEnough:
+        return bridge::failResponse(kNotEnough);
+    case session::Session::Phase::NoPhase:
+        break;
+    }
+    return bridge::failResponse(kNoPhase);
+}
 
 // 参数是某个枚举的线上名字：返回它的下标，不认识返回 -1
 template<std::size_t N>
@@ -189,6 +206,14 @@ void MiciriEditor::handleBridgeCall(const juce::String& name, const juce::Array<
             complete(bridge::failResponse(kDisabled));
         else
             complete(bridge::okResponse());
+        emitState();
+        return;
+    }
+    // 一段的开始与结束只置一个标志，工作线程在下一块之前执行；快照随后由会话的版本号推出去
+    if (name == "startPhase" || name == "endPhase")
+    {
+        auto& s = processor_.session();
+        complete(phaseResponse(name == "startPhase" ? s.startPhase() : s.endPhase()));
         emitState();
         return;
     }

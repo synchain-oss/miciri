@@ -45,10 +45,20 @@ public:
     explicit SpeechLevelAnalyser(double sampleRate);
     void push(const double* samples, std::size_t count);
     std::optional<double> finish() const; // 没有活跃帧时为空
+    // 到目前为止活跃帧（与 finish() 同一条规则）的总时长，秒。测试中判断“有声的秒数够不够”用，不影响 finish()
+    double activeSeconds() const;
 
 private:
+    struct Active
+    {
+        double sum = 0.0; // 活跃帧的功率和
+        std::size_t frames = 0;
+    };
+    Active active() const;
+
     dsp::AnalysisInput input_;
     dsp::BiquadCascade weighting_;
+    std::size_t frameLength_;
     dsp::FrameMeanSquare frames_;
     std::vector<double> decimated_;
 };

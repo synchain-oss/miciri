@@ -98,7 +98,7 @@ NoiseResult analyseNoise(const std::vector<double>& samples, double sampleRate, 
 
 SpeechLevelAnalyser::SpeechLevelAnalyser(double sampleRate)
     : input_(sampleRate, thr::noise::analysis_rate_max_hz), weighting_(dsp::makeAWeighting(input_.rate())),
-      frames_(frameLength(thr::noise::speech_frame_ms, input_.rate()))
+      frameLength_(frameLength(thr::noise::speech_frame_ms, input_.rate())), frames_(frameLength_)
 {
 }
 
@@ -110,27 +110,37 @@ void SpeechLevelAnalyser::push(const double* samples, std::size_t count)
         frames_.add(weighting_.process(s));
 }
 
-std::optional<double> SpeechLevelAnalyser::finish() const
+SpeechLevelAnalyser::Active SpeechLevelAnalyser::active() const
 {
+    Active out;
     const std::vector<double>& powers = frames_.frames();
     if (powers.empty())
-        return std::nullopt;
+        return out;
     const std::vector<double> db = toDb(powers);
     const double top = dsp::percentile(db, thr::noise::speech_top_percentile);
     const double floorDb = dsp::percentile(db, thr::noise::percentile);
-    double sum = 0.0;
-    std::size_t active = 0;
     for (std::size_t i = 0; i < powers.size(); ++i)
     {
         if (db[i] >= top - thr::noise::speech_within_top_db && db[i] >= floorDb + thr::noise::speech_over_p10_db)
         {
-            sum += powers[i];
-            ++active;
+            out.sum += powers[i];
+            ++out.frames;
         }
     }
-    if (active == 0)
+    return out;
+}
+
+std::optional<double> SpeechLevelAnalyser::finish() const
+{
+    const Active a = active();
+    if (a.frames == 0)
         return std::nullopt;
-    return dsp::powerToDb(sum / static_cast<double>(active));
+    return dsp::powerToDb(a.sum / static_cast<double>(a.frames));
+}
+
+double SpeechLevelAnalyser::activeSeconds() const
+{
+    return static_cast<double>(active().frames) * static_cast<double>(frameLength_) / input_.rate();
 }
 
 std::optional<double> speechLevelDbfsA(const std::vector<double>& samples, double sampleRate)
