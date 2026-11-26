@@ -50,6 +50,9 @@ if (-not $PluginDir) {
     $PluginDir = $built | Select-Object -Last 1
 }
 if (-not (Test-Path -LiteralPath (Join-Path $PluginDir 'Miciri.vst3/Contents/Resources/moduleinfo.json'))) { throw "$PluginDir 里没有可测的 Miciri.vst3" }
+# 电平表场景要循环播放的合成输入（只含合成信号，写在被忽略的 build-host-feeds/ 下，配置里按相对路径引用）
+$null = & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'make-feed.ps1') -OutDir 'build-host-feeds'
+if ($LASTEXITCODE) { throw '生成合成输入失败（tests/host/make-feed.ps1）' }
 if (-not $ResultDir) { $ResultDir = Join-Path $Root 'build-host-probe/host-results' }
 New-Item -ItemType Directory -Force -Path $ResultDir | Out-Null
 
