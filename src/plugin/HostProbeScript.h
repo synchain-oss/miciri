@@ -35,6 +35,8 @@ enum class Op : std::uint8_t
     CancelStep,
     ReportChange,
     DismissChannelPrompt,
+    StartPhase,
+    EndPhase,
 };
 std::string_view opName(Op op) noexcept;
 // 这个动作要不要参数（桥函数的那一个字符串参数）
@@ -57,6 +59,9 @@ struct Reply
 struct Script
 {
     std::vector<Action> actions;
+    // "phases"：false（"auto"，缺省）时各段首尾相接、按时长推进，与手动开始之前的时间轴相同；
+    // true（"manual"）时第一段之后的每段要脚本的 startPhase 才开始，endPhase 提前结束
+    bool manualPhases = false;
     std::string error; // 非空：脚本不可用，一个动作也不执行（actions 为空）
     bool ok() const noexcept { return error.empty(); }
 };

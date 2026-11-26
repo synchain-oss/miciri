@@ -27,10 +27,10 @@ constexpr std::array<std::string_view, sizeof...(S)> names(S... s)
 inline constexpr auto kFunctions =
     names("requestInitialState", "setLang", "setUiScale", "commitUiScale", "setGuideSeen", "setMicType", "startStep",
           "cancelStep", "reportChange", "dismissChannelPrompt", "openExternal", "showLicense", "clearClipLatch",
-          "getEvidence");
+          "getEvidence", "startPhase", "endPhase");
 inline constexpr auto kEvents = names("miciri.state", "miciri.meters", "miciri.error");
 inline constexpr auto kReasons = names("bad-lang", "bad-scale", "bad-step", "bad-arg", "no-pending", "scale-locked",
-                                       "not-ready", "busy", "disabled", "no-evidence");
+                                       "not-ready", "busy", "disabled", "no-evidence", "no-phase", "not-enough");
 
 inline constexpr auto kSnapshotRoot =
     names("apiVersion", "lang", "uiScale", "guideSeen", "micType", "device", "connect", "steps", "results", "bands",
@@ -83,7 +83,7 @@ inline constexpr auto kSnapshotBands =
           "sibilanceReferenceDb", "clickReferencePerMin");
 inline constexpr auto kSnapshotLive =
     names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps", "clapsNeeded", "clapsMax",
-          "directionIndex", "notice", "noticeSec", "clapDetails");
+          "directionIndex", "notice", "noticeSec", "clapDetails", "waiting", "canEnd", "need", "needLeft", "heard");
 // 追加（建议与“最该改”）：房间步每一下拍手的明细、建议
 inline constexpr auto kSnapshotClapDetail = names("timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec");
 inline constexpr auto kSnapshotAdvice = names("room", "distance", "directionPrompt", "plosive", "sibilance", "click");
@@ -177,6 +177,7 @@ inline std::vector<Table> contractTables()
         table("ENUM_PLOSIVE_ADVICE", c::kPlosiveAdviceNames),
         table("ENUM_SIBILANCE_ADVICE", c::kSibilanceAdviceNames),
         table("ENUM_CLICK_ADVICE", c::kClickAdviceNames),
+        table("ENUM_PHASE_NEED", c::kPhaseNeedNames),
     };
 }
 } // namespace miciri::bridge

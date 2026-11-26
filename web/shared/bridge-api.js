@@ -26,6 +26,8 @@ export const BRIDGE_FUNCTIONS = [
     "showLicense",
     "clearClipLatch",
     "getEvidence",
+    "startPhase",
+    "endPhase",
 ];
 
 // 原生推给界面（纯下行，界面只订阅）
@@ -43,6 +45,8 @@ export const BRIDGE_REASONS = [
     "busy",
     "disabled",
     "no-evidence",
+    "no-phase",
+    "not-enough",
 ];
 
 // 快照（miciri.state 的载荷，requestInitialState 的回执）
@@ -273,6 +277,11 @@ export const SNAPSHOT_LIVE = [
     "notice",
     "noticeSec",
     "clapDetails",
+    "waiting",
+    "canEnd",
+    "need",
+    "needLeft",
+    "heard",
 ];
 export const ENUM_STEP_PHASE = ["none", "soft-clap", "plosive", "sibilant", "natural", "direction", "confirm"];
 export const ENUM_CLAP_STATE = ["valid", "too-soft", "noisy", "truncated"];
@@ -305,3 +314,5 @@ export const SNAPSHOT_RECOMMENDED_DISTANCE = ["aroundLowCm", "aroundHighCm", "mi
 export const ENUM_PLOSIVE_ADVICE = ["none", "pop-filter-or-back-off"];
 export const ENUM_SIBILANCE_ADVICE = ["none", "angle-soften-de-ess"];
 export const ENUM_CLICK_ADVICE = ["none", "back-off-a-little", "drink-water"];
+// 追加（手动开始与结束）：一段要收够什么才可以由用户结束（live.need）
+export const ENUM_PHASE_NEED = ["none", "seconds", "voice-seconds", "claps", "syllables"];

@@ -112,6 +112,9 @@ export function createMockBackend(o = {}) {
             sim.cancel();
             return OK;
         },
+        // 预览的模拟各段首尾相接、自动推进（原生的自动模式），没有在等开始或可以结束的段
+        startPhase: () => fail("no-phase"),
+        endPhase: () => fail("no-phase"),
         reportChange(kind) {
             if (!ENUM_CHANGE_KIND.includes(kind)) return fail("bad-arg");
             // 过期按区段标；一步里有任何一个区段过期，这一步就是 stale（契约）

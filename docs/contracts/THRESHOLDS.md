@@ -59,6 +59,10 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 “没有回调”的秒数沿用 `no_signal.low_flat_window_s` 与 `no_signal.no_callback_s`，自然朗读的长度沿用 `click.analysis_window_s`。
 证据波形的三个上限也在这一组：包络最窄一格 `evidence_hop_min_s`、一步最多几格 `evidence_cells_max`、最多几个事件 `evidence_events_max`，
 是规格没有给、实现时定的工程值（来源记“工程起始值”），口径见 `BRIDGE.md` 的“证据波形”。
+手动开始时各段的最低量也在这一组：增益 `gain_min_voice_s`、自然念 `natural_min_voice_s`、方向每一遍 `direction_min_voice_s`（都按有声秒数）、
+字表 `word_list_min_events` 个音节，加上开始与结束处丢掉的点击保护 `click_guard_s`、字表多久数一次音节 `live_words_every_s`，
+都是实现时定的工程值（来源记“工程起始值”），全部 `pending`。安静步、房间与轻拍不另设键：安静步取电流声与底噪两项分析的长度下限，
+房间取 `reverb.repeat_min_kept`，轻拍取 `direct_ratio.min_clean_claps`，轻拍多久数一次沿用房间步的 `live_clap_every_s`。口径见 `BRIDGE.md` 的“一段的开始与结束”。
 `priority`：“最该改”的排序表，每个可排序的候选项（方向、房间、电流声、增益、宽带噪声）一对“影响”与“修改代价”，
 得分 = 影响 × 置信度 ÷ 代价。规格只给了先后，没给数，这些是实现时定的起始值（来源记“工程起始值”），全部 `pending`；
 默认值排出来的顺序是 方向 > 房间 > 电流声 > 增益 > 宽带噪声。无信号与数字削波固定在前，不在这张表里；距离与喷麦不进候选。

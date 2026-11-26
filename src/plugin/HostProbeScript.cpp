@@ -16,8 +16,8 @@ namespace miciri::probe
 {
 namespace
 {
-constexpr std::array<std::string_view, 5> kOpNames{"setMicType", "startStep", "cancelStep", "reportChange",
-                                                   "dismissChannelPrompt"};
+constexpr std::array<std::string_view, 7> kOpNames{"setMicType",           "startStep",  "cancelStep", "reportChange",
+                                                   "dismissChannelPrompt", "startPhase", "endPhase"};
 
 constexpr bool isBridgeFunction(std::string_view name)
 {
@@ -90,6 +90,13 @@ Script parseScript(const std::string& text)
         return failed("too many actions (at most " + juce::String(static_cast<int>(kScriptMaxActions)) + ")");
 
     Script script;
+    if (root.getDynamicObject()->hasProperty("phases"))
+    {
+        const auto phases = root.getProperty("phases", {});
+        if (!phases.isString() || (phases.toString() != "auto" && phases.toString() != "manual"))
+            return failed("phases must be \"auto\" or \"manual\"");
+        script.manualPhases = phases.toString() == "manual";
+    }
     double lastAt = 0.0;
     for (int i = 0; i < list->size(); ++i)
     {

@@ -34,12 +34,15 @@ status: frozen
 | `showLicense` | 无 | 打开许可证 |
 | `clearClipLatch` | 无 | 用户点削波灯：立即熄灯，单声道和立体声都清；已经发生的削波不会再把灯点亮，之后的新削波会 |
 | `getEvidence` | `ENUM_STEP_ID` 之一 | 追加。回 `{ok: true, evidence}`，`evidence` 是这一步最近一次做完时的证据波形（见下文“证据波形”）；不认识回 `bad-step`，这一步没做完过回 `no-evidence`。只读，不改状态、不推快照 |
+| `startPhase` | 无 | 追加。开始正在等开始（`live.waiting`）的那一段；没有这样的一段回 `no-phase`。见下文“一段的开始与结束” |
+| `endPhase` | 无 | 追加。结束正在进行、已收够最低量（`live.canEnd`）的那一段；还没收够回 `not-enough`，没有正在进行、可以手动结束的一段回 `no-phase` |
 
 失败原因（`BRIDGE_REASONS`）：`bad-lang` 语言不认识；`bad-scale` 缩放档位越界；`bad-step` 步骤名不认识；`bad-arg` 其他参数类型不符；
 `no-pending` 没有待确认的缩放；`scale-locked` 此时不允许改缩放；`not-ready` 宿主在显示兜底面板；`busy` 当前步骤正忙；
 `disabled` 此刻不能测试：宿主在离线渲染、宿主是插件验证工具、音频还没准备好，或分配采集缓冲、起分析线程失败（追加）。
 `busy` 也包括刚取消或作废的那一步还在做收尾分析的片刻（取消不等分析做完），稍后重试即可。
 `no-evidence` 这一步还没有证据波形：没做完过（作废、取消的不算）（追加）。
+`no-phase` 没有在等开始（`startPhase`）或正在进行、可以手动结束（`endPhase`）的一段，包括没有步骤在跑和自动推进的时候；`not-enough` 这一段还没收够最低量（追加）。
 越界或类型不符一律由 C++ 侧夹取或拒绝，界面不校验。
 
 ## 事件（原生推给界面，`BRIDGE_EVENTS`）
@@ -96,13 +99,36 @@ status: frozen
     只作废这一下；门限作废的太多、主指标给不出时整组作废，这时 `notice` 是 `gated`。房间步结束后 `claps` 保留到下一次开始这一步，失败页要用它画每一下的判定。
   - `directionIndex`：方向步当前是第几个方向（0 起，0 是开始时面对的方向）。`confirm` 阶段两遍，第 1 遍是 0，第 2 遍是那个更响的方向。
   - `notice`（`ENUM_FLOW_NOTICE`）、`noticeSec`：测试中的提示。`success` 是这一步完成；`spoiled` 安静时检测到声音；`clap-clipped` 轻拍削波了；
-    `too-quiet` 念得太轻；`gated` 设备的降噪或噪声门让这组拍手作废；`redo` 其他需要重来的情况。除 `success` 外都表示这一步将在 `noticeSec`
-    秒后自动重新开始。
+    `too-quiet` 念得太轻；`gated` 设备的降噪或噪声门让这组拍手作废；`redo` 其他需要重来的情况。除 `success` 外都表示这一阶段要重来：
+    自动推进时将在 `noticeSec` 秒后自动重新开始；手动开始时（追加）这一阶段已退回待开始（`waiting` 为真），`noticeSec` 为 0，
+    提示一直留着，用户开始这一段时清掉。
   - `clapDetails`（追加，每项是 `SNAPSHOT_CLAP_DETAIL`）：与 `claps` 一一对应的明细。`timeSec` 这一下在本步里的时刻，`peakDbfs` 峰值，
     `clipped` 是否削波，`bandStatus`（`ENUM_CLAP_BAND_STATUS`）与 `t20Sec` 按 `bands.t20BandsHz` 的顺序给各频带的状态与 T20（拟合不出为 0）。
     房间步结束后与 `claps` 一起保留。
+  - `waiting`、`canEnd`、`need`、`needLeft`、`heard`（追加）：一段的开始与结束，见下一节。自动推进或没有步骤在跑时
+    `waiting`、`canEnd` 为假，`need` 是 `none`，两个数是 0。
 - `steps.<id>.durationSec` 在 `idle` 时也给出这一步的计划时长（准备页写“约 N 秒”）。
 - `steps.<id>.evidenceRev`、`steps.<id>.runs`（追加）：见下文“证据波形”。
+
+## 一段的开始与结束（追加：`startPhase`、`endPhase`、`live` 末尾五个字段）
+
+会话按两种方式分段，插件由界面驱动时用手动开始，宿主测试的探针默认用自动推进（见 `docs/HOST_PROBE.md`）。
+
+- 自动推进：段首尾相接，按时长推进，与没有这五个字段时相同。
+- 手动开始：`startStep` 开始这一步的第一段；之后每一段先“待开始”（`waiting` 为真），界面调 `startPhase` 才开始收。
+  待开始时收到的音频全部丢掉，不计时、不进分析，可以一直等。一段收够最低量后 `canEnd` 为真，界面可以调 `endPhase` 提前结束；
+  到时长上限（`phaseDurationSec`）照样自动结束，房间步凑够有效拍手也照样自动收尾。字表的几遍合成一段（`rounds` 为 1），一口气念完再结束；
+  方向步每个方向、确认的每一遍各是一段。阶段要重来时回到这一阶段的待开始，不倒数（见 `notice`）。
+- 用户的点击会被话筒录进去：一段开始后先丢掉 `session.click_guard_s` 秒；用户结束时，最后这么长的一段也不进分析。
+  到上限或自动收尾时没有点击，照常全收。证据波形的时间轴只算分析用到的样本，待开始与这两段都不算。
+- `need`（`ENUM_PHASE_NEED`）是最低量的单位：`seconds` 这一段的秒数（安静步，由电流声与底噪两项分析的下限推出），
+  `voice-seconds` 其中有声的秒数（增益、自然念、方向；有声帧的规则与说话电平相同），`claps` 能用的拍手下数（房间：有效的；轻拍：没削波、量得出直达声的），
+  `syllables` 字表里听到的音节数（就是各自分析找到的事件）。`needLeft` 是还差多少（够了是 0），`heard` 是这一段已收到多少，单位同 `need`；
+  待开始时给的是下一段的量。一段里够了之后 `canEnd` 一直为真，后面的音频不会把它收回去；`heard` 也停在够了的那一刻、不再增长
+  （够了就不再数，有声秒数每数一次都要重算全部帧），界面这时只说“够了”，这一段的进度看 `phaseElapsedSec`。各段的最低量见 `thresholds.json` 的 `session` 组。
+- 意图在原生的工作线程上、喂下一块音频之前执行，计时仍按采样计数；回执 `ok` 只表示已收下，状态随后面的快照变化。
+  收下时那一段已经到了上限、换成了下一段，这个意图就不起作用。
+- `cancelStep`、过期规则，以及离线渲染与验证宿主下不开始测试的保护，都不因分段方式而变。
 
 ## 建议与“最该改”（追加：`fixes`、`advice`、`previous`）
 

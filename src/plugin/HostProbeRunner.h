@@ -77,6 +77,7 @@ private:
     std::unique_ptr<probe::Reporter> reporter_; // 计数 JSON；没配置时为空
     std::optional<std::filesystem::path> outDir_;
     bool scripted_ = false; // 给了脚本（不论能不能用）
+    bool manualPhases_ = false; // 脚本要手动开始各段（"phases": "manual"）
     std::string scriptError_;
     std::size_t scriptActions_ = 0;
     probe::Scheduler scheduler_;

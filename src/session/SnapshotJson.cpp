@@ -416,6 +416,8 @@ void putLive(Json& j, const Live& l)
         j.close();
     }
     j.closeArray();
+    j.key("waiting").boolean(l.waiting).key("canEnd").boolean(l.canEnd);
+    j.key("need").wire(l.need).key("needLeft").num(l.needLeft).key("heard").num(l.heard);
     j.close();
 }
 

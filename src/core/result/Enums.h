@@ -231,5 +231,14 @@ MICIRI_DEFINE_ENUM(SibilanceAdvice, MICIRI_ENUM_SibilanceAdvice)
 // back-off-a-little：在推荐距离范围内退后一点；drink-water：上一次位置步也超过、这次仍超过，喝点水（口干也会加重）
 #define MICIRI_ENUM_ClickAdvice(X) X(None, "none") X(BackOffALittle, "back-off-a-little") X(DrinkWater, "drink-water")
 MICIRI_DEFINE_ENUM(ClickAdvice, MICIRI_ENUM_ClickAdvice)
+// 追加（手动开始与结束）：一段要收够什么才可以由用户结束。seconds 是这一段的秒数，voice-seconds 是其中有声的秒数，
+// claps 是能用的拍手下数（房间：有效的；轻拍：没削波、可用的），syllables 是字表里听到的音节数；none 是没有下限
+#define MICIRI_ENUM_PhaseNeed(X)       \
+    X(None, "none")                    \
+    X(Seconds, "seconds")              \
+    X(VoiceSeconds, "voice-seconds")   \
+    X(Claps, "claps")                  \
+    X(Syllables, "syllables")
+MICIRI_DEFINE_ENUM(PhaseNeed, MICIRI_ENUM_PhaseNeed)
 // clang-format on
 } // namespace miciri::core
