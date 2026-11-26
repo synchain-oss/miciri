@@ -1059,7 +1059,7 @@
       "state": "pending",
       "source": "工程起始值",
       "date": null,
-      "note": "countdown shown before a phase or step restarts by itself; counted in samples"
+      "note": "with automatic phases, countdown shown before a phase or step restarts by itself; counted in samples. With manual phases the phase waits for the user to start it again"
     },
     "restarts_max": {
       "value": 3,
@@ -1109,6 +1109,48 @@
       "source": "工程起始值",
       "date": null,
       "note": "most plosive, sibilance and mouth-noise events in one step's evidence; the earliest are kept"
+    },
+    "gain_min_voice_s": {
+      "value": 3.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, voiced seconds the gain take needs before the user may end it; voiced frames follow the speech level rule of the noise group"
+    },
+    "word_list_min_events": {
+      "value": 6,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, syllables the plosive or the sibilant list needs before the user may end it, counted by that list's own analysis; the shortest list has six words"
+    },
+    "natural_min_voice_s": {
+      "value": 10.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading"
+    },
+    "direction_min_voice_s": {
+      "value": 1.5,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, voiced seconds each direction take needs before the user may end it"
+    },
+    "click_guard_s": {
+      "value": 0.3,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, audio dropped after the user starts a phase and before the user ends it, so the mouse click is not analysed"
+    },
+    "live_words_every_s": {
+      "value": 1.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, how often a word list is re-analysed to count its syllables, until there are enough"
     }
   }
 }

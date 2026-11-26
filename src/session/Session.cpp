@@ -243,6 +243,8 @@ struct Session::Worker
     Clock::time_point armedAt;
     std::atomic<bool> stop{false};
     std::atomic<bool> exited{false}; // run() 已经返回：之后不再碰采集环与状态，join 不会等
+    std::atomic<bool> begin{false}; // 用户要开始在等开始的那一段，工作线程喂下一块之前执行
+    std::atomic<bool> end{false}; // 用户要结束正在进行的那一段
     std::thread thread;
 };
 
@@ -362,6 +364,7 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
         StepContext ctx = context_;
         ctx.sampleRate = sampleRate_;
         ctx.stereo = channels_ >= 2;
+        ctx.control = phaseControl_;
         worker->id = id;
         worker->sampleRate = sampleRate_;
         worker->script = makeScript(id, ctx, hook_);
@@ -399,6 +402,35 @@ Session::Start Session::startStep(StepId id, bool hostOffline)
     worker_ = std::move(worker);
     bump();
     return Start::Ok;
+}
+
+void Session::setPhaseControl(PhaseControl control)
+{
+    const std::lock_guard<std::mutex> lock(state_);
+    phaseControl_ = control;
+}
+
+// 只看最近一次发布的 live：工作线程执行时这一段若已经变了（到了上限、换成下一段），StepScript 自己会拒绝
+Session::Phase Session::startPhase()
+{
+    const std::lock_guard<std::mutex> control(control_);
+    const std::lock_guard<std::mutex> lock(state_);
+    if (!current_ || worker_ == nullptr || !live_.waiting)
+        return Phase::NoPhase;
+    worker_->begin.store(true, std::memory_order_release);
+    return Phase::Ok;
+}
+
+Session::Phase Session::endPhase()
+{
+    const std::lock_guard<std::mutex> control(control_);
+    const std::lock_guard<std::mutex> lock(state_);
+    if (!current_ || worker_ == nullptr || live_.waiting || live_.need == core::PhaseNeed::None)
+        return Phase::NoPhase;
+    if (!live_.canEnd)
+        return Phase::NotEnough;
+    worker_->end.store(true, std::memory_order_release);
+    return Phase::Ok;
 }
 
 void Session::cancelStep()
@@ -505,6 +537,23 @@ void Session::run(Worker& w)
             fail = RetestReason::LayoutChanged;
         if (fail)
             break;
+        // 用户的开始、结束：在喂下一块之前执行。结束可能让这一步收完
+        const bool begin = w.begin.exchange(false, std::memory_order_acq_rel);
+        const bool end = w.end.exchange(false, std::memory_order_acq_rel);
+        if (begin || end)
+        {
+            if (begin)
+                w.script->begin();
+            if (end)
+                w.script->end();
+            if (w.script->done())
+            {
+                if (fasterThanRealtime(Clock::now()))
+                    fail = RetestReason::OfflineRender;
+                break;
+            }
+            publishLive(*w.script);
+        }
         const std::size_t n = tap_.pop(interleaved.data(), kChunkFrames);
         const auto now = Clock::now();
         if (n == 0)

@@ -4,9 +4,11 @@
 //
 // 线程：
 //   - 音频线程只碰 tap()（见 AudioTap.h）。
-//   - 控制函数（prepare、startStep、cancelStep、reportChange 等）在消息线程或宿主的准备线程上调，
+//   - 控制函数（prepare、startStep、startPhase、endPhase、cancelStep、reportChange 等）在消息线程或宿主的准备线程上调，
 //     由一把控制锁串行化；要停工作线程时先放开状态锁再 join，工作线程发布结果只拿状态锁，不会互等。
 //   - 工作线程只在一步进行中存在：开始一步时创建，这一步收完、分析完就退出。空闲时没有线程、音频线程只做一次原子读。
+//   - 一段的开始与结束（Manual，见 Steps.h）：控制函数只按最近发布的 live 判断能不能做，再置一个标志；
+//     工作线程在喂下一块之前执行，所以计时仍按采样计数。等开始的那一段可以一直等，期间收到的音频丢掉。
 //
 // 保护：
 //   - 验证宿主与宿主报离线渲染时不开始测试（startStep 回 Disabled）。
@@ -135,6 +137,12 @@ public:
         Disabled, // 验证宿主、离线渲染，或还没 prepare
         Failed, // 分配采集环或起线程失败；状态已回滚
     };
+    enum class Phase : std::uint8_t
+    {
+        Ok,
+        NoPhase, // 没有一步在跑，或这一段不在等开始（startPhase）、不在进行（endPhase），或是 Auto
+        NotEnough, // 这一段还没收够最低量
+    };
 
     explicit Session(AnalysisHook hook = nullptr);
     ~Session();
@@ -148,6 +156,10 @@ public:
     void prepare(double sampleRate, int channels);
     // hostOffline：宿主此刻报离线渲染（处理器从音频线程读到的最近一块）
     Start startStep(core::StepId id, bool hostOffline = false);
+    // 之后开始的步骤按哪种方式分段（见 Steps.h）；进行中的那一步不变
+    void setPhaseControl(PhaseControl control);
+    Phase startPhase();
+    Phase endPhase();
     void cancelStep();
     void reportChange(core::ChangeKind kind);
     void dismissChannelPrompt();
@@ -189,6 +201,7 @@ private:
     std::array<StepState, kStepCount> steps_{};
     std::optional<core::StepId> current_;
     StepState before_; // 当前步开始前的状态，取消时恢复
+    PhaseControl phaseControl_ = PhaseControl::Auto;
     core::AllResults results_;
     core::AllResults previous_;
     std::optional<core::DirectionAnalysis> direction_;

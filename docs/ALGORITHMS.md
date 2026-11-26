@@ -139,7 +139,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 <!-- prettier-ignore-start -->
 <!-- thresholds:begin 以下由 scripts/gen-algorithms.mjs 按 thresholds.json 生成，不要手改 -->
-共 295 项，分 17 组：合成验证 108 项、待标定 181 项、实录标定 6 项。
+共 301 项，分 17 组：合成验证 108 项、待标定 187 项、实录标定 6 项。
 
 ### `no_signal`
 
@@ -512,7 +512,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `word_list_rounds` | 2 | 待标定 | 规格起始值 |  |
 | `word_list_round_s` | 10 | 待标定 | 规格起始值 |  |
 | `direction_take_s` | 3 | 待标定 | 规格起始值 |  |
-| `notice_s` | 3 | 待标定 | 工程起始值 | countdown shown before a phase or step restarts by itself; counted in samples |
+| `notice_s` | 3 | 待标定 | 工程起始值 | with automatic phases, countdown shown before a phase or step restarts by itself; counted in samples. With manual phases the phase waits for the user to start it again |
 | `restarts_max` | 3 | 待标定 | 工程起始值 | how many times one step may restart a phase by itself (clipped soft claps, gated claps); after that it carries on and the analysis reports the retest |
 | `realtime_ratio_max` | 1.5 | 待标定 | 工程起始值 | audio arriving faster than this multiple of real time means an offline render the host did not announce; the step is voided |
 | `realtime_check_min_s` | 1 | 待标定 | 工程起始值 | wall-clock time before the mid-step speed check starts; the check at the end of a step always runs |
@@ -520,5 +520,11 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `evidence_hop_min_s` | 0.002 | 待标定 | 工程起始值 | narrowest cell of a step's evidence envelope, rounded up to whole samples |
 | `evidence_cells_max` | 8192 | 待标定 | 工程起始值 | most cells in one step's evidence envelope; longer steps merge whole narrow cells into wider ones |
 | `evidence_events_max` | 200 | 待标定 | 工程起始值 | most plosive, sibilance and mouth-noise events in one step's evidence; the earliest are kept |
+| `gain_min_voice_s` | 3 | 待标定 | 工程起始值 | with manual phases, voiced seconds the gain take needs before the user may end it; voiced frames follow the speech level rule of the noise group |
+| `word_list_min_events` | 6 | 待标定 | 工程起始值 | with manual phases, syllables the plosive or the sibilant list needs before the user may end it, counted by that list's own analysis; the shortest list has six words |
+| `natural_min_voice_s` | 10 | 待标定 | 工程起始值 | with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading |
+| `direction_min_voice_s` | 1.5 | 待标定 | 工程起始值 | with manual phases, voiced seconds each direction take needs before the user may end it |
+| `click_guard_s` | 0.3 | 待标定 | 工程起始值 | with manual phases, audio dropped after the user starts a phase and before the user ends it, so the mouse click is not analysed |
+| `live_words_every_s` | 1 | 待标定 | 工程起始值 | with manual phases, how often a word list is re-analysed to count its syllables, until there are enough |
 <!-- thresholds:end -->
 <!-- prettier-ignore-end -->

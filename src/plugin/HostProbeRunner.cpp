@@ -27,6 +27,8 @@ constexpr const char* kBadArg = "bad-arg";
 constexpr const char* kBusy = "busy";
 constexpr const char* kDisabled = "disabled";
 constexpr const char* kNoEvidence = "no-evidence";
+constexpr const char* kNoPhase = "no-phase";
+constexpr const char* kNotEnough = "not-enough";
 
 constexpr bool isReason(std::string_view name)
 {
@@ -36,7 +38,7 @@ constexpr bool isReason(std::string_view name)
     return false;
 }
 static_assert(isReason(kBadStep) && isReason(kBadArg) && isReason(kBusy) && isReason(kDisabled) &&
-                  isReason(kNoEvidence),
+                  isReason(kNoEvidence) && isReason(kNoPhase) && isReason(kNotEnough),
               "回执与桥相同：原因必须出现在 BridgeApi.h 的 kReasons 里");
 
 juce::String wire(std::string_view v)
@@ -109,6 +111,9 @@ ProbeRunner::ProbeRunner(MiciriProcessor& processor, const std::atomic<std::uint
         scriptError_ = script.error; // 不可用的脚本一个动作也不执行，原因写进输出文件
         scriptActions_ = script.actions.size();
         scheduler_ = probe::Scheduler(std::move(script.actions));
+        // 有脚本时按脚本分段：缺省 auto，各段首尾相接，宿主测试的时间轴与手动开始之前相同
+        processor_.session().setPhaseControl(script.manualPhases ? session::PhaseControl::Manual
+                                                                 : session::PhaseControl::Auto);
     }
     if (scripted_ || outDir_)
         intervalMs_ = kActionIntervalMs;
@@ -227,6 +232,28 @@ probe::Reply ProbeRunner::execute(const probe::Action& a)
     case probe::Op::DismissChannelPrompt:
         s.dismissChannelPrompt();
         return {};
+    case probe::Op::StartPhase:
+        // 上一段还在进行时回 busy、下一拍再试，脚本可以把 startPhase 写在上一段收完之前
+        switch (s.startPhase())
+        {
+        case session::Session::Phase::Ok:
+            return {};
+        case session::Session::Phase::NotEnough:
+        case session::Session::Phase::NoPhase:
+            break;
+        }
+        return {false, s.running() ? kBusy : kNoPhase};
+    case probe::Op::EndPhase:
+        switch (s.endPhase())
+        {
+        case session::Session::Phase::Ok:
+            return {};
+        case session::Session::Phase::NotEnough:
+            return {false, kNotEnough};
+        case session::Session::Phase::NoPhase:
+            break;
+        }
+        return {false, kNoPhase};
     }
     return {false, kBadArg};
 }

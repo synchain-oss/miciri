@@ -70,6 +70,27 @@ TEST_CASE("a well-formed script parses into actions in order", "[plugin][probe][
     const auto empty = parse(R"({"schema":1,"actions":[]})");
     CHECK(empty.ok());
     CHECK(empty.actions.empty());
+    CHECK_FALSE(empty.manualPhases); // 不写 phases 就是自动推进
+}
+
+TEST_CASE("a script may ask for manual phases and start and end them", "[plugin][probe][script]")
+{
+    const auto s = parse(R"({"schema":1,"phases":"manual","actions":[
+        {"at":0,"do":"startStep","arg":"position"},
+        {"at":4,"do":"endPhase"},
+        {"at":4.5,"do":"startPhase"}]})");
+    REQUIRE(s.ok());
+    CHECK(s.manualPhases);
+    REQUIRE(s.actions.size() == 3);
+    CHECK(s.actions[1].op == Op::EndPhase);
+    CHECK(s.actions[1].arg.empty());
+    CHECK(s.actions[2].op == Op::StartPhase);
+    CHECK(probe::opName(Op::StartPhase) == "startPhase");
+    CHECK(probe::opName(Op::EndPhase) == "endPhase");
+
+    const auto automatic = parse(R"({"schema":1,"phases":"auto","actions":[]})");
+    REQUIRE(automatic.ok());
+    CHECK_FALSE(automatic.manualPhases);
 }
 
 TEST_CASE("a malformed script is rejected as a whole, with the reason", "[plugin][probe][script]")
@@ -100,6 +121,9 @@ TEST_CASE("a malformed script is rejected as a whole, with the reason", "[plugin
         {R"({"schema":1,"actions":[{"at":1,"do":"startStep"}]})", "needs a string arg"},
         {R"({"schema":1,"actions":[{"at":1,"do":"startStep","arg":3}]})", "needs a string arg"},
         {R"({"schema":1,"actions":[{"at":1,"do":"cancelStep","arg":"gain"}]})", "takes no arg"},
+        {R"({"schema":1,"actions":[{"at":1,"do":"startPhase","arg":"plosive"}]})", "takes no arg"},
+        {R"({"schema":1,"phases":"Manual","actions":[]})", "phases must be"},
+        {R"({"schema":1,"phases":true,"actions":[]})", "phases must be"},
     };
     for (const auto& c : cases)
     {

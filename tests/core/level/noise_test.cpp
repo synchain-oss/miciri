@@ -105,6 +105,32 @@ TEST_CASE("speech level of 1 kHz bursts is their RMS, at every rate")
     CHECK_FALSE(core::speechLevelDbfsA({}, 48000.0).has_value());
 }
 
+TEST_CASE("voiced seconds count the frames the speech level uses, at every rate")
+{
+    for (double fs : kRates)
+    {
+        INFO("fs " << fs);
+        // 同上：十段 0.3 秒的 1 kHz 夹在底噪之间，有声的正好 3 秒
+        std::vector<double> x = whiteNoise(static_cast<std::size_t>(6 * fs), 1e-5, 5);
+        const auto burst = static_cast<std::size_t>(0.3 * fs);
+        for (int i = 1; i < 20; i += 2)
+        {
+            const std::vector<double> tone = sine(fs, 1000.0, 0.1, 0.3);
+            for (std::size_t k = 0; k < burst; ++k)
+                x[static_cast<std::size_t>(i) * burst + k] += tone[k];
+        }
+        core::SpeechLevelAnalyser speech(fs);
+        CHECK(speech.activeSeconds() == 0.0);
+        speech.push(x.data(), x.size());
+        CHECK(speech.activeSeconds() == within(3.0, 0.1));
+        // 一直不变的声音没有停顿可比：不算有声（和说话电平一样拿不到读数）
+        core::SpeechLevelAnalyser flat(fs);
+        const std::vector<double> hum = sine(fs, 1000.0, 0.1, 3.0);
+        flat.push(hum.data(), hum.size());
+        CHECK(flat.activeSeconds() == 0.0);
+    }
+}
+
 TEST_CASE("too little audio is flagged for a retest")
 {
     const double fs = 48000.0;

@@ -247,3 +247,42 @@ TEST_CASE("actions wait for processed samples, not for the wall clock", "[plugin
     CHECK(dispatchUntil([&] { return p.micType() != 0; }, 2000));
     CHECK(p.micType() == 1); // dynamic
 }
+
+TEST_CASE("a script with manual phases hands the session manual phases, and the replies say so",
+          "[plugin][probe][autorun]")
+{
+    EnvCleanup cleanup;
+    TempDir scriptDir;
+    TempDir out;
+    const auto script = scriptDir.path() / "script.json";
+    // 增益步的第一段随 startStep 开始：0.5 秒时还没收够有声秒数，也没有在等开始的一段
+    writeText(script, R"({"schema":1,"phases":"manual","actions":[
+        {"at":0,"do":"startStep","arg":"gain"},
+        {"at":0.5,"do":"endPhase"},
+        {"at":0.6,"do":"startPhase"},
+        {"at":0.7,"do":"cancelStep"}]})");
+    setEnvVar(kScriptEnv, script);
+    setEnvVar(kOutEnv, out.path());
+    juce::ScopedJuceInitialiser_GUI gui;
+    {
+        MiciriProcessor p;
+        configure(p);
+        std::atomic<bool> stop{false};
+        std::thread audio([&] { feed(p, 150, 1.25, &stop); });
+        const bool all = dispatchUntil([&] { return fs::exists(out.path() / pidFile("step-gain-001")); }, 10000);
+        stop = true;
+        audio.join();
+        REQUIRE(all);
+        p.releaseResources();
+    }
+    const auto fin = parseFile(out.path() / pidFile("final"));
+    REQUIRE(fin.isObject());
+    CHECK(str(fin, {"script", "state"}) == "ok");
+    const auto* actions = at(fin, {"actions"}).getArray();
+    REQUIRE(actions != nullptr);
+    REQUIRE(actions->size() == 4);
+    CHECK(static_cast<bool>(at((*actions)[0], {"reply", "ok"})));
+    CHECK(str((*actions)[1], {"reply", "reason"}) == "not-enough"); // 自动推进时这里是 no-phase
+    CHECK(str((*actions)[2], {"reply", "reason"}) == "no-phase");
+    CHECK(static_cast<bool>(at((*actions)[3], {"reply", "ok"})));
+}
