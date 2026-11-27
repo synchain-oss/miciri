@@ -410,9 +410,24 @@ export function prepModel(state, id) {
 
 const CLAP_SLOT = { valid: "valid", "too-soft": "soft", noisy: "noisy", truncated: "gate" };
 const RESTART = "flow.rm.restart";
+/** 还差什么才能点“结束”：live.need 到词条键（数字是 needLeft 向上取整）。 */
+const NEED_KEY = {
+    seconds: "flow.rm.need.seconds",
+    "voice-seconds": "flow.rm.need.voice",
+    claps: "flow.rm.need.claps",
+    syllables: "flow.rm.need.syllables",
+};
+
+/**
+ * 这一段是不是由用户开始与结束（手动分段）：待开始，或者这一段有最低量。
+ * 自动推进的原生端（宿主测试的探针、旧版本）need 是 none，界面照旧只有倒计时和“取消”。
+ */
+export const manualPhase = (live) => !!live && (live.waiting === true || (!!live.need && live.need !== "none"));
 
 /**
  * 测试中视图的数据；没有步骤在跑且没有刚完成的步骤时返回 null。
+ * 手动分段时多两样：待开始（live.waiting）给 go（大的“开始”），不倒数；进行中给 end（“结束”，收够最低量 canEnd 才能按）
+ * 和 need（还差什么，或者“够了”）。
  * @param {object} state
  * @param {{justFinished?: string|null}} [o] 刚完成的步骤（界面短暂显示成功屏）
  */
@@ -442,11 +457,18 @@ export function remoteModel(state, o = {}) {
     const elapsed = live.phaseDurationSec > 0 ? live.phaseElapsedSec : step.progressSec;
     const count = Math.max(0, Math.ceil(total - elapsed));
     const m = { step: running, stepNo, count, tone: "violet", bar: true, zone: running === "gain" };
+    const manual = manualPhase(live);
     const notice = live.notice;
     if (notice && notice !== "none" && notice !== "success") {
         m.tone = "red";
         m.count = Math.max(0, Math.round(live.noticeSec || 0));
         const redo = { key: RESTART, vars: { n: m.count } };
+        if (live.waiting) {
+            // 手动分段：这一段已退回待开始，不倒数，提示留到用户再点“开始”
+            m.count = null;
+            redo.key = "flow.rm.wait.redo";
+            m.go = true;
+        }
         const by = {
             spoiled: { cmd: "flow.rm.redo", sub: "flow.rm.quiet.spoiled" },
             "clap-clipped": { cmd: "flow.rm.clap.soft", sub: "flow.rm.clap.clipped" },
@@ -454,7 +476,7 @@ export function remoteModel(state, o = {}) {
             gated: { cmd: "flow.rm.room.void", sub: "flow.rm.room.gated" },
             redo: { cmd: "flow.rm.redo.gen", sub: null },
         }[notice] || { cmd: "flow.rm.redo.gen", sub: null };
-        m.struct = `notice:${notice}`;
+        m.struct = `notice:${notice}${live.waiting ? ":wait" : ""}`;
         m.cmd = { key: by.cmd };
         m.sub = by.sub ? { key: by.sub } : null;
         m.sub2 = redo;
@@ -471,19 +493,21 @@ export function remoteModel(state, o = {}) {
             cmd: { key: "flow.rm.room.cmd" },
             sub: { key: "flow.rm.room.sub" },
             slots: clapSlots(live),
-            aux: { key: "flow.rm.need", vars: { n: Math.max(0, live.clapsNeeded - valid) } },
+            // 手动分段时“还差几下”由 need 说（收够能结束的那几下）；凑够 clapsNeeded 照样自动收尾
+            aux: manual ? null : { key: "flow.rm.need", vars: { n: Math.max(0, live.clapsNeeded - valid) } },
         });
     } else if (running === "position") {
         const at = POSITION_PHASES.findIndex((p) => p.id === live.phase);
         const p = POSITION_PHASES[at < 0 ? 0 : at];
-        const auxVars =
-            p.aux === "part" ? { n: at + 1, total: POSITION_PHASES.length } : { n: live.round, total: live.rounds };
+        // 手动分段时每个部分是一段（字表的几遍一口气念完、几下轻拍一起拍），只写第几部分，不画遍数的点
+        const byPart = manual || p.aux === "part";
+        const auxVars = byPart ? { n: at + 1, total: POSITION_PHASES.length } : { n: live.round, total: live.rounds };
         Object.assign(m, {
-            cmd: { key: p.cmd, vars: { n: live.rounds } },
+            cmd: { key: p.cmd, vars: { n: manual ? p.n : live.rounds } },
             words: p.words || null,
-            aux: { key: p.aux === "part" ? "flow.rm.part" : "flow.rm.round", vars: auxVars },
+            aux: { key: byPart ? "flow.rm.part" : "flow.rm.round", vars: auxVars },
         });
-        if (p.dots) m.dots = { total: live.rounds, on: Math.max(0, live.round - 1), cur: live.round };
+        if (p.dots && !manual) m.dots = { total: live.rounds, on: Math.max(0, live.round - 1), cur: live.round };
     } else if (running === "direction") {
         if (live.phase === "confirm") {
             const pair = confirmPair(state);
@@ -508,6 +532,21 @@ export function remoteModel(state, o = {}) {
                 aux: { key: "flow.rm.dir.n", vars: { n: i + 1, total: live.rounds } },
             });
         }
+    }
+    if (live.waiting) {
+        // 待开始：先说下一段要做什么，等用户点“开始”；不倒数，等多久都行
+        m.struct += ":wait";
+        m.count = null;
+        m.sub2 = { key: "flow.rm.wait" };
+        m.go = true;
+    } else if (manual) {
+        m.end = { can: live.canEnd === true };
+        m.need = live.canEnd
+            ? { key: "flow.rm.need.ready" }
+            : {
+                  key: NEED_KEY[live.need] || "flow.rm.need.more",
+                  vars: { n: Math.max(1, Math.ceil(Number(live.needLeft) || 0)) },
+              };
     }
     return m;
 }

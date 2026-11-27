@@ -8,7 +8,8 @@
 // 找不到任何一个包时整套跳过（退出码 2）并写明缺什么，绝不记成通过；CI 设了 MICIRI_REQUIRE_AXE=1，
 // 此时缺包不再是跳过而是失败，免得有人删掉安装步骤后 axe 悄悄变成空转。
 //
-// 审五个状态：默认页、默认页上打开着的应用内指南、报告页、报告页上打开着的详情窗（过期的卡）、打开着带证据画布的详情窗。
+// 审八个状态：默认页；远距离模式里还不能结束、可以结束、待开始；默认页上打开着的应用内指南、报告页、
+// 报告页上打开着的详情窗（过期的卡）、打开着带证据画布的详情窗。
 //
 // 用法：node web-preview/tests/smoke-axe-page.mjs [仓库根]
 
@@ -69,6 +70,24 @@ try {
         );
     };
     await audit("默认页");
+    // 远距离模式的手动分段：进行中还不能结束（“结束”是 aria-disabled）、可以结束、待开始（大的“开始”）；审完取消
+    // 接通页上界面自己开着接通观察：让这一轮听到声音、结束，再开位置步
+    await page.evaluate(() => {
+        const m = window.__MICIRI_MOCK__;
+        m.sim.setInput("ok");
+        m.sim.advance(6);
+        return m.startStep("position");
+    });
+    await frame.waitForSelector('[data-part="end"][aria-disabled="true"]', { state: "visible" });
+    await audit("远距离模式（还不能结束）");
+    await page.evaluate(() => window.__MICIRI_MOCK__.sim.advance(4));
+    await frame.waitForSelector('[data-part="end"][aria-disabled="false"]', { state: "visible" });
+    await audit("远距离模式（可以结束）");
+    await page.evaluate(() => window.__MICIRI_MOCK__.endPhase());
+    await frame.waitForSelector('[data-part="start"]', { state: "visible" });
+    await audit("远距离模式（待开始）");
+    await page.evaluate(() => window.__MICIRI_MOCK__.cancelStep());
+    await frame.waitForSelector('[data-part="start"]', { state: "detached" });
     // 指南：对话框，背景 inert，说明框里的按钮要有名字；审完用 Esc 关掉，再接着审报告页
     await frame.evaluate(() => document.querySelector('[data-part="help"]').click());
     await frame.waitForSelector('[data-part="guide-callout"]', { state: "visible" });

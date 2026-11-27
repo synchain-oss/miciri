@@ -161,6 +161,8 @@ public:
     Phase startPhase();
     Phase endPhase();
     void cancelStep();
+    // 正在跑的是 id 这一步才取消，判断与取消在同一把控制锁里；编辑器关窗时用它停掉接通观察
+    void cancelIfRunning(core::StepId id);
     void reportChange(core::ChangeKind kind);
     void dismissChannelPrompt();
 
@@ -180,6 +182,7 @@ public:
 private:
     struct Worker;
     void signalStop();
+    void cancelLocked(); // 调用方已拿着控制锁
     bool reapWorker();
     void run(Worker& w);
     void publishLive(const StepScript& script);

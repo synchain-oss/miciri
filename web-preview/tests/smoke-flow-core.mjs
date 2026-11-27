@@ -204,6 +204,61 @@ run.check(
     "方向·确认阶段",
 );
 
+// ---- 手动分段：待开始给“开始”、不倒数；进行中给“结束”和还差什么；够了写“够了”；重来退回待开始 ----
+{
+    const wait = flow.remoteModel(
+        running("position", { phase: "plosive", round: 1, rounds: 1, waiting: true, need: "syllables", needLeft: 6 }),
+    );
+    run.check(
+        wait.go === true && wait.count === null && !wait.end && wait.struct === "position:plosive:wait",
+        "待开始：有“开始”，不倒数，没有“结束”",
+    );
+    run.check(!!wait.words && wait.sub2.key === "flow.rm.wait", "待开始：先给出念的字，再请用户点开始");
+    const NEEDS = {
+        seconds: ["quiet", "flow.rm.need.seconds"],
+        "voice-seconds": ["gain", "flow.rm.need.voice"],
+        claps: ["room", "flow.rm.need.claps"],
+        syllables: ["position", "flow.rm.need.syllables"],
+    };
+    for (const [need, [step, key]] of Object.entries(NEEDS)) {
+        const m = flow.remoteModel(
+            running(step, {
+                phase: step === "position" ? "plosive" : "none",
+                need,
+                needLeft: 2.2,
+                canEnd: false,
+                phaseDurationSec: 8,
+                phaseElapsedSec: 1,
+            }),
+        );
+        run.check(
+            m.end && m.end.can === false && m.need.key === key && m.need.vars.n === 3 && m.count === 7,
+            `进行中（${need}）：“结束”不可用，还差的量向上取整，倒计时照旧`,
+        );
+    }
+    const ready = flow.remoteModel(running("gain", { need: "voice-seconds", needLeft: 0, canEnd: true }));
+    run.check(ready.end.can === true && ready.need.key === "flow.rm.need.ready", "收够之后：“结束”可用，写“够了”");
+    const soft = pos("soft-clap", { rounds: 1, need: "claps", needLeft: 2 });
+    run.check(!soft.dots && soft.aux.key === "flow.rm.part", "手动分段的轻拍是一段：不画遍数的点，写第几部分");
+    run.check(
+        pos("plosive", { rounds: 1, need: "syllables", needLeft: 6 }).aux.key === "flow.rm.part",
+        "手动分段的字表是一段：写第几部分，不写第 1 遍 / 共 1 遍",
+    );
+    const room = flow.remoteModel(running("room", { ...roomLive, need: "claps", needLeft: 1 }));
+    run.check(!room.aux && room.need.vars.n === 1, "手动分段的房间步：还差几下由 need 说");
+    const redo = flow.remoteModel(
+        running("position", { phase: "soft-clap", notice: "clap-clipped", noticeSec: 0, waiting: true, need: "claps" }),
+    );
+    run.check(
+        redo.tone === "red" && redo.go === true && redo.count === null && redo.sub2.key === "flow.rm.wait.redo",
+        "手动分段的重来：红色，有“开始”，不倒数",
+    );
+    run.eq(redo.struct, "notice:clap-clipped:wait", "手动分段的重来：结构与倒数的重来不同（换按钮时重建）");
+    const auto = flow.remoteModel(running("gain", { phaseDurationSec: 8, phaseElapsedSec: 3 }));
+    run.check(!auto.go && !auto.end && !auto.need, "自动推进（need 是 none）：没有开始、结束");
+    run.eq(flow.manualPhase({ need: "none", waiting: false }), false, "need 是 none 且不在等：自动推进");
+}
+
 // ---- ③ 结果页 ----
 const R = (id, ids, edit) => {
     const s = done(snap(), ids);
@@ -559,6 +614,48 @@ run.eq(meter.markList(snap()), [], "没有结果时没有标记");
     sim.cancel();
     run.check(s.steps.position.status === "idle" && sim.runningStep() === null, "模拟：取消回到空闲");
     run.check(pushes > 0, "模拟：每次变化都推送");
+}
+
+// ---- 流程模拟：手动分段（缺省）与自动推进 ----
+{
+    const s = snap();
+    const sim = createFlowSim(s, { push: () => {} });
+    sim.begin("position");
+    run.check(!s.live.waiting && s.live.need === "claps" && !s.live.canEnd, "模拟·手动：第一段随开始直接开始");
+    run.eq(sim.endPhase(), "not-enough", "模拟·手动：没收够不能结束");
+    run.eq(sim.startPhase(), "no-phase", "模拟·手动：进行中不能再开始");
+    sim.advance(4);
+    run.check(s.live.canEnd && s.live.needLeft === 0, "模拟·手动：收够之后可以结束");
+    run.eq(sim.endPhase(), "ok", "模拟·手动：结束");
+    run.check(
+        s.live.waiting && s.live.phase === "plosive" && s.live.rounds === 1,
+        "模拟·手动：下一段（字表合成一段）等开始",
+    );
+    const before = s.steps.position.progressSec;
+    sim.advance(30);
+    run.check(s.live.waiting && s.steps.position.progressSec === before, "模拟·手动：待开始时不推进");
+    run.eq(sim.startPhase(), "ok", "模拟·手动：开始下一段");
+    sim.advance(20);
+    run.check(s.live.waiting && s.live.phase === "sibilant", "模拟·手动：到上限自动结束");
+    sim.cancel();
+    const a = snap();
+    const auto = createFlowSim(a, { push: () => {} }, { phases: "auto" });
+    auto.begin("position");
+    run.eq(auto.endPhase(), "no-phase", "模拟·自动：没有可以结束的段");
+    auto.advance(6);
+    run.check(!a.live.waiting && a.live.phase === "plosive" && a.live.need === "none", "模拟·自动：段与段首尾相接");
+    // 接通是一轮观察窗：按时长结束；setInput 给了信号状态才写进快照
+    const c = snap();
+    const obs = createFlowSim(c, { push: () => {} });
+    obs.begin("connect");
+    obs.advance(5);
+    run.eq(obs.runningStep(), "connect", "模拟·接通：一轮观察没到时长还在跑");
+    obs.advance(1);
+    run.check(obs.runningStep() === null && c.connect.signalState === "waiting", "模拟·接通：没给输入，信号状态不变");
+    obs.setInput("ok");
+    obs.begin("connect");
+    obs.advance(6);
+    run.eq(c.connect.signalState, "ok", "模拟·接通：给了输入，一轮结束时写进快照");
 }
 
 // ---- ⑥ 反例：检查要能变红 ----

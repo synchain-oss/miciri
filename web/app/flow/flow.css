@@ -541,7 +541,44 @@
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    gap: var(--sp-20);
     min-height: 44px;
+}
+/* 还差什么才能结束：在底栏左边，和按钮同一行 */
+.rm__need {
+    margin: 0 auto 0 0;
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-remote-sub);
+    line-height: 1.3;
+    color: var(--txt-1);
+    text-align: left;
+}
+/* 手动分段的“开始”“结束”：1.5 米外也找得到，深底白字，比“取消”大得多 */
+.rm__go {
+    min-width: 260px;
+    min-height: 84px;
+    padding: var(--sp-14) var(--sp-24);
+    border-radius: var(--r-lg);
+    font-family: var(--ff-grotesk);
+    font-weight: 600;
+    font-size: var(--fs-remote-aux);
+    color: rgb(var(--wh));
+    background: var(--txt-1);
+    border: 3px solid var(--txt-1);
+}
+.rm__go:focus-visible {
+    outline: 4px solid rgb(var(--wh));
+    outline-offset: 4px;
+}
+/* 还没收够：仍可聚焦（键盘停在上面，够了直接按），看上去是空心的 */
+.rm__go[aria-disabled="true"] {
+    color: var(--txt-1);
+    background: rgba(var(--wh), 0.35);
+    border-style: dashed;
+    border-color: rgba(var(--ink), 0.55);
+    box-shadow: none;
+    cursor: not-allowed;
 }
 .rm__cancel {
     padding: var(--sp-9) var(--sp-24);

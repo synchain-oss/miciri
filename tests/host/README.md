@@ -105,7 +105,7 @@ node scripts/run-checks.mjs --only compat-table
 ## 没有覆盖的
 
 - 静音轨自动旁路（`force_auto_bypass`）：工具设不了，兼容表标“未测”。
-- 分析次数 `analysisCount`：宿主测试里没有东西会“开始一步”，所以只证明渲染不触发分析；拒绝开始由 `tests/session` 守着。
+- 分析次数 `analysisCount`：宿主测试的脚本不开始任何一步，所以只证明渲染不触发分析；拒绝开始由 `tests/session` 守着。开着编辑器时，接通页会自己开接通观察（还没到“信号正常”就一轮接一轮，关窗即取消），一轮做完会计入分析次数：`windows-20` 每次开窗都短于页面就绪再加一轮观察窗，所以增量仍判 0；开窗保持 10 秒以上的 `ui-start`、`meter-*` 不判这一项。
 - 偏好关时“音频快于实时就作废”这一支、真实硬件输入、48 kHz / 512 以外的采样率与缓冲：见 `docs/DAW_COMPATIBILITY.md` 的“待手测”。
 - 界面截图的内容：只判计数，不判图里画了什么，图要人看（电平表的读数同样是人看图，见上面的“电平表与削波灯”）；截图只在 96 DPI 下量过。
 - Cubase、FL Studio、GarageBand / Logic、macOS 上的 REAPER：要在对应机器上手测。

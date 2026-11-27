@@ -436,6 +436,22 @@ Session::Phase Session::endPhase()
 void Session::cancelStep()
 {
     const std::lock_guard<std::mutex> control(control_);
+    cancelLocked();
+}
+
+void Session::cancelIfRunning(StepId id)
+{
+    const std::lock_guard<std::mutex> control(control_);
+    {
+        const std::lock_guard<std::mutex> lock(state_);
+        if (current_ != id)
+            return;
+    }
+    cancelLocked(); // 拿着控制锁：其间不会有别的一步开始；这一步自己收完了，下面也只是空操作
+}
+
+void Session::cancelLocked()
+{
     signalStop();
     const std::lock_guard<std::mutex> lock(state_);
     if (!current_)
