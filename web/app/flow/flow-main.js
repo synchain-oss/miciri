@@ -129,6 +129,8 @@ function start(shell) {
         go,
         start(id) {
             forcePrep.delete(id);
+            // 和按钮同一个口径：没有声音进来（或还没听到、宿主在离线渲染）时不开始，按钮本来就是灰的
+            if (state && connectModel(state).blocked) return Promise.resolve(null);
             return Promise.resolve()
                 .then(() => startAfterObserving(id))
                 .then(receipt)
@@ -159,6 +161,11 @@ function start(shell) {
         },
         async retestSteps(steps) {
             if (!steps.length) return;
+            // 报告和详情里的“重测”直接开始第一步：开不了时翻到接通页，那里写着为什么
+            if (state && connectModel(state).blocked) {
+                go("connect");
+                return;
+            }
             queue = steps.slice(1);
             retesting = true;
             const r = await ctx.start(steps[0]);
@@ -268,46 +275,34 @@ function start(shell) {
         }
     }
 
-    // 接通观察：接通页在屏上、没有步骤在跑、信号还不正常、宿主不在离线渲染时开一轮；离开接通页时取消正在跑的那一轮
+    // 接通观察：编辑器开着、没有步骤在跑、信号还不正常、宿主不在离线渲染时开一轮，在哪一页都一样，
+    // 这样左栏的信号状态和接通页不会挂着关窗前的旧结果。开别的步骤之前先取消它（startAfterObserving）
     function syncObserver() {
         if (!state || observePending || starting) return;
-        const act = (call, after) => {
-            observePending = true;
-            Promise.resolve()
-                .then(call)
-                .then(after, () => after(null))
-                .then(() => {
-                    observePending = false;
-                    // 这期间快照可能已经到了、页面也可能翻走了（那时正在路上，没处理）：稍后再对一次
-                    setTimeout(syncObserver, BUSY_RETRY_MS);
-                });
-        };
-        if (view !== "connect") {
-            refusedUntil = 0;
-            if (ownRound && stepRunning("connect"))
-                act(
-                    () => bridge.cancelStep(),
-                    () => {},
-                );
-            return;
-        }
         const offline = !!(state.device && state.device.offlineRender);
         if (Date.now() < refusedUntil || offline || (state.connect && state.connect.signalState === "ok")) return;
         if (STEP_IDS.some(stepRunning)) return;
-        act(
-            () => bridge.startStep("connect"),
-            (r) => {
+        observePending = true;
+        Promise.resolve()
+            .then(() => bridge.startStep("connect"))
+            .catch(() => null)
+            .then((r) => {
                 // busy：别处刚开了一步，等下一个快照再看；其余失败（还没准备好音频、离线渲染、验证宿主）隔一会儿再试，
                 // 不弹提示：宿主可能先开编辑器、后起音频引擎
                 if (!r || (r.ok === false && r.reason !== "busy")) {
                     refusedUntil = Date.now() + REFUSED_RETRY_MS;
                     setTimeout(syncObserver, REFUSED_RETRY_MS);
                 } else if (r.ok !== false) ownRound = true;
-            },
-        );
+                observePending = false;
+                // 这期间快照可能已经到了（那时正在路上，没处理）：稍后再对一次
+                setTimeout(syncObserver, BUSY_RETRY_MS);
+            });
     }
 
     // ---- 渲染 ----
+    // 接通观察一轮接一轮地跑：它的进度、次数和每轮的测量值都不上屏，页面只用信号判断（connectModel）。
+    // 签名里不放这些，免得每个快照都重画整页、丢掉焦点和滚动位置。“约 N 秒没有回调”的秒数只写在接通页上
+    const without = (o, keys) => o && Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k)));
     const signature = () =>
         JSON.stringify([
             view,
@@ -315,9 +310,9 @@ function start(shell) {
             [...forcePrep],
             state.micType,
             state.device,
-            state.connect,
-            state.steps,
-            state.results,
+            { ...connectModel(state), sec: view === "connect" ? connectModel(state).sec : 0 },
+            without(state.steps, ["connect"]),
+            without(state.results, ["noSignal", "channels"]),
             state.bands,
             state.live && [state.live.claps, state.live.clapsNeeded, state.live.clapsMax],
         ]);

@@ -40,7 +40,7 @@ pwsh tests/host/run-host-matrix.ps1 -HarnessDir <工具目录> -CfgDir <私有�
 
 - 全套约 15 分钟，启动 REAPER 三十次左右，**会在桌面上弹窗口**（编辑器开关 20 次会反复弹浮窗）。跑的时候别用自己的 REAPER：
   开跑前有 `reaper.exe` 在就直接拒绝，也不会替你结束它。需要让它让路时用 `-SkipMarker <文件>`：文件存在期间整套跳过（退出码 3），这时脚本不检查 `reaper.exe`。相对路径按你当前所在的目录解析。
-- 只跑一部分：`-Only '<场景 id 的正则>'`，例如 `-Only '^render-'`、`-Only '^transport-12$'`、`-Only '^windows-20$'`、`-Only '^ui-start$'`、`-Only '^meter-'`、`-Only '^neg-'`。
+- 只跑一部分：`-Only '<场景 id 的正则>'`，例如 `-Only '^render-'`、`-Only '^transport-12$'`、`-Only '^windows-20$'`、`-Only '^ui-start$'`、`-Only '^ui-signal-return$'`、`-Only '^meter-'`、`-Only '^neg-'`。
   第一次在新配置目录里启动 REAPER 会扫描插件，可能让第一次启动失败（INCOMPLETE），重跑即可；REAPER 的评估版提醒也会让单次启动偶尔 INCOMPLETE，工具会自动重试一次。
 - 退出码：0 全 PASS，1 有 FAIL，2 有 INCOMPLETE（不算通过，先重跑，不要为了变绿去放宽判据），3 整套被跳过，64 被守卫或用法错误拒绝。全 PASS 但跑完仍有 reaper.exe 在时脚本改报 2；已经是别的非 0 码时保持原码，残留进程只打印。
 - 工具的结果文件写在 `-ResultDir`（默认 `build-host-probe/host-results/`，已被 `.gitignore` 的 `build-*/` 覆盖），里面没有本机路径。
@@ -66,6 +66,18 @@ pwsh tests/host/run-host-matrix.ps1 -HarnessDir <工具目录> -CfgDir <私有�
   `check_native_interop.js` 的打包、只在本地构建、用它跑 `-Only '^ui-start$'`：页面的桥脚本加载失败，`uiReady` 增量 0、`uiFallback` 增量 1、`bridgeRoundTrips` 增量 0，
   场景变红，图里是兜底面板。跑完把改动还原，不提交。
 - 十秒比页面的启动时间宽得多（本机 REAPER 7.82 上两秒的那张图里页面已经完整）。页面一直不动、又没来得及放弃的情况，由 `uiReady` 增量 0 判红，不靠 `uiFallback`。
+
+## 先全零、后有信号的再开窗（`ui-signal-return`）
+
+`ui-start` 的两个状态输入都是全零，看不出信号回来之后界面会不会自己恢复。这个场景在同一个 REAPER 进程里走两个状态，喂的是 `meter-steady` 那个合成正弦：
+
+| 状态 | 走带、arm、监听 | 开窗保持与截图 | 该看到 |
+|---|---|---|---|
+| `ui-zero` | 停、不 arm、关（喂的信号进不来，插件收到全零） | 保持 10 秒，2000、8000 ms | 接通页“样本全是零”，“开始增益测试”是灰的 |
+| `ui-signal` | 播放、arm、开（喂的信号进来了） | 保持 12 秒，300、2000、5000、8000、11000 ms | 再开窗落在接通页（不跳到增益）；后台的那一轮接通观察做完后（约 6 秒）变成“收到信号了”，左栏药丸转绿，按钮可点 |
+
+- 判据和 `ui-start` 一样只看计数，另加输入的前提：`ui-zero` 里插件被调用、收到的全是静音，`ui-signal` 里每块都有信号、两路相同、监听生效。图的内容不判，要人看。
+- 关窗时信号不正常，再开窗回到接通页、信号恢复后自己转绿，这些行为由页面冒烟（`web-preview/tests/smoke-flow-page.mjs` 的“关窗再开”）判；这个场景是在真宿主里看一遍。
 
 ## 电平表与削波灯（`meter-steady`、`meter-clip-lamp`）
 
@@ -105,7 +117,7 @@ node scripts/run-checks.mjs --only compat-table
 ## 没有覆盖的
 
 - 静音轨自动旁路（`force_auto_bypass`）：工具设不了，兼容表标“未测”。
-- 分析次数 `analysisCount`：宿主测试的脚本不开始任何一步，所以只证明渲染不触发分析；拒绝开始由 `tests/session` 守着。开着编辑器时，接通页会自己开接通观察（还没到“信号正常”就一轮接一轮，关窗即取消），一轮做完会计入分析次数：`windows-20` 每次开窗都短于页面就绪再加一轮观察窗，所以增量仍判 0；开窗保持 10 秒以上的 `ui-start`、`meter-*` 不判这一项。
+- 分析次数 `analysisCount`：宿主测试的脚本不开始任何一步，所以只证明渲染不触发分析；拒绝开始由 `tests/session` 守着。开着编辑器时，信号还不正常界面就会自己开接通观察（停在哪一页都一样，还没到“信号正常”就一轮接一轮，关窗即取消），一轮做完会计入分析次数：`windows-20` 每次开窗都短于页面就绪再加一轮观察窗，所以增量仍判 0；开窗保持 10 秒以上的 `ui-start`、`meter-*` 不判这一项。
 - 偏好关时“音频快于实时就作废”这一支、真实硬件输入、48 kHz / 512 以外的采样率与缓冲：见 `docs/DAW_COMPATIBILITY.md` 的“待手测”。
 - 界面截图的内容：只判计数，不判图里画了什么，图要人看（电平表的读数同样是人看图，见上面的“电平表与削波灯”）；截图只在 96 DPI 下量过。
 - Cubase、FL Studio、GarageBand / Logic、macOS 上的 REAPER：要在对应机器上手测。

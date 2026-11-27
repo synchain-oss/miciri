@@ -14,9 +14,10 @@ const advice = (room = "unknown", distance = "none", directionPrompt = "none", v
         "advice",
     );
 
-/** 四步做完（方向没测）的快照。 */
+/** 四步做完（方向没测）的快照。能做这几步，接通就已经通过了：信号正常。 */
 export function measured(patch = {}) {
     const s = buildSnapshot();
+    s.connect.signalState = "ok";
     for (const id of ["gain", "quiet", "room", "position"]) {
         s.steps[id].status = "done";
         Object.assign(s.results, resultsFor(id));

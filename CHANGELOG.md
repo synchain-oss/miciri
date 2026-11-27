@@ -62,9 +62,12 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
 ### Fixed
 
 - Connect page: it never started listening by itself, so even with sound coming in it stayed on "Waiting for sound" and "Start
-  the gain test" stayed grayed out. It now listens as soon as the page appears, one round after another until the signal is
-  fine, and stops when you leave the page or close the plug-in window. If the plug-in cannot start yet (for example before the
-  host has started its audio), it tries again a few seconds later.
+  the gain test" stayed grayed out. It now listens as soon as the plug-in window opens, one round after another until the
+  signal is fine, on whichever page you are, and stops when you close the plug-in window. If the plug-in cannot start yet (for
+  example before the host has started its audio), it tries again a few seconds later. The connect step counts as passed only
+  while the signal is fine (or only very low): with no audio, or with samples that are exactly zero, the window opens on the
+  connect page again, the step bar and the folded summary say what is wrong instead of "Signal OK", and "Start" on the other
+  steps is locked as on the connect page.
 
 - Level meter: the blue liquid was the average level of only the last audio block while the peak line and the scale were the
   peak, so a voice's liquid sat far below the line (and below what the gain step then judged). The liquid is now a peak meter:

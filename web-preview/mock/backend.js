@@ -188,6 +188,14 @@ export function createMockBackend(o = {}) {
         setStartRefused(on) {
             startRefused = !!on;
         },
+        /**
+         * 关窗（只测试用）：像插件的编辑器析构那样取消正在跑的接通观察，再丢掉旧页面登记的事件。
+         * 快照和结果留着（它们归处理器，不归编辑器），之后重新装载页面就是“再开窗”。
+         */
+        closeEditor() {
+            if (sim.runningStep() === "connect") sim.cancel();
+            listeners.clear();
+        },
         calls,
         committedScale: () => committed,
         hasPending: () => pending,
