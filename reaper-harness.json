@@ -487,6 +487,70 @@
       ]
     },
     {
+      "id": "ui-signal-return",
+      "kind": "transport",
+      "layout": "voice",
+      "track": "Voice",
+      "sr": 48000,
+      "feed": { "wav": "build-host-feeds/meter-steady.wav", "channels": "same" },
+      "states": [
+        {
+          "name": "ui-zero",
+          "transport": "stop",
+          "arm": false,
+          "monitor": "off",
+          "windows": {
+            "plugin": "miciri",
+            "count": 1,
+            "holdMs": 10000,
+            "capture": [2000, 8000],
+            "maxBlockDiff": 4
+          },
+          "expect": {
+            "called": true,
+            "input": "silent",
+            "report": {
+              "miciri": {
+                "editorOpens": { "delta": 1 },
+                "editorCloses": { "delta": 1 },
+                "uiReady": { "delta": 1 },
+                "uiFallback": { "delta": 0 },
+                "bridgeRoundTrips": { "delta": { "min": 1 } }
+              }
+            }
+          }
+        },
+        {
+          "name": "ui-signal",
+          "transport": "play",
+          "arm": true,
+          "monitor": "on",
+          "windows": {
+            "plugin": "miciri",
+            "count": 1,
+            "holdMs": 12000,
+            "capture": [300, 2000, 5000, 8000, 11000],
+            "maxBlockDiff": 4
+          },
+          "expect": {
+            "called": true,
+            "input": "signal",
+            "channels": "same",
+            "monitoring": true,
+            "report": {
+              "miciri": {
+                "editorOpens": { "delta": 1 },
+                "editorCloses": { "delta": 1 },
+                "uiReady": { "delta": 1 },
+                "uiFallback": { "delta": 0 },
+                "bridgeRoundTrips": { "delta": { "min": 1 } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "meter-steady",
       "kind": "transport",
       "layout": "voice",

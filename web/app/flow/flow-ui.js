@@ -405,7 +405,14 @@ function prepPage(state, id, ctx) {
             ),
         ),
     );
-    const cta = ctaBtn(ctx, "flow.pn.start", () => ctx.start(id));
+    // 和接通页同一个口径（connectModel 的 blocked）：没有声音进来、还没听到声音、宿主在离线渲染时不能开始，
+    // 按钮下面写原因；前两种给一个回接通页的按钮，那里写着可能是什么问题
+    const m = connectModel(state);
+    const why = m.redBlock ? "flow.pp.blocked" : m.offline ? "flow.bn.offline" : m.blocked ? "flow.cn.blocked" : null;
+    const cta = ctaBtn(ctx, "flow.pn.start", () => ctx.start(id), {
+        disabled: m.blocked,
+        describedby: m.blocked ? "pp-why" : null,
+    });
     add(
         col,
         el(
@@ -427,9 +434,11 @@ function prepPage(state, id, ctx) {
         el("div", {}, el("span", { class: "sc-eyebrow", text: t("flow.pn.how") }), how),
         el(
             "div",
-            { class: "pn__cta" },
+            { class: `pn__cta${why ? " pn__cta--wrap" : ""}` },
             cta,
+            why && why !== "flow.bn.offline" ? ghostBtn(ctx, "flow.pp.toconnect", () => ctx.go("connect"), "up") : null,
             id === "direction" ? ghostBtn(ctx, "flow.pn.skip", () => ctx.go(REPORT), "arrow-r") : null,
+            why ? el("p", { class: "pn__sub pn__why", id: "pp-why", text: t(why) }) : null,
         ),
     );
     const bands = state.bands;

@@ -62,11 +62,13 @@ try {
     };
     const show = async (scene, lang = "zh") => {
         const snap = SCENES[scene]();
-        // 开窗时落在接通页，界面已经自己开了一轮接通观察：停掉模拟里的那一轮和换场景放在同一拍里，
-        // 界面再开的一轮落在新场景上，模拟和快照对得上
+        // 开窗时落在接通页，界面已经自己开了一轮接通观察：停掉模拟里的那一轮和换场景放在同一拍里。
+        // 停掉的那一刻信号还不正常，界面可能已经发出下一轮：等它到了也停掉。场景里信号正常，界面不再开
         await page.eval(
             `${M}.sim.cancel(), ${M}.mutate((s) => Object.assign(s, ${JSON.stringify(snap)}, { lang: ${JSON.stringify(lang)} }))`,
         );
+        await page.eval(`new Promise((r) => setTimeout(r, 100))`);
+        await page.eval(`${M}.sim.runningStep() === "connect" && ${M}.sim.cancel()`);
         await page.eval(`${q('.step[data-step="report"]')}.click()`);
         await page.waitFor(`!!${q('[data-part="report-page"]')}`, { label: `报告页（${scene}）` });
     };

@@ -92,16 +92,20 @@ export function visibleSteps(state) {
     return STEP_IDS.filter((id) => !(headset && id === "direction"));
 }
 
-/** 步骤条与摘要卡用的五态：todo、current、done、stale、fail。current 由调用方按当前页覆盖。 */
+/**
+ * 步骤条与摘要卡用的五态：todo、current、done、stale、fail。current 由调用方按当前页覆盖。
+ * 接通只看此刻的信号判断，不看步骤状态：接通观察每做完一轮都记 done，不管听到的是什么。
+ * 信号正常或只是极低（琥珀，不挡“开始”）算通过；没收到音频、全零是 fail；还没听到声音是 todo。
+ */
 export function stepState(state, id) {
+    if (id === "connect") {
+        const m = connectModel(state);
+        return m.redBlock ? "fail" : m.mode === "first" ? "todo" : "done";
+    }
     const s = statusOf(state, id);
     if (s === "stale") return "stale";
     if (s === "invalid") return "fail";
     if (s === "done") return "done";
-    if (id === "connect") {
-        // 接通没有自己的测量结果：只要往后有步骤开始过，就算做过
-        return STEP_IDS.slice(1).some((x) => statusOf(state, x) !== "idle") ? "done" : "todo";
-    }
     return "todo";
 }
 
@@ -114,12 +118,13 @@ export function cardMode(state, id, forcePrep) {
     return s === "idle" ? "prep" : "result";
 }
 
-/** 打开窗口时落在哪一页：没有任何结果就是接通页，否则第一个没做完的步骤。 */
+/** 打开窗口时落在哪一页：接通没通过、或者后面的步骤一个都没做过，是接通页；否则第一个没做完的步骤。 */
 export function initialView(state) {
     const ids = visibleSteps(state);
     const running = ids.find((id) => statusOf(state, id) === "running");
     if (running) return running;
-    if (ids.every((id) => stepState(state, id) === "todo")) return "connect";
+    if (stepState(state, "connect") !== "done") return "connect";
+    if (ids.every((id) => id === "connect" || stepState(state, id) === "todo")) return "connect";
     return ids.find((id) => id !== "connect" && stepState(state, id) !== "done") || ids[ids.length - 1];
 }
 
@@ -183,23 +188,27 @@ export const truePeak = (state, g) => g[`truePeakDbfs${laneOf(state)}`];
 /** @returns {Array<{key: string, vars?: object}>} 一张摘要卡里依次排的词条（用“·”隔开） */
 export function peekSegments(state, id) {
     if (id === REPORT) return [{ key: "flow.stk.report" }];
+    if (id === "connect") {
+        // 接通的摘要跟着信号判断：有诊断写诊断的标题，还没听到声音写“等你出声”，只有正常时写“信号正常”
+        const m = connectModel(state);
+        if (m.diag && !m.ok) return [{ key: m.diag.t }];
+        if (m.mode === "first") return [{ key: "flow.cn.wait" }];
+        const dev = state.device || {};
+        return [
+            {
+                key: "flow.sum.connect",
+                vars: {
+                    ch: { word: dev.layout === "stereo" ? "meter.in.ch.st" : "meter.in.ch.mono" },
+                    sr: `${+((dev.sampleRate || 0) / 1000).toFixed(1)} kHz`,
+                },
+            },
+        ];
+    }
     const st = stepState(state, id);
     if (st === "stale") return [{ key: "flow.cf.stale" }];
     if (st === "fail") return [{ key: "flow.sum.fail" }];
     const r = (state && state.results) || {};
     if (st === "done") {
-        if (id === "connect") {
-            const dev = state.device || {};
-            return [
-                {
-                    key: "flow.sum.connect",
-                    vars: {
-                        ch: { word: dev.layout === "stereo" ? "meter.in.ch.st" : "meter.in.ch.mono" },
-                        sr: `${+((dev.sampleRate || 0) / 1000).toFixed(1)} kHz`,
-                    },
-                },
-            ];
-        }
         if (id === "gain" && r.gain)
             return [
                 { key: "flow.sum.gain", vars: { w: { word: gainWord(r.gain) }, v: fmtDb(truePeak(state, r.gain)) } },
@@ -439,8 +448,9 @@ export const manualPhase = (live) => !!live && (live.waiting === true || (!!live
  */
 export function remoteModel(state, o = {}) {
     const ids = visibleSteps(state);
-    const running = ids.find((id) => statusOf(state, id) === "running");
-    if (running === "connect" || o.justFinished === "connect") return null;
+    // 接通观察不进测试中视图，也不打断别的步骤做完后的成功屏：信号还不正常时它在任何一页都会自己开
+    const running = ids.find((id) => id !== "connect" && statusOf(state, id) === "running");
+    if (o.justFinished === "connect") return null;
     // 契约：快照里没有 bands 或 live（旧的原生端）就不进测试中视图，由准备页兜底
     if (!state.bands || !state.live) return null;
     const live = state.live;

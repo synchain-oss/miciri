@@ -103,10 +103,12 @@ measured or stale, and purple is the current or next step.
 
 ### 1. Connect
 
-Choose your microphone type if you know it (or skip), and speak. Miciri starts listening as soon as the connect page appears;
-you do not need to press anything. Until it hears sound it keeps listening, one round (about 6 seconds) after another. Once you
-speak, the card changes to "Signal received" and "Start the gain test" becomes available. Closing the plug-in window stops the
-listening. This step also reports the sample rate and buffer size, and on a stereo track whether both channels carry sound.
+Choose your microphone type if you know it (or skip), and speak. Miciri starts listening as soon as the plug-in window opens;
+you do not need to press anything. Until the signal is fine it keeps listening, one round (about 6 seconds) after another, also
+while you are on another page, and the signal status at the top left follows it. Once you speak, the card changes to "Signal
+received" and "Start the gain test" becomes available. Closing the plug-in window stops the listening. If the signal was not
+fine when you closed the window (monitoring not on yet, for example), the window opens on this page again. This step also
+reports the sample rate and buffer size, and on a stereo track whether both channels carry sound.
 If something looks wrong, the card says what it may be; see [If no signal arrives](#if-no-signal-arrives).
 
 ### 2. Gain (about 8 seconds)
@@ -196,7 +198,8 @@ Miciri cannot read your DAW's monitoring or arm state, so these hints always say
 
 The very-low-noise case cannot be told apart from a very quiet room with nobody speaking, so it only says "possibly" and
 "Start the gain test" stays usable. When no audio callbacks arrive, when the signal is exactly zero from the start, or when it was
-there and then turned exactly zero, the button is locked until sound arrives.
+there and then turned exactly zero, the button is locked until sound arrives; "Start" on the other steps is locked as well,
+with "Back to Connect" next to it.
 
 ## Glossary
 

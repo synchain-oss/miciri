@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 流程页面冒烟（无头浏览器）：预览页用假桥装载真源页面，端到端核对
-//   ① 接通页：接通观察自己开、一轮接一轮、听到声音后变成信号正常且不挪焦点，离开接通页或开别的步骤时先取消它；首次接通、信号正常、无信号的红色诊断（开始按钮不可用）、立体声一路无声（可点的药丸与声道提示窗）；
+//   ① 接通页：接通观察自己开、一轮接一轮、听到声音后变成信号正常且不挪焦点，信号不正常时离开接通页也接着观察，开别的步骤时先取消它；首次接通、信号正常、无信号的红色诊断（开始按钮不可用）、立体声一路无声（可点的药丸与声道提示窗）；
 //   ② 叠卡：翻页（点上下露出的卡、PageDown/PageUp、滚轮）、耳机麦没有方向步、步骤条按状态着图标；
 //   ③ 测试中：整窗远距离模式，指令 ≥ 48 px、念的字 ≥ 64 px，倒计时与拍手槽位随模拟推进，取消回到准备页；
 //      手动分段：收够之前“结束”不可用并写明还差什么，够了用键盘结束，之后每段等“开始”、待开始时不倒数也不推进，
 //      重来时退回待开始；自动推进（phases=auto）时没有这两个按钮；
 //   ④ 成功屏与结果页：绿色成功屏之后落在这一步的结果页，数字与档位词来自快照，重测显示准备页；
 //   ⑤ 左栏：结果标记与悬停提示、峰值读数；
-//   ⑥ 英文下同样成立，没有占位符残留，没有页面异常。
+//   ⑥ 关窗再开：全零做完一轮后落在接通页，步骤条与折叠摘要跟着信号判断；信号恢复后左栏药丸在别的页上也自己转绿；
+//      无信号时别的步骤的“开始”也锁住，写原因，给回接通页的按钮；报告里的“重测”不开始测量；
+//   ⑦ 英文下同样成立，没有占位符残留，没有页面异常。
 // 没有浏览器时整套跳过（退出码 2），不是通过。
 //
 // 用法：node web-preview/tests/smoke-flow-page.mjs [仓库根]
@@ -162,19 +164,44 @@ try {
     await call(`mutate((s) => { s.micType = "unknown"; })`);
     await page.waitFor(`!!${q(".step[data-step='direction']")}`, { label: "换回别的话筒，方向步回来" });
 
-    // 接通观察在跑时离开接通页：取消那一轮；不挡按钮的琥珀诊断下直接点“开始增益测试”：先取消接通观察，再开增益
+    // 信号还不正常时接通观察在哪一页都接着跑：离开接通页不取消那一轮，也不把页面拽回接通页；
+    // 不挡按钮的琥珀诊断下在增益的准备页点“开始”：先取消接通观察，再开增益
     await call(`mutate((s) => { s.connect.signalState = "very-low-noise"; })`);
     await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "信号偏低：开一轮接通观察" });
     await goStep("gain");
-    await page.waitFor(`${M}.sim.runningStep() === null`, { label: "离开接通页就取消那一轮" });
-    run.eq(await stackStep(), "gain", "取消接通观察不把页面拽回接通页");
-    // 别处（宿主测试的探针脚本）开的接通：界面不在接通页时也不去取消它
-    await call(`startStep("connect")`);
     await sleep(300);
+    run.eq(await page.eval(`${M}.sim.runningStep()`), "connect", "离开接通页：接通观察接着跑");
+    run.eq(await stackStep(), "gain", "接通观察不把页面拽回接通页");
+    run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号偏低：准备页的开始可点");
+    run.eq(await exists("#pp-why"), false, "信号偏低：准备页不写不能开始的原因");
+    const cancelCalls = () => page.eval(`${M}.calls.filter((c) => c.name === "cancelStep").length`);
+    const cancelsBefore = await cancelCalls();
+    await click('[data-part="cta"]');
+    await page.waitFor(`${M}.sim.runningStep() === "gain"`, { label: "准备页：先取消接通观察，再开增益" });
+    run.check(
+        (await page.eval(`${M}.calls.map((c) => c.name)`)).slice(-2).join(",") === "cancelStep,startStep",
+        "准备页开增益之前先取消接通观察",
+    );
+    run.eq(await cancelCalls(), cancelsBefore + 1, "只取消了一次");
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "1"`, { label: "增益进入远距离模式" });
+    await click('[data-part="cancel"]');
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消增益" });
+    // 别处（宿主测试的探针脚本）开的接通：界面不取消它，开增益时等它结束再开（回 busy 时隔一会儿再试）
+    await page.eval(`${M}.sim.cancel(), ${M}.startStep("connect")`);
+    await sleep(200);
     run.eq(await page.eval(`${M}.sim.runningStep()`), "connect", "不是本页开的接通观察，界面不取消");
+    const foreignCancels = await cancelCalls();
+    await click('[data-part="cta"]');
+    await sleep(300);
+    run.eq(await page.eval(`${M}.sim.runningStep()`), "connect", "开增益时也不取消别处开的接通观察");
+    run.eq(await cancelCalls(), foreignCancels, "没有替别处发 cancelStep");
     await call(`sim.cancel()`);
+    await page.waitFor(`${M}.sim.runningStep() === "gain"`, { label: "别处的那一轮结束后，增益接着开始" });
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "1"`, { label: "增益进入远距离模式（二）" });
+    await click('[data-part="cancel"]');
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消增益（二）" });
     await goStep("connect");
-    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "回到接通页又开一轮" });
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "增益取消后接着观察" });
     run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号偏低：开始增益测试可点");
     await click('[data-part="cta"]');
     await page.waitFor(`${M}.sim.runningStep() === "gain"`, { label: "先取消接通观察，再开增益" });
@@ -189,10 +216,11 @@ try {
     const refusedBefore = await connectStarts();
     await call(`setStartRefused(true)`);
     await call(`mutate((s) => { s.connect.signalState = "waiting"; })`);
-    await goStep("connect");
+    // 这一轮结束（这里直接停掉模拟里的那一轮），界面接着开下一轮
+    await call(`sim.cancel()`);
     await page.waitFor(
         `${M}.calls.filter((c) => c.name === "startStep" && c.args[0] === "connect").length === ${refusedBefore + 1}`,
-        { label: "接通页开一轮，被拒" },
+        { label: "再开一轮，被拒" },
     );
     await sleep(500);
     run.eq(await connectStarts(), refusedBefore + 1, "被拒之后不马上重试");
@@ -407,7 +435,80 @@ try {
     await click('[data-part="cancel"]');
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "自动推进：取消" });
 
-    // ---- ⑥ 英文 ----
+    // ---- ⑥ 关窗再开 ----
+    // 插件的编辑器析构时取消接通观察，快照和结果留在处理器里：预览里让假后端“关窗”，再重新装载页面
+    const reopen = async (label) => {
+        await page.eval(`(${FD}.documentElement.dataset.closed = "1", true)`);
+        await call(`closeEditor()`);
+        await page.eval(`(document.getElementById("frame").contentWindow.location.reload(), true)`);
+        await page.waitFor(
+            `(() => { const d = ${FD}?.documentElement; return !!d && d.dataset.closed !== "1" && d.dataset.ready === "1"; })()`,
+            { label },
+        );
+    };
+    const pillTone = () => page.eval(`${q('[data-part="signal-pill"]')}.dataset.tone`);
+    const connectStep = () => page.eval(`${q(".step[data-step='connect']")}.dataset.st`);
+    const connectPeek = () => text(".stk__peek[data-step='connect']");
+    const measuredStarts = () =>
+        page.eval(`${M}.calls.filter((c) => c.name === "startStep" && c.args[0] !== "connect").length`);
+    await loadPage();
+    await call(`sim.setInput("all-zero-from-start")`);
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "开窗：接通观察开了一轮" });
+    await call(`sim.advance(6)`);
+    await page.waitFor(`${q('[data-part="connect"]')}?.dataset.mode === "zero"`, { label: "一轮做完：样本全是零" });
+    run.eq(await pillTone(), "red", "全零：左栏药丸是红色");
+    await reopen("全零做完一轮后关窗再开");
+    run.eq(await stackStep(), "connect", "全零做完一轮后再开窗：落在接通页，不跳到增益");
+    run.eq(await page.eval(`${q('[data-part="connect"]')}.dataset.mode`), "zero", "再开窗：接通页仍写样本全是零");
+    run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), true, "再开窗：开始增益测试仍不可用");
+    // 无信号时别的步骤也不能开始：写原因，给回接通页的按钮；步骤条和折叠摘要不说“信号正常”
+    await goStep("gain");
+    run.eq(await connectStep(), "fail", "全零：步骤条上的接通是失败，不打勾");
+    run.check((await connectPeek()).includes("样本全是零"), "全零：折叠的接通摘要写诊断");
+    run.check(!(await connectPeek()).includes("信号正常"), "全零：折叠的接通摘要不写信号正常");
+    run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), true, "全零：增益准备页的开始不可用");
+    run.eq(
+        await page.eval(`!!${q("#pp-why")} && ${q('[data-part="cta"]')}.getAttribute("aria-describedby") === "pp-why"`),
+        true,
+        "不可用的开始指向原因",
+    );
+    run.check((await text("#pp-why")).includes("没有声音"), "原因写现在没有声音进来");
+    await click(".pn__cta .sc-btn:not(.sc-btn--cta)");
+    await page.waitFor(`${q(".stk")}?.dataset.step === "connect"`, { label: "点“回到接通”翻到接通页" });
+    // 信号恢复：接通观察在别的页上也接着跑，下一轮听到声音，药丸自己转绿，开始也能点了
+    await goStep("gain");
+    await call(`sim.setInput("ok")`);
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "在增益页上也接着观察" });
+    await call(`sim.advance(6)`);
+    await page.waitFor(`${q('[data-part="signal-pill"]')}?.dataset.tone === "green"`, {
+        label: "信号恢复：左栏药丸转绿",
+    });
+    run.eq(await stackStep(), "gain", "信号恢复不翻页");
+    run.eq(await connectStep(), "done", "信号恢复：步骤条上的接通打勾");
+    run.check((await connectPeek()).includes("信号正常"), "信号恢复：折叠的接通摘要写信号正常");
+    run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号恢复：增益的开始可点");
+    run.eq(await exists("#pp-why"), false, "信号恢复：不再写不能开始的原因");
+    await sleep(200);
+    run.eq(await page.eval(`${M}.sim.runningStep()`), null, "信号正常后不再开新的一轮");
+    // 做过增益、信号正常时再开窗：落在第一个没做完的步骤
+    await call(`sim.complete(["gain"])`);
+    await reopen("信号正常时关窗再开");
+    run.eq(await stackStep(), "quiet", "信号正常再开窗：落在第一个没做完的步骤");
+    // 先有后零：再开窗回到接通页；报告里的“重测”开不了时翻到接通页，不开始测量
+    await call(`mutate((s) => { s.connect.signalState = "all-zero-after-signal"; })`);
+    await reopen("先有后零时关窗再开");
+    run.eq(await stackStep(), "connect", "先有后零再开窗：落在接通页");
+    await call(`sim.complete(["quiet", "room", "position"])`);
+    await goStep("report");
+    // “我调了增益”之后顶部是“重测这几项”
+    await click(".chg .sc-btn:nth-of-type(1)");
+    await page.waitFor(`${q(".fix")}?.dataset.tone === "gray"`, { label: "调了增益后顶部是重测这几项" });
+    const before = await measuredStarts();
+    await click(".fix__btns .sc-btn--cta");
+    await page.waitFor(`${q(".stk")}?.dataset.step === "connect"`, { label: "无信号：报告的“重测”翻到接通页" });
+    run.eq(await measuredStarts(), before, "无信号：报告的“重测”不开始测量");
+
+    // ---- ⑦ 英文 ----
     await loadPage("?lang=en");
     run.eq(await page.eval(`${FD}.documentElement.lang`), "en", "英文开窗");
     await call(`mutate((s) => { s.connect.signalState = "ok"; })`);

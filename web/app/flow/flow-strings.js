@@ -25,6 +25,8 @@ export default {
         "flow.pn.dur": "约 {n} 秒",
         "flow.pn.start": "开始",
         "flow.pn.skip": "跳过，看报告",
+        "flow.pp.blocked": "现在没有声音进来，测出来的数没有意义。先回到“接通”排除问题。",
+        "flow.pp.toconnect": "回到接通",
         "flow.pn.how": "怎么做",
         "flow.pn.measure": "会测这些",
         "flow.ms.tp": "真峰值",
@@ -372,6 +374,9 @@ export default {
         "flow.pn.dur": "About {n} s",
         "flow.pn.start": "Start",
         "flow.pn.skip": "Skip, see the report",
+        "flow.pp.blocked":
+            "No sound is coming in, so the numbers would mean nothing. Go back to Connect and fix that first.",
+        "flow.pp.toconnect": "Back to Connect",
         "flow.pn.how": "How",
         "flow.pn.measure": "What it measures",
         "flow.ms.tp": "True peak",

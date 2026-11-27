@@ -74,8 +74,62 @@ const done = (s, ids) => {
 // ---- ② 步骤表 ----
 run.eq(flow.visibleSteps(snap()), flow.STEP_IDS, "默认显示全部 6 步");
 run.eq(flow.visibleSteps(snap({ micType: "headset" })).includes("direction"), false, "耳机麦没有方向步");
+// 接通的状态只看信号判断：接通观察每做完一轮都把接通记成 done，不管听到的是什么
+const sig = (s, signalState, connectStatus = "done") => {
+    s.connect.signalState = signalState;
+    s.steps.connect.status = connectStatus;
+    return s;
+};
 run.eq(flow.initialView(snap()), "connect", "没有任何结果时落在接通页");
-run.eq(flow.initialView(done(snap(), ["gain", "quiet"])), "room", "落在第一个没做完的步骤");
+run.eq(flow.initialView(sig(snap(), "ok")), "connect", "接通通过了、后面一步都没做：仍落在接通页");
+run.eq(flow.initialView(sig(done(snap(), ["gain", "quiet"]), "ok")), "room", "落在第一个没做完的步骤");
+run.eq(
+    flow.initialView(sig(done(snap(), ["gain"]), "very-low-noise")),
+    "quiet",
+    "信号极低（不挡开始）也算通过：落在第一个没做完的步骤",
+);
+for (const bad of ["all-zero-from-start", "all-zero-after-signal", "no-callback", "waiting"]) {
+    run.eq(flow.initialView(sig(snap(), bad)), "connect", `接通做完一轮但信号是 ${bad}：再开窗落在接通页`);
+    run.eq(
+        flow.initialView(sig(done(snap(), ["gain", "quiet"]), bad)),
+        "connect",
+        `做过几步、信号现在是 ${bad}：再开窗也落在接通页`,
+    );
+}
+const connectState = (signalState, connectStatus) => flow.stepState(sig(snap(), signalState, connectStatus), "connect");
+run.eq(connectState("ok"), "done", "步骤条：信号正常的接通打勾");
+run.eq(connectState("very-low-noise"), "done", "步骤条：信号极低也算通过");
+run.eq(connectState("ok", "idle"), "done", "步骤条：信号正常就算通过，不看接通步自己的状态");
+for (const bad of ["all-zero-from-start", "all-zero-after-signal", "no-callback"])
+    run.eq(connectState(bad), "fail", `步骤条：${bad} 是失败，不打勾`);
+run.eq(connectState("waiting", "idle"), "todo", "步骤条：还没听到声音是未做");
+run.eq(
+    flow.stepState(sig(done(snap(), ["gain"]), "waiting", "idle"), "connect"),
+    "todo",
+    "步骤条：后面的步骤做过，接通也不因此打勾",
+);
+const connectSum = (signalState, device = {}, c = {}) => {
+    const s = sig(snap(), signalState);
+    Object.assign(s.device, device);
+    Object.assign(s.connect, c);
+    return flow.peekSegments(s, "connect").map((g) => g.key);
+};
+run.eq(connectSum("ok"), ["flow.sum.connect"], "接通摘要：信号正常");
+run.eq(connectSum("all-zero-from-start"), ["flow.dg.zero.t"], "接通摘要：全零时写诊断，不写信号正常");
+run.eq(connectSum("all-zero-after-signal"), ["flow.dg.zero2.t"], "接通摘要：先有后零");
+run.eq(connectSum("no-callback"), ["flow.dg.nocb.t"], "接通摘要：没收到音频");
+run.eq(connectSum("very-low-noise"), ["flow.dg.low.t"], "接通摘要：信号极低");
+run.eq(connectSum("waiting"), ["flow.cn.wait"], "接通摘要：还没听到声音");
+run.eq(
+    connectSum("ok", { layout: "stereo" }, { channelPrompt: "one-silent" }),
+    ["flow.dg.st1.t"],
+    "接通摘要：立体声一路无声写声道提示",
+);
+run.eq(
+    connectSum("ok", { layout: "stereo" }, { channelPrompt: "identical" }),
+    ["flow.sum.connect"],
+    "接通摘要：两路相同不算问题，写信号正常",
+);
 run.eq(flow.neighbour(snap(), "direction", 1), "report", "最后一步的下一页是报告");
 run.eq(flow.neighbour(snap({ micType: "headset" }), "position", 1), "report", "耳机麦时位置步之后直接是报告");
 run.eq(flow.neighbour(snap(), "connect", -1), null, "第一页没有上一页");
@@ -149,6 +203,12 @@ run.check(
 );
 const success = flow.remoteModel(done(snap(), ["gain"]), { justFinished: "gain" });
 run.check(success.tone === "green" && success.icon === "check", "刚完成：绿色成功屏");
+run.eq(flow.remoteModel(running("connect", {})), null, "接通观察不进测试中视图");
+run.eq(
+    flow.remoteModel(running("connect", {}, {}), { justFinished: "gain" })?.struct,
+    "success",
+    "成功屏期间后台开了一轮接通观察：成功屏照常显示",
+);
 const NOTICES = {
     spoiled: "quiet",
     "clap-clipped": "position",
