@@ -184,7 +184,7 @@ macOS 版的 Miciri 没有签名和公证，Gatekeeper 会拦下载来的文件�
 
 **它能在我的 DAW 里用吗？**
 能加载 VST3（Windows、macOS）或 Audio Unit（macOS）的宿主都可以尝试加载，但目前只有 REAPER（Windows，VST3）有自动化测试记录，
-没有任何宿主做过手测。兼容表在 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)，详细记录在 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)，
+手测只有 Cubase 15（Windows）试过（界面能正常启动、测试流程能走完）。兼容表在 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)，详细记录在 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)，
 没测过的宿主都写着“未测”。
 
 **这一段退回去要我重做，是 bug 吗？**

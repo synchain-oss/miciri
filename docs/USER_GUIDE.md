@@ -241,7 +241,8 @@ Then read [If no signal arrives](#if-no-signal-arrives). Miciri can only say "po
 
 **Does it work in my DAW?**
 Any host that loads VST3 (Windows, macOS) or Audio Units (macOS) can try to load it, but only REAPER on Windows (VST3) has
-automated test results so far, and no host has been tested by hand. The compatibility table is in
+automated test results so far, and only Cubase 15 on Windows has been tried by hand (the UI starts and the tests run through).
+The compatibility table is in
 [KNOWN_ISSUES.md](KNOWN_ISSUES.md), with the details in [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md), and every untested host says
 "Not tested".
 
