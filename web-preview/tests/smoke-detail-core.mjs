@@ -150,27 +150,52 @@ function buildMissingRoom() {
         noClickRef(withSection(measured(), "click", { count: 3, perMinute: 6, loudestRelDb: -24, loudestDbfs: -32.4 })),
     );
     run.eq(
-        hit.rows.find((r) => r.label.key === "detail.r.loud").label.vars.f,
-        "2",
-        "口水音：高通频率取常量，不写在文案里",
+        [hit.rows.find((r) => r.label.key === "detail.r.loud").label.vars.f, hit.notes.at(-1)],
+        ["2", { key: "detail.mouth.loud", vars: { f: "2" } }],
+        "口水音：最响一次只在详情里，说明只看 2 kHz 以上；频率取常量，不写在文案里",
     );
+    run.eq(
+        [hit.expl, hit.rows.find((r) => r.label.key === "detail.r.secs").abs],
+        [
+            { key: "detail.mouth.e", vars: { n: 6, s: "20" } },
+            { text: "20", unit: "s", unitKey: undefined },
+        ],
+        "口水音：解释句与表里写按多少秒说话算的",
+    );
+    const noSecs = detailOf("mouth", withSection(measured(), "click", { count: 0, perMinute: 0, analysedSeconds: 0 }));
+    run.eq(
+        [noSecs.expl.key, noSecs.rows.some((r) => r.label.key === "detail.r.secs")],
+        ["detail.mouth.none", false],
+        "说话时长为 0：不写秒数",
+    );
+    run.eq([m.expl.key, m.expl.vars.s], ["detail.mouth.0", "20"], "口水音 0 次：写多少秒说话里没有检出");
+    const hitNoSecs = detailOf(
+        "mouth",
+        withSection(measured(), "click", { count: 2, perMinute: 6, analysedSeconds: 0 }),
+    );
+    run.eq(
+        [hitNoSecs.expl.key, hitNoSecs.expl.vars, hitNoSecs.rows.some((r) => r.label.key === "detail.r.secs")],
+        ["detail.mouth.e0", { n: 6 }, false],
+        "有次数但没有说话时长（旧的原生端、数据不全）：解释句不写秒数，也不画说话时长一行",
+    );
+    const tinySecs = detailOf(
+        "mouth",
+        withSection(measured(), "click", { count: 2, perMinute: 6, analysedSeconds: 0.4 }),
+    );
+    run.eq(tinySecs.expl, hitNoSecs.expl, "说话时长取整后是 0：同样不写秒数，和没有时长一样");
     run.check(
         hit.notes.some((n) => n.key === "detail.n.ungraded"),
         "口水音不分档：写明只给绝对电平",
     );
-    // 相对值带符号：为正（最响一次比说话峰值还响）时句子不能写成“低于”
+    // 相对值带符号：比说话电平高是 +，低是 −；说明句不写死高或低
     const loudSnap = (rel) =>
         withSection(measured(), "click", { count: 3, perMinute: 6, loudestRelDb: rel, loudestDbfs: -5 });
-    const pos = detailOf("mouth", loudSnap(2.5));
-    run.eq(
-        [pos.expl.vars.v, pos.rows.find((r) => r.label.key === "detail.r.loud").rel.text],
-        ["+2.5", "+2.5"],
-        "口水音：相对值为正时解释句与表格都带 +",
-    );
-    run.eq(hit.expl.vars.v, "−24.0", "口水音：相对值为负时解释句带 −");
+    const relOf = (d) => d.rows.find((r) => r.label.key === "detail.r.loud").rel.text;
+    run.eq([relOf(detailOf("mouth", loudSnap(2.5))), relOf(hit)], ["+2.5", "−24.0"], "口水音：相对值带正负号");
     run.check(
-        !/低于/.test(dict.zh["detail.mouth.e"]) && !/below/.test(dict.en["detail.mouth.e"]),
-        "口水音解释句的词条不写死“低于”：正负由数字的符号表达",
+        !/低于|高于/.test(dict.zh["detail.mouth.loud"] + dict.zh["detail.col.peak"]) &&
+            !/\b(above|below) your/.test(dict.en["detail.col.peak"]),
+        "口水音：列标题不写死高或低，正负由数字的符号表达",
     );
     const narrow = detailOf(
         "sib",
@@ -210,20 +235,20 @@ function buildMissingRoom() {
     );
     run.eq(
         keys(detailOf("sib", over)),
-        ["flow.ref.sib", "flow.tip.angle-soften-de-ess", "detail.n.ungraded.ref"],
-        "齿音超过参考值：不说退后，所以不带推荐距离",
+        ["flow.ref.sib", "flow.tip.angle-soften-de-ess", "detail.n.ungraded.ref", "detail.sib.lv"],
+        "齿音超过参考值：不说退后，所以不带推荐距离；最后说明两个频段的电平只用来和上次比",
     );
     run.eq(
         keys(detailOf("mouth", over)),
-        ["flow.ref.mouth", "flow.tip.back-off-a-little", "flow.rd.r", "detail.n.ungraded.ref"],
-        "口水音超过参考值（参考值有了之后）：退后一点，带推荐距离",
+        ["flow.ref.mouth", "flow.tip.back-off-a-little", "flow.rd.r", "detail.n.ungraded.ref", "detail.mouth.loud"],
+        "口水音超过参考值（参考值有了之后）：退后一点，带推荐距离；最后说明最响一次",
     );
     const head = SCENES.overReferenceHeadset();
     run.eq(
         [keys(detailOf("plosive", head)), keys(detailOf("mouth", head))],
         [
             ["flow.ref.plosive", "flow.tip.pop-filter", "detail.n.ungraded.ref"],
-            ["flow.ref.mouth", "flow.tip.back-off-a-little.nodist", "detail.n.ungraded.ref"],
+            ["flow.ref.mouth", "flow.tip.back-off-a-little.nodist", "detail.n.ungraded.ref", "detail.mouth.loud"],
         ],
         "耳机麦：提示不涉及距离，也不写推荐距离",
     );
@@ -234,11 +259,30 @@ function buildMissingRoom() {
     );
     run.eq(
         keys(detailOf("mouth", noClickRef(measured()))),
-        ["detail.n.ungraded"],
+        ["detail.n.ungraded", "detail.mouth.loud"],
         "口水音参考值为 null：没有参考行，也没有提示",
     );
-    const vow = detailOf("sib", over).rows.find((r) => r.label.key === "detail.r.vowel");
-    run.eq([vow.abs.text, vow.label.vars.b], ["−1.5", "6–12 kHz"], "齿音详情：表里写 6-12 kHz 对元音的比值");
+    const so = detailOf("sib", over);
+    run.eq(
+        so.rows.map((r) => [r.label.key, r.label.vars && r.label.vars.b, r.abs.text, r.hl]).slice(0, 3),
+        [
+            ["detail.r.vowel", "6–12 kHz", "−1.5", true],
+            ["detail.r.lv", "3–6 kHz", "−12.0", false],
+            ["detail.r.lv", "6–12 kHz", "−18.0", false],
+        ],
+        "齿音详情：比元音在第一行、高亮（和卡上的主数字一致），两个频段的电平在后",
+    );
+    run.eq(
+        [so.expl.key, so.expl.vars],
+        ["detail.sib.e", { b: "6–12 kHz", v: "−1.5", n: 6 }],
+        "齿音详情：解释句写比元音和取了几处齿音的中位数",
+    );
+    const nv = detailOf("sib", withSection(over, "sibilance", { vowelEvents: 0 }));
+    run.eq(
+        [nv.expl.key, nv.rows.filter((r) => r.hl).map((r) => r.label.vars.b)],
+        ["detail.sib.v0", ["6–12 kHz"]],
+        "没有元音可比：写原因，高亮 6-12 kHz 的电平（卡上的数）",
+    );
     const off = detailOf("sib", withSection(over, "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 }));
     run.eq(
         off.rows.some((r) => r.label.key === "detail.r.vowel"),

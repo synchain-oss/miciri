@@ -208,17 +208,42 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
         ["flow.w.ungraded", "none", "flow.w.ungraded", "none"],
         "齿音、口水音不分档：词是“未分档”，卡片无色",
     );
-    run.eq(sib.bandLabels, ["3–6 kHz", "6–12 kHz"], "齿音两个频段的标签取自常量，不写在词条里");
     run.eq(
-        mouth.note.key === "flow.cd.mouth.note" && mouth.note.vars.f,
-        "2",
-        "口水音说明写“约 2 kHz 高通后”，频率从常量来",
+        sib.nums.map((n) => [n.text, n.unit, n.label]),
+        [["−6.0", "dB", { key: "flow.cd.sib.vowel", vars: { b: "6–12 kHz" } }]],
+        "齿音卡只有一个数：6-12 kHz 比元音，频段取自常量；两个频段的绝对电平不上卡",
+    );
+    run.eq(sib.note, null, "能和元音比：齿音卡没有说明");
+    run.eq(
+        [mouth.note.key, mouth.note.vars],
+        ["flow.cd.mouth.note", { s: "20" }],
+        "口水音卡写“基于 N 秒说话”，秒数取自 analysedSeconds；不写“高通后最响一次”",
     );
     const zero = withSection(s, "click", { count: 0, perMinute: 0, loudestRelDb: 0, loudestDbfs: 0 });
-    run.eq(core.cardsOf(zero).find((c) => c.id === "mouth").note, null, "口水音 0 次：不写“最响一次”");
+    run.eq(core.cardsOf(zero).find((c) => c.id === "mouth").note.vars.s, "20", "口水音 0 次：照样写按多少秒说话算的");
+    const noSecs = withSection(s, "click", { analysedSeconds: 0 });
+    run.eq(core.cardsOf(noSecs).find((c) => c.id === "mouth").note, null, "说话时长为 0：不写秒数");
+    const tiny = withSection(s, "click", { analysedSeconds: 0.4 });
+    run.eq(core.cardsOf(tiny).find((c) => c.id === "mouth").note, null, "说话时长取整后是 0：也不写“0 秒”");
     const flat = withSection(s, "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 });
     const sb = core.cardsOf(flat).find((c) => c.id === "sib");
-    run.eq([sb.nums[1].na, sb.note.vars.bw], ["flow.w.s.part", "8"], "带宽受限：高频段写“未测”，带宽数取自快照");
+    run.eq(
+        [sb.nums.map((n) => [n.text, n.unit, n.label]), sb.note],
+        [
+            [["−12.0", "dBFS", { key: "flow.cd.sib.level", vars: { b: "3–6 kHz" } }]],
+            { key: "flow.cd.sib.bw", vars: { bw: "8" } },
+        ],
+        "带宽受限：没法和元音比，卡上退回 3-6 kHz 的电平并写明；带宽数取自快照",
+    );
+    const nv = core.cardsOf(withSection(s, "sibilance", { vowelEvents: 0 })).find((c) => c.id === "sib");
+    run.eq(
+        [nv.nums.map((n) => [n.text, n.unit, n.label]), nv.note],
+        [
+            [["−18.0", "dBFS", { key: "flow.cd.sib.level", vars: { b: "6–12 kHz" } }]],
+            { key: "flow.cd.sib.novowel", vars: undefined },
+        ],
+        "没有带元音参考的擦音：卡上退回 6-12 kHz 的电平，写明没法和元音比",
+    );
     // 不分档是契约：原生即使给了档位与色调（旧的原生端），这四张卡也不按档写词、不着色
     const graded = (id, section, patch) => core.cardsOf(withSection(s, section, patch)).find((c) => c.id === id);
     run.eq(
@@ -249,8 +274,8 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
     );
     run.eq(
         base.sib.ref,
-        { key: "flow.ref.sib", vars: { b: "6–12 kHz", r: "−6.0", v: "−3" }, over: false },
-        "齿音：写 6-12 kHz 对元音的比值与参考 −3 dB，取自 bands.sibilanceReferenceDb",
+        { key: "flow.ref.sib", vars: { v: "−3" }, over: false },
+        "齿音：比值就是主数字，参考行只写参考 −3 dB，取自 bands.sibilanceReferenceDb",
     );
     // 假数据里已有口水音参考值，这里显式去掉，测 null 的分支
     const noClickRef = { ...SCENES.ready(), bands: { ...SCENES.ready().bands, clickReferencePerMin: null } };
@@ -325,16 +350,23 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
         steps: { ...SCENES.ready().steps, position: { ...SCENES.ready().steps.position, runs: 2 } },
         previous: { sibilance: withResult("sibilance", patch) },
     });
+    const sibCard = (st) => core.cardsOf(st).find((c) => c.id === "sib");
+    run.eq(sibPrev({ highOverVowelDb: -2.5 }).previous.sibilance.vowelEvents > 0, true, "上次也能和元音比");
     run.eq(
-        core.cardsOf(sibPrev({ highDb: -21 })).find((c) => c.id === "sib").prev,
-        { a: "−21.0", b: "−18.0" },
-        "齿音：上次 → 现在比 6-12 kHz",
+        sibCard(sibPrev({ highOverVowelDb: -2.5, highDb: -21 })).prev,
+        { a: "−2.5", b: "−6.0" },
+        "齿音：上次 → 现在比卡上的主数字，比元音",
     );
     run.eq(
-        core.cardsOf(sibPrev({ highDb: -21, highBandDisabled: true, midHighDb: -15 })).find((c) => c.id === "sib").prev,
-        { a: "−15.0", b: "−12.0" },
-        "齿音：两次里有一次高频项关闭，两次都比 3-6 kHz",
+        sibCard(sibPrev({ highDb: -21, highBandDisabled: true, midHighDb: -15 })).prev,
+        undefined,
+        "齿音：两次的主数字不是同一个量（一次比元音、一次只有 3-6 kHz 的电平），不写上次 → 现在",
     );
+    const bothNarrow = withSection(sibPrev({ highBandDisabled: true, midHighDb: -15 }), "sibilance", {
+        highBandDisabled: true,
+        effectiveBandwidthHz: 8000,
+    });
+    run.eq(sibCard(bothNarrow).prev, { a: "−15.0", b: "−12.0" }, "齿音：两次都只有 3-6 kHz，比 3-6 kHz 的电平");
 }
 {
     const s = staled(SCENES.ready(), "gain");
@@ -495,7 +527,7 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
     run.eq(flow.remoteModel(s), null, "接通观察窗只有几秒，接通页自己显示，不整窗换成测试中视图");
 }
 // 频率与雷达环刻度不写死在词条里
-for (const k of ["flow.cd.sib.bw", "flow.cd.mouth.note", "flow.dir.ring"]) {
+for (const k of ["flow.cd.sib.bw", "flow.cd.sib.vowel", "flow.cd.sib.level", "flow.cd.mouth.note", "flow.dir.ring"]) {
     run.check(
         !/\d+(\.\d+)? ?(kHz|Hz)/.test(flowStrings.zh[k] + flowStrings.en[k]) && /\{\w+\}/.test(flowStrings.zh[k]),
         `${k}：频率和刻度用占位符，不写死数字`,

@@ -653,12 +653,13 @@
     letter-spacing: var(--mono-ls-ui);
     white-space: nowrap;
 }
+/* 主数字的标签（如“6–12 kHz 比元音”）独占一行，写在数字上面；是带变量的词条，太长时折行，不撑宽卡片 */
 .rc__band {
+    flex-basis: 100%;
     font-family: var(--ff-mono);
     font-size: var(--fs-95);
     color: var(--txt-ui);
     letter-spacing: var(--mono-ls-ui);
-    white-space: nowrap;
 }
 .rc--multi .rc__num b {
     font-size: var(--fs-200);

@@ -505,6 +505,15 @@ try {
         await load(en ? "?lang=en" : "", "overReference");
         const cardText = (id) => text(`.rp .rc[data-card="${id}"]`);
         run.eq(
+            [
+                await text('.rp .rc[data-card="sib"] .rc__band'),
+                await page.eval(`${qa('.rp .rc[data-card="sib"] .rc__num')}.length`),
+                await text('.rp .rc[data-card="mouth"] .rc__note'),
+            ],
+            en ? ["6–12 kHz vs vowel", 1, "Based on 20 s of speech"] : ["6–12 kHz 比元音", 1, "基于 20 秒说话"],
+            `${lang}：齿音卡只有一个数，标着“6-12 kHz 比元音”；口水音卡写按多少秒说话算的`,
+        );
+        run.eq(
             await page.eval(`${qa('.rp .rc .rc__ref[data-over="1"]')}.length`),
             3,
             `${lang}：喷麦、齿音、口水音三张卡的参考行都标出“超过”`,
@@ -640,6 +649,7 @@ try {
             "evidence",
             "overReference",
             "overReferenceHeadset",
+            "sibNarrow",
         ]) {
             await load(lang === "en" ? "?lang=en" : "", scene);
             run.eq(await fitReport(), [], `${lang} 场景 ${scene}：报告里的卡片不溢出`);

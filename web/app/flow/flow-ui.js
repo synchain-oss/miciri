@@ -472,11 +472,11 @@ export function recDistLine(rec, ctx) {
 export function resultCard(card, big, multi, ctx) {
     const { t } = ctx;
     const tone = card.stale || card.none ? "gray" : card.tone;
-    const nums = (card.nums || []).map((n, i) =>
+    const nums = (card.nums || []).map((n) =>
         el(
             "div",
             { class: "rc__num" },
-            card.bandLabels ? el("span", { class: "rc__band", text: card.bandLabels[i] }) : null,
+            n.label ? el("span", { class: "rc__band", text: tt(t, n.label.key, n.label.vars) }) : null,
             n.na ? el("b", { class: "rc__na", text: t(n.na) }) : el("b", { class: "sc-num", text: n.text }),
             n.unit ? el("i", { text: n.unit }) : n.unitKey ? el("i", { text: t(n.unitKey) }) : null,
         ),

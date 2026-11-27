@@ -86,40 +86,57 @@ can read it from your singing position.
 
 ## The steps
 
-Each step is short. The window shows "about N seconds" before you start, and a counter while it runs. Colors follow the result:
-green is fine or signal present, amber is worth noticing, red is the one to change first, gray is not measured or stale, and
-purple is the current or next step.
+Each step is short, and some have several parts (for example the light claps, the two word lists and the natural reading of
+the position step). You start and finish each part yourself:
+
+- The Start button on the preparation page starts the first part. Each later part first tells you what to do and waits for you
+  to press Start. While it waits nothing counts down, so take your time.
+- Once a part has enough (for example about 3 seconds of voice, or enough words), Finish becomes available and takes you to the
+  next part. Until then Finish is grayed out and the page says what is still needed.
+- You do not have to press Finish: a part ends by itself at its time limit. The "about N seconds" in the title is that limit,
+  and a counter runs while the part is on.
+- If a part has to be redone (for example because a light clap clipped), it goes back to waiting; press Start when you are
+  ready.
+
+Colors follow the result: green is fine or signal present, amber is worth noticing, red is the one to change first, gray is not
+measured or stale, and purple is the current or next step.
 
 ### 1. Connect
 
-Choose your microphone type if you know it (or skip), and speak. When the level bar moves, press the start button. This step
-also reports the sample rate and buffer size, and on a stereo track whether both channels carry sound. If something looks wrong,
-the card says what it may be; see [If no signal arrives](#if-no-signal-arrives).
+Choose your microphone type if you know it (or skip), and speak. Miciri starts listening as soon as the connect page appears;
+you do not need to press anything. Until it hears sound it keeps listening, one round (about 6 seconds) after another. Once you
+speak, the card changes to "Signal received" and "Start the gain test" becomes available. Closing the plug-in window stops the
+listening. This step also reports the sample rate and buffer size, and on a stereo track whether both channels carry sound.
+If something looks wrong, the card says what it may be; see [If no signal arrives](#if-no-signal-arrives).
 
 ### 2. Gain (about 8 seconds)
 
-Sing as loudly as you will record, and keep going until the step finishes. Miciri reads the peak level (true peak) and whether
-the signal clipped. The target zone is shown on the meter, and the top of the blue liquid is the same true peak that the
-step judges, so the highest you sing should reach the zone. If you clipped, lower the input volume by a good margin and test
+Sing as loudly as you will record. After a few seconds Finish becomes available; if you do not press it, the step ends at its
+time limit. Miciri reads the peak level (true peak) and whether the signal clipped. The target zone is shown on the meter, and
+the top of the blue liquid is the same true peak that the step judges, so the highest you sing should reach the zone. If you clipped, lower the input volume by a good margin and test
 again; if you are far below the zone, raise it. Miciri does not tell you which knob to turn, because it cannot read your
 hardware: for a USB microphone it is the system input volume.
 
 ### 3. Quiet (about 8 seconds)
 
-Stay silent and still. Miciri measures the noise floor (as a signal-to-noise ratio against your singing level) and looks for
-mains hum. If speech or a bump is heard, the step starts over by itself. It also looks for signs that your device is processing
-the sound (a noise gate or heavy noise reduction), which would make the other results look better than the room really is.
+Press Start, then stay silent and still; after a few seconds you may press Finish. Miciri measures the noise floor (as a
+signal-to-noise ratio against your singing level) and looks for mains hum. The step does not restart by itself when it hears a
+sound: if someone spoke or something was bumped, test again afterwards. It also looks for signs that your device is processing the sound (a noise gate or heavy
+noise reduction), which would make the other results look better than the room really is.
 
 ### 4. Room (about 20 seconds)
 
 Stand about 1 meter from the microphone and clap hard. Every clap gets feedback, and the card counts how many more good claps
-it needs. You need four good claps, and Miciri accepts up to eight; a round that is spoiled is marked void. From the decay of
+it needs. You need four good claps, and Miciri accepts up to eight; a round that is spoiled is marked void. Once the minimum
+number of good claps is in, you may press Finish; when there are enough, the step also ends by itself. From the decay of
 each clap it estimates how long the room rings (T20) in four bands. Clapping hard is what this step wants, so loud claps are fine.
 If the card says the device may have a noise gate or noise reduction on, turn it off and clap again.
 
 ### 5. Position (about 1 minute)
 
-Go back to the place where you sing, at the distance you normally use.
+Go back to the place where you sing, at the distance you normally use. There are four parts. The first one starts with the
+Start button on the preparation page; for each later part press Start, and press Finish when you are done. You may finish a
+word list as soon as you have read it, without waiting for the time to run out.
 
 1. Clap lightly three times.
 2. Read the first word list twice, each word on its own, at your singing strength. You do not need a rhythm. For example
@@ -130,16 +147,21 @@ Go back to the place where you sing, at the distance you normally use.
 You do not need to memorize the lists and Miciri does not judge whether you said them correctly. It measures how much of what the
 microphone hears is the direct voice versus the room (D/R), plosives (the puffs of air on p, t, k), sibilance (the hiss on s and sh),
 and mouth clicks. None of these is graded as good or bad. Plosives, sibilance and mouth clicks each show a reference value (a rule
-of thumb, not a standard); when yours goes over it, that card gives one short tip. Miciri also shows a suggested distance for your
-microphone type: about 15 cm for condenser and USB microphones, about 5–10 cm for dynamic ones, and none for a headset. It is common
-practice, not a measurement.
+of thumb, not a standard); when yours goes over it, that card gives one short tip.
+The sibilance card shows "6–12 kHz vs vowel": how loud the high hiss of s and sh is against the vowel right after it, in decibels;
+the higher the number, the more the sibilance stands out. The levels of the two bands (3–6 kHz and 6–12 kHz) are only in the
+details. They move with gain and distance, so on their own they are neither good nor bad, and are only for comparing with last
+time at the same gain. The mouth-click card shows the clicks per minute and how many seconds of speech they were counted over
+(both word lists and the natural reading together); the loudest click is in the details.
+Miciri also shows a suggested distance for your microphone type: about 15 cm for condenser and USB microphones, about 5–10 cm for
+dynamic ones, and none for a headset. It is common practice, not a measurement.
 After you move and measure the position again, Miciri compares D/R, plosives and sibilance with last time and says whether you
 seem closer, seem farther, or have not changed noticeably. The first time it can only hint that you may be too far.
-If a pass is much quieter than your gain test, Miciri asks you to read it again.
 
 ### 6. Direction (optional, about 25 seconds)
 
-Speak toward the microphone for a few seconds in each of four directions. Miciri only answers one question: is the current
+Speak toward the microphone for a few seconds in each of four directions, one part per direction: turn, press Start, speak,
+press Finish when you have enough, then turn to the next one. Miciri only answers one question: is the current
 direction the loudest and brightest one? If another direction is clearly louder it repeats that pair to be sure, and only then
 says the microphone may be the wrong way round. It does not guess your microphone model. If you chose "headset" as the microphone
 type, this step is hidden.
@@ -189,11 +211,13 @@ Some of these cannot be told apart from a very quiet room with nobody speaking, 
   move away, so Miciri only uses it to compare before and after you move; it has no good or bad range.
 - **Plosive**: the puff of air on p, t and k that overloads the microphone with a low thump. The reference is 9 dB (a rule of thumb);
   over it, add a pop filter or step back within the suggested distance.
-- **Sibilance**: the sharp hiss on s and sh. Too much sounds piercing. The reference is −3 dB (a rule of thumb); over it, angle the
-  microphone slightly off the front of your mouth, say the s a little softer, and de-ess after recording.
-- **Mouth noise**: small clicks and wet sounds from the mouth. They are usually worse when you are very close. The reference is 75 per
-  minute (a rule of thumb; breathy t and k can be counted by mistake). Over it, step back a little within the suggested distance; if
-  it is still over the next time, drink some water, because a dry mouth makes it worse.
+- **Sibilance**: the sharp hiss on s and sh. Too much sounds piercing. Miciri gives it as how loud the 6–12 kHz hiss is against
+  the vowel right after it. The reference is under −3 dB (a rule of thumb); over it, angle the microphone slightly off the front
+  of your mouth, say the s a little softer, and de-ess after recording.
+- **Mouth noise**: small clicks and wet sounds from the mouth. They are usually worse when you are very close. The count over both
+  word lists and the natural reading is turned into a rate per minute. The reference is 75 per minute (a rule of thumb; breathy
+  t and k can be counted by mistake). Over it, step back a little within the suggested distance; if it is still over the next
+  time, drink some water, because a dry mouth makes it worse.
 - **Dynamic / condenser microphone**: a dynamic microphone is rugged and needs more gain; a condenser is more sensitive and needs
   phantom power from the interface. USB microphones have the interface built in.
 - **Phase**: the timing of a wave. Two channels in opposite phase cancel each other when they are added into mono.
@@ -221,9 +245,9 @@ automated test results so far, and no host has been tested by hand. The compatib
 [KNOWN_ISSUES.md](KNOWN_ISSUES.md), with the details in [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md), and every untested host says
 "Not tested".
 
-**The step restarted by itself. Is that a bug?**
-No. A step starts over when something spoils it: speech or a bump during the quiet test, a clap that clipped, or a pass much quieter
-than your gain test. The card says why.
+**A part went back and asks me to redo it. Is that a bug?**
+No. When something spoils a part, it goes back to waiting so you can redo it: a light clap that clipped, or room claps cut short
+by a noise gate in your device. The card says why; press Start when you are ready.
 
 **Why does it say it cannot test while I render?**
 Miciri tests only during real-time playback or monitoring. In an offline render the plug-in would measure the project's audio, not

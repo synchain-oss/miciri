@@ -22,7 +22,9 @@ import {
     laneOf,
     recDistance,
     resultModel,
+    sibVowel,
     signed,
+    speechSeconds,
     truePeak,
 } from "../flow/flow-core.js";
 import { STEP_OF, cardOf } from "../report/report-core.js";
@@ -154,47 +156,53 @@ const BODY = {
             notes: [...voiceNotes(state, card), ...(p.lowSensitivity ? [A("detail.n.sens")] : [])],
         };
     },
+    /** 比元音在前、高亮，和卡上的主数字一致；两个频段的电平随后，说明它们只用来和同一增益下的上次比。 */
     sib(state, r, card) {
         const s = r.sibilance;
         const [a, z] = SIB_LABELS;
-        const na = cell("—");
+        const vowel = sibVowel(s);
+        const hi = !s.highBandDisabled;
         return {
-            expl: s.highBandDisabled
+            expl: !hi
                 ? A("detail.sib.n", { a, b: z, bw: kHz(s.effectiveBandwidthHz) })
-                : A("detail.sib.e", { a, b: z }),
+                : vowel
+                  ? A("detail.sib.e", { b: z, v: signed(s.highOverVowelDb), n: Math.round(s.vowelEvents) })
+                  : A("detail.sib.v0"),
             cols: ["detail.col.val"],
             rows: [
-                { label: { lit: a }, abs: level(s.midHighDb), rel: null, hl: true },
-                {
-                    label: { lit: z },
-                    abs: s.highBandDisabled ? na : level(s.highDb),
-                    rel: null,
-                    hl: !s.highBandDisabled,
-                },
-                ...(!s.highBandDisabled && s.vowelEvents > 0 && fin(s.highOverVowelDb)
-                    ? [row("detail.r.vowel", dB(s.highOverVowelDb), null, false, { b: z })]
-                    : []),
+                ...(vowel ? [row("detail.r.vowel", dB(s.highOverVowelDb), null, true, { b: z })] : []),
+                row("detail.r.lv", level(s.midHighDb), null, !vowel && !hi, { b: a }),
+                row("detail.r.lv", hi ? level(s.highDb) : cell("—"), null, !vowel && hi, { b: z }),
                 row("detail.r.bw", cell(String(Math.round(s.effectiveBandwidthHz)), "Hz")),
                 ...(fin(s.events) ? [row("detail.r.count", times(s.events))] : []),
             ],
-            notes: voiceNotes(state, card),
+            notes: [...voiceNotes(state, card), A("detail.sib.lv")],
         };
     },
     mouth(state, r, card) {
         const c = r.click;
         const f = kHz(CLICK_HIGHPASS_HZ);
         const hit = c.count > 0;
+        // 说话时长是两张字表加自然念的总长，次数按它折算成每分钟；没有时长（旧的原生端、数据不全）时解释句不写秒数
+        const s = speechSeconds(c);
+        const n = Math.round(c.perMinute);
+        const expl = hit
+            ? s
+                ? A("detail.mouth.e", { n, s })
+                : A("detail.mouth.e0", { n })
+            : s
+              ? A("detail.mouth.0", { s })
+              : A("detail.mouth.none");
         return {
-            expl: hit
-                ? A("detail.mouth.e", { n: Math.round(c.perMinute), f, v: signed(c.loudestRelDb) })
-                : A("detail.mouth.0"),
+            expl,
             cols: [ABS, "detail.col.peak"],
             rows: [
                 row("detail.r.rate", cell(String(Math.round(c.perMinute)), null, "flow.u.perMin"), null, true),
                 row("detail.r.count", times(c.count)),
+                ...(s ? [row("detail.r.secs", cell(s, "s"))] : []),
                 ...(hit ? [row("detail.r.loud", level(c.loudestDbfs), dB(c.loudestRelDb), false, { f })] : []),
             ],
-            notes: voiceNotes(state, card),
+            notes: [...voiceNotes(state, card), ...(hit ? [A("detail.mouth.loud", { f })] : [])],
         };
     },
     dir(state, r) {
