@@ -109,6 +109,7 @@
   带参数的三个（`setMicType`、`startStep`、`reportChange`）必须给字符串 `arg`，取值同桥契约的枚举；其余不带 `arg`。
 - `phases`（可选）：`"auto"`（缺省）或 `"manual"`，决定之后开始的步骤怎样分段，取值以外的一律判脚本不合规。
   缺省的自动推进里各段首尾相接、按时长推进，下面“拼时间轴”的表照用，`startPhase`、`endPhase` 回 `no-phase`。
+  关编辑器窗口时，正在跑的若是接通就取消，不管是界面开的还是脚本开的；脚本开 `connect` 时不要同时开关插件窗口。
   `manual` 时同界面一样：第一段随 `startStep` 开始，之后每一段待开始，等脚本的 `startPhase`；收够最低量后 `endPhase` 可以提前结束，
   没收够回 `not-enough`（记下，接着往下走）。`startPhase` 在上一段还在进行时回 `busy`、每一拍重试，所以可以写在上一段收完之前；
   这一步已经结束时回 `no-phase`。规则与各段的最低量见 `docs/contracts/BRIDGE.md` 的“一段的开始与结束”。

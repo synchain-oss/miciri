@@ -59,6 +59,7 @@ export function createMockBackend(o = {}) {
     const listeners = new Map();
     const calls = [];
     let evidenceFault = null;
+    let startRefused = false;
     let committed = snap.uiScale;
     let pending = false;
 
@@ -108,6 +109,7 @@ export function createMockBackend(o = {}) {
         },
         startStep(id) {
             if (!ENUM_STEP_ID.includes(id)) return fail("bad-step");
+            if (startRefused) return fail("disabled");
             return sim.begin(id) ? OK : fail("busy");
         },
         cancelStep() {
@@ -181,6 +183,10 @@ export function createMockBackend(o = {}) {
         /** 让 getEvidence 出故障（只测试用）："no-evidence" 回失败，"null" 回 null，"reject" 抛错，null 恢复。 */
         setEvidenceFault(mode) {
             evidenceFault = mode;
+        },
+        /** 让 startStep 回 disabled（只测试用；像插件还没准备好音频时那样），false 恢复。 */
+        setStartRefused(on) {
+            startRefused = !!on;
         },
         calls,
         committedScale: () => committed,

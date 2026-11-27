@@ -185,6 +185,20 @@ try {
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "1"`, { label: "增益进入远距离模式" });
     await click('[data-part="cancel"]');
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消增益" });
+    // 被拒（插件还没准备好音频时回 disabled）：不弹提示，隔几秒再试，准备好之后接着观察
+    const refusedBefore = await connectStarts();
+    await call(`setStartRefused(true)`);
+    await call(`mutate((s) => { s.connect.signalState = "waiting"; })`);
+    await goStep("connect");
+    await page.waitFor(
+        `${M}.calls.filter((c) => c.name === "startStep" && c.args[0] === "connect").length === ${refusedBefore + 1}`,
+        { label: "接通页开一轮，被拒" },
+    );
+    await sleep(500);
+    run.eq(await connectStarts(), refusedBefore + 1, "被拒之后不马上重试");
+    run.eq(await page.eval(`${M}.sim.runningStep()`), null, "被拒：没有在跑的接通观察");
+    await call(`setStartRefused(false)`);
+    await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "隔几秒自己再试，准备好之后接着观察" });
     await call(`mutate((s) => { s.connect.signalState = "ok"; })`);
 
     // ---- ③ 测试中：远距离模式 ----

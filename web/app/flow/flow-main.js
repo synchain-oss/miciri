@@ -38,6 +38,8 @@ const WHEEL_LOCK_MS = 450;
 /** 一步刚叫停、工作线程还在收尾时 startStep 回 busy：隔这么久再试，最多这么多次（约 1 秒）。 */
 const BUSY_RETRY_MS = 50;
 const BUSY_RETRIES = 20;
+/** 接通观察被拒（还没准备好音频、宿主在离线渲染、验证宿主）后隔多久再试：宿主可能先开编辑器、后起音频引擎。 */
+const REFUSED_RETRY_MS = 3000;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 document.addEventListener("miciri:shell-ready", (e) => start(e.detail));
@@ -67,11 +69,11 @@ function start(shell) {
     let queue = [];
     let retesting = false;
 
-    // 接通观察：界面自动开的那一轮正在路上、用户正在开别的步骤、这次停在接通页时被拒过（离线渲染、验证宿主回 disabled）；
+    // 接通观察：界面自动开的那一轮正在路上、用户正在开别的步骤、被拒（回 disabled）之后到什么时候再试；
     // 正在跑的接通是不是本页开的（自动开的或“再检查一次”开的）。只取消本页开的，别处（宿主测试的探针脚本）开的不动
     let observePending = false;
     let starting = false;
-    let observeRefused = false;
+    let refusedUntil = 0;
     let ownRound = false;
     let connectWasRunning = false;
     const stepRunning = (id) => !!(state && state.steps && state.steps[id] && state.steps[id].status === "running");
@@ -245,13 +247,18 @@ function start(shell) {
     }
     meter.onPillAction(openChannelPrompt);
 
-    // 开一步：接通观察在跑就先取消它；刚叫停的那一步还在收尾时回 busy，稍等再试。这期间界面不再自动开接通观察
+    // 开一步：接通观察在跑就先取消它（只取消一次：快照可能还没跟上）；刚叫停的那一步还在收尾时回 busy，稍等再试。
+    // 这期间界面不再自动开接通观察
     async function startAfterObserving(id) {
         starting = true;
         try {
             let r;
+            let cancelled = false;
             for (let i = 0; ; i++) {
-                if (ownRound && stepRunning("connect")) await bridge.cancelStep();
+                if (!cancelled && ownRound && stepRunning("connect")) {
+                    cancelled = true;
+                    await bridge.cancelStep();
+                }
                 r = await bridge.startStep(id);
                 if (!(r && r.ok === false && r.reason === "busy") || i >= BUSY_RETRIES) return r;
                 await wait(BUSY_RETRY_MS);
@@ -276,7 +283,7 @@ function start(shell) {
                 });
         };
         if (view !== "connect") {
-            observeRefused = false;
+            refusedUntil = 0;
             if (ownRound && stepRunning("connect"))
                 act(
                     () => bridge.cancelStep(),
@@ -285,14 +292,17 @@ function start(shell) {
             return;
         }
         const offline = !!(state.device && state.device.offlineRender);
-        if (observeRefused || offline || (state.connect && state.connect.signalState === "ok")) return;
+        if (Date.now() < refusedUntil || offline || (state.connect && state.connect.signalState === "ok")) return;
         if (STEP_IDS.some(stepRunning)) return;
         act(
             () => bridge.startStep("connect"),
             (r) => {
-                // busy：别处刚开了一步，等下一个快照再看；其余失败这次停留期间不再试，也不弹提示
-                if (!r || (r.ok === false && r.reason !== "busy")) observeRefused = true;
-                else if (r.ok !== false) ownRound = true;
+                // busy：别处刚开了一步，等下一个快照再看；其余失败（还没准备好音频、离线渲染、验证宿主）隔一会儿再试，
+                // 不弹提示：宿主可能先开编辑器、后起音频引擎
+                if (!r || (r.ok === false && r.reason !== "busy")) {
+                    refusedUntil = Date.now() + REFUSED_RETRY_MS;
+                    setTimeout(syncObserver, REFUSED_RETRY_MS);
+                } else if (r.ok !== false) ownRound = true;
             },
         );
     }
