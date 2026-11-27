@@ -58,6 +58,7 @@ export default {
         "detail.sib.v0": "这一遍没找到后面跟着元音的齿音，没法和元音比，只给两个频段的电平。",
         "detail.sib.lv": "频段的电平会随增益和距离变，单看没有好坏，只用来和同一增益下的上次比。",
         "detail.mouth.e": "按 {s} 秒说话（两张字表加自然念）算，口水音折算每分钟 {n} 次。",
+        "detail.mouth.e0": "折算下来口水音每分钟 {n} 次。",
         "detail.mouth.0": "{s} 秒说话（两张字表加自然念）里没有检出口水音。",
         "detail.mouth.none": "这一遍没有检出口水音。",
         "detail.mouth.loud":
@@ -136,6 +137,7 @@ export default {
             "Band levels move with gain and distance, so on their own they are neither good nor bad. They are only for comparing with last time at the same gain.",
         "detail.mouth.e":
             "{n} mouth clicks per minute, counted over {s} s of speech (both word lists and the natural reading).",
+        "detail.mouth.e0": "That comes to {n} mouth clicks per minute.",
         "detail.mouth.0": "No mouth clicks were found in {s} s of speech (both word lists and the natural reading).",
         "detail.mouth.none": "No mouth clicks were found in this take.",
         "detail.mouth.loud":

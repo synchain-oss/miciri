@@ -107,6 +107,8 @@ export const SCENES = {
     },
     /** 都好：可以开始录音。 */
     ready: () => ({ ...green(measured()), advice: advice("good", "none", "card-button") }),
+    /** 有效带宽不够：齿音没法和元音比，卡上退回 3-6 kHz 的电平，说明写原因（最长的齿音说明）。 */
+    sibNarrow: () => withSection(SCENES.ready(), "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 }),
     /** 重测位置后挪近了：D/R 与喷麦指向更近，齿音因为调过增益不比。 */
     closer: () => {
         const s = withSection(green(measured()), "distance", {

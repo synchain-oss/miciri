@@ -169,6 +169,15 @@ function buildMissingRoom() {
         "说话时长为 0：不写秒数",
     );
     run.eq([m.expl.key, m.expl.vars.s], ["detail.mouth.0", "20"], "口水音 0 次：写多少秒说话里没有检出");
+    const hitNoSecs = detailOf(
+        "mouth",
+        withSection(measured(), "click", { count: 2, perMinute: 6, analysedSeconds: 0 }),
+    );
+    run.eq(
+        [hitNoSecs.expl.key, hitNoSecs.expl.vars, hitNoSecs.rows.some((r) => r.label.key === "detail.r.secs")],
+        ["detail.mouth.e0", { n: 6 }, false],
+        "有次数但没有说话时长（旧的原生端、数据不全）：解释句不写秒数，也不画说话时长一行",
+    );
     run.check(
         hit.notes.some((n) => n.key === "detail.n.ungraded"),
         "口水音不分档：写明只给绝对电平",

@@ -649,6 +649,7 @@ try {
             "evidence",
             "overReference",
             "overReferenceHeadset",
+            "sibNarrow",
         ]) {
             await load(lang === "en" ? "?lang=en" : "", scene);
             run.eq(await fitReport(), [], `${lang} 场景 ${scene}：报告里的卡片不溢出`);

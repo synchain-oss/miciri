@@ -182,14 +182,18 @@ const BODY = {
         const c = r.click;
         const f = kHz(CLICK_HIGHPASS_HZ);
         const hit = c.count > 0;
-        // 说话时长是两张字表加自然念的总长，次数按它折算成每分钟
+        // 说话时长是两张字表加自然念的总长，次数按它折算成每分钟；没有时长（旧的原生端、数据不全）时解释句不写秒数
         const s = fin(c.analysedSeconds) && c.analysedSeconds > 0 ? String(Math.round(c.analysedSeconds)) : null;
+        const n = Math.round(c.perMinute);
+        const expl = hit
+            ? s
+                ? A("detail.mouth.e", { n, s })
+                : A("detail.mouth.e0", { n })
+            : s
+              ? A("detail.mouth.0", { s })
+              : A("detail.mouth.none");
         return {
-            expl: hit
-                ? A("detail.mouth.e", { n: Math.round(c.perMinute), s })
-                : s
-                  ? A("detail.mouth.0", { s })
-                  : A("detail.mouth.none"),
+            expl,
             cols: [ABS, "detail.col.peak"],
             rows: [
                 row("detail.r.rate", cell(String(Math.round(c.perMinute)), null, "flow.u.perMin"), null, true),
