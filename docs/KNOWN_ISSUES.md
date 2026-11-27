@@ -126,13 +126,15 @@ once a manual test confirms it.
 ## 没有信号和很安静分不开
 
 话筒没接好、幻象电源没开、增益为零时，插件收到的是一路极低的噪声；房间很安静又没人说话时，信号看起来也一样。两种情况在信号上分不开，
-所以“没有信号”的提示一律写“可能”，主按钮不会被锁住。
+所以这一种提示只写“可能”，“开始增益测试”不锁，可以照常往下测。
+完全没收到音频、收到的全是零、先有声音后变成全零这三种情形分得清：这时按钮会锁住，直到收到声音。
 
 ## No signal and a very quiet room look the same
 
 A microphone that is not connected, a missing phantom power or a gain at zero gives the plug-in a very low noise; so does a very
-quiet room with nobody speaking. The two cannot be told apart from the signal, so the no-signal hints always say "possibly" and the
-main button is never locked.
+quiet room with nobody speaking. The two cannot be told apart from the signal, so that hint only says "possibly" and "Start the gain test" is not
+locked: you can carry on testing as usual. When no audio arrives at all, when everything received is exactly zero, or when the
+signal was there and then turned exactly zero, the case is clear and the button is locked until sound arrives.
 
 ## 判档的数值大多还没有用真实录音标定
 

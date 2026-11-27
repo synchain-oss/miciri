@@ -194,7 +194,9 @@ Miciri cannot read your DAW's monitoring or arm state, so these hints always say
 | Only one channel on a stereo track | The recording may only land on one side: use a mono track, or check the input |
 | The two channels are opposite in phase | The two channels carry the same voice but one is inverted; a mono mix-down could cancel. Check the cable and the interface's phase switch |
 
-Some of these cannot be told apart from a very quiet room with nobody speaking, which is why the main button stays usable.
+The very-low-noise case cannot be told apart from a very quiet room with nobody speaking, so it only says "possibly" and
+"Start the gain test" stays usable. When no audio callbacks arrive, when the signal is exactly zero from the start, or when it was
+there and then turned exactly zero, the button is locked until sound arrives.
 
 ## Glossary
 
