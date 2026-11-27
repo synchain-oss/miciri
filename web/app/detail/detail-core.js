@@ -24,6 +24,7 @@ import {
     resultModel,
     sibVowel,
     signed,
+    speechSeconds,
     truePeak,
 } from "../flow/flow-core.js";
 import { STEP_OF, cardOf } from "../report/report-core.js";
@@ -183,7 +184,7 @@ const BODY = {
         const f = kHz(CLICK_HIGHPASS_HZ);
         const hit = c.count > 0;
         // 说话时长是两张字表加自然念的总长，次数按它折算成每分钟；没有时长（旧的原生端、数据不全）时解释句不写秒数
-        const s = fin(c.analysedSeconds) && c.analysedSeconds > 0 ? String(Math.round(c.analysedSeconds)) : null;
+        const s = speechSeconds(c);
         const n = Math.round(c.perMinute);
         const expl = hit
             ? s

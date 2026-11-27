@@ -611,6 +611,11 @@ export const kHz = (v) => `${+(v / 1000).toFixed(1)}`;
 export const hzRange = (b) => `${kHz(b[0])}–${kHz(b[1])} kHz`;
 /** 口水音检测前的高通频率（Hz），与 thresholds.json 的 click.highpass_hz 同值（冒烟核对）；“最响一次”是它之后的峰值。 */
 export const CLICK_HIGHPASS_HZ = 2000;
+/** 口水音按多少秒说话算的（取整后的文字）；没有、或取整后是 0 时为 null，不写秒数。 */
+export const speechSeconds = (c) => {
+    const s = Number.isFinite(c.analysedSeconds) ? Math.round(c.analysedSeconds) : 0;
+    return s > 0 ? String(s) : null;
+};
 /** 齿音能和元音比：高频项没关、有带元音参考的擦音、比值是个数。卡上的主数字与参考值比的都是这个比值。 */
 export const sibVowel = (sb) => !sb.highBandDisabled && sb.vowelEvents > 0 && Number.isFinite(sb.highOverVowelDb);
 
@@ -870,10 +875,7 @@ export const resultCards = {
         id: "mouth",
         word: UNGRADED_WORD,
         nums: [num(String(Math.round(c.perMinute)), null, "flow.u.perMin")],
-        note:
-            Number.isFinite(c.analysedSeconds) && c.analysedSeconds > 0
-                ? act("flow.cd.mouth.note", { s: String(Math.round(c.analysedSeconds)) })
-                : null,
+        note: speechSeconds(c) ? act("flow.cd.mouth.note", { s: speechSeconds(c) }) : null,
         ...voiceExtras(c, clickRef(c, x.bands), x.advice.click, x),
         ...plain(c),
     }),

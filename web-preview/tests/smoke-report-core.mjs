@@ -223,6 +223,8 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
     run.eq(core.cardsOf(zero).find((c) => c.id === "mouth").note.vars.s, "20", "口水音 0 次：照样写按多少秒说话算的");
     const noSecs = withSection(s, "click", { analysedSeconds: 0 });
     run.eq(core.cardsOf(noSecs).find((c) => c.id === "mouth").note, null, "说话时长为 0：不写秒数");
+    const tiny = withSection(s, "click", { analysedSeconds: 0.4 });
+    run.eq(core.cardsOf(tiny).find((c) => c.id === "mouth").note, null, "说话时长取整后是 0：也不写“0 秒”");
     const flat = withSection(s, "sibilance", { highBandDisabled: true, effectiveBandwidthHz: 8000 });
     const sb = core.cardsOf(flat).find((c) => c.id === "sib");
     run.eq(
