@@ -168,6 +168,11 @@ try {
     await goStep("gain");
     await page.waitFor(`${M}.sim.runningStep() === null`, { label: "离开接通页就取消那一轮" });
     run.eq(await stackStep(), "gain", "取消接通观察不把页面拽回接通页");
+    // 别处（宿主测试的探针脚本）开的接通：界面不在接通页时也不去取消它
+    await call(`startStep("connect")`);
+    await sleep(300);
+    run.eq(await page.eval(`${M}.sim.runningStep()`), "connect", "不是本页开的接通观察，界面不取消");
+    await call(`sim.cancel()`);
     await goStep("connect");
     await page.waitFor(`${M}.sim.runningStep() === "connect"`, { label: "回到接通页又开一轮" });
     run.eq(await page.eval(`${q('[data-part="cta"]')}.disabled`), false, "信号偏低：开始增益测试可点");

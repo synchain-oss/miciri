@@ -67,10 +67,13 @@ function start(shell) {
     let queue = [];
     let retesting = false;
 
-    // 接通观察：界面自动开的那一轮正在路上、用户正在开别的步骤、这次停在接通页时被拒过（离线渲染、验证宿主回 disabled）
+    // 接通观察：界面自动开的那一轮正在路上、用户正在开别的步骤、这次停在接通页时被拒过（离线渲染、验证宿主回 disabled）；
+    // 正在跑的接通是不是本页开的（自动开的或“再检查一次”开的）。只取消本页开的，别处（宿主测试的探针脚本）开的不动
     let observePending = false;
     let starting = false;
     let observeRefused = false;
+    let ownRound = false;
+    let connectWasRunning = false;
     const stepRunning = (id) => !!(state && state.steps && state.steps[id] && state.steps[id].status === "running");
 
     const bridgeFailed = () => shell.showToast("shell.err.generic");
@@ -141,6 +144,7 @@ function start(shell) {
             try {
                 const r = await bridge.startStep("connect");
                 if (r && r.ok === false && r.reason !== "busy") bridgeFailed();
+                if (r && r.ok !== false) ownRound = true;
             } catch {
                 bridgeFailed();
             }
@@ -247,7 +251,7 @@ function start(shell) {
         try {
             let r;
             for (let i = 0; ; i++) {
-                if (stepRunning("connect")) await bridge.cancelStep();
+                if (ownRound && stepRunning("connect")) await bridge.cancelStep();
                 r = await bridge.startStep(id);
                 if (!(r && r.ok === false && r.reason === "busy") || i >= BUSY_RETRIES) return r;
                 await wait(BUSY_RETRY_MS);
@@ -273,7 +277,7 @@ function start(shell) {
         };
         if (view !== "connect") {
             observeRefused = false;
-            if (stepRunning("connect"))
+            if (ownRound && stepRunning("connect"))
                 act(
                     () => bridge.cancelStep(),
                     () => {},
@@ -288,6 +292,7 @@ function start(shell) {
             (r) => {
                 // busy：别处刚开了一步，等下一个快照再看；其余失败这次停留期间不再试，也不弹提示
                 if (!r || (r.ok === false && r.reason !== "busy")) observeRefused = true;
+                else if (r.ok !== false) ownRound = true;
             },
         );
     }
@@ -334,6 +339,10 @@ function start(shell) {
 
     shell.onState((s) => {
         state = s;
+        // 接通从进行中变成不在跑：那一轮（不管谁开的）已经结束
+        const connectRunning = stepRunning("connect");
+        if (connectWasRunning && !connectRunning) ownRound = false;
+        connectWasRunning = connectRunning;
         meter.setState(s);
         detail.update(s);
         const ids = visibleSteps(s);
