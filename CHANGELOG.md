@@ -86,7 +86,9 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
 
 - Most thresholds are starting values or have only been checked on synthetic signals; a few are calibrated on real recordings,
   and those come from a small batch (3 rooms, 2 speakers, 2 microphones). The bands are starting judgements, not a certification.
-- Only REAPER on Windows (VST3) has automated host test results, and those cover audio; the UI start-up was first checked on
-  2026-11-24. Cubase 15 on Windows has been opened once by hand (which found the start-up defect above, re-test pending); no other
-  host has been tested by hand, and the macOS builds have only passed the checks on the continuous-integration runner.
+- Only REAPER on Windows (VST3) has automated host test results; they cover audio, the UI start-up and, with a synthetic input,
+  screenshots of the level meter and the clip lamp. Cubase 15 on Windows has been tried by hand (which found the start-up defect
+  above; the fixed build passed the re-test: the UI starts and the test flow runs through, while transport, arm and monitoring
+  states and offline export were not tested); no other host has been tested by hand, and the macOS builds have only passed the
+  checks on the continuous-integration runner.
   See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) and [docs/DAW_COMPATIBILITY.md](docs/DAW_COMPATIBILITY.md).

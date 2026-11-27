@@ -194,7 +194,9 @@ Miciri cannot read your DAW's monitoring or arm state, so these hints always say
 | Only one channel on a stereo track | The recording may only land on one side: use a mono track, or check the input |
 | The two channels are opposite in phase | The two channels carry the same voice but one is inverted; a mono mix-down could cancel. Check the cable and the interface's phase switch |
 
-Some of these cannot be told apart from a very quiet room with nobody speaking, which is why the main button stays usable.
+The very-low-noise case cannot be told apart from a very quiet room with nobody speaking, so it only says "possibly" and
+"Start the gain test" stays usable. When no audio callbacks arrive, when the signal is exactly zero from the start, or when it was
+there and then turned exactly zero, the button is locked until sound arrives.
 
 ## Glossary
 
@@ -241,7 +243,8 @@ Then read [If no signal arrives](#if-no-signal-arrives). Miciri can only say "po
 
 **Does it work in my DAW?**
 Any host that loads VST3 (Windows, macOS) or Audio Units (macOS) can try to load it, but only REAPER on Windows (VST3) has
-automated test results so far, and no host has been tested by hand. The compatibility table is in
+automated test results so far, and only Cubase 15 on Windows has been tried by hand (the UI starts and the tests run through).
+The compatibility table is in
 [KNOWN_ISSUES.md](KNOWN_ISSUES.md), with the details in [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md), and every untested host says
 "Not tested".
 

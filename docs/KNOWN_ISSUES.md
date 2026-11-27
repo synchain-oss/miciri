@@ -44,15 +44,15 @@ off, where audio arriving faster than real time voids the step: it is covered by
 ## 宿主兼容（DAW）
 
 下表是摘要，只写实测过的结果。**没测过的一律写“未测”**；测完后每行补上宿主版本、日期和证据，超过 6 个月没有重测的行降回“未验证”。
-目前只有 REAPER（Windows，VST3）有自动化测试记录；Cubase 15（Windows）由维护者手动打开过一次，发现了界面启动的问题（已修复，待复测），
+目前只有 REAPER（Windows，VST3）有自动化测试记录；Cubase 15（Windows）由维护者手动试过：先发现了界面启动的问题，修复后复测通过，测试流程能走完；
 其余都没有做过手测。每一行的版本、日期、证据和没有测到的部分，
 见 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)。开发中用 pluginval（strictness 5）检查插件的基本行为，那是格式校验，不等于在宿主里能用。
 
 | 宿主 | 系统与格式 | 状态 |
 |---|---|---|
-| REAPER | Windows，VST3 | 音频的自动化测试通过（REAPER 7.82，2026-11-23）；界面启动 2026-11-24 才查；手测未做 |
+| REAPER | Windows，VST3 | 音频与界面启动都已进入自动化测试（REAPER 7.82，2026-11-26）：界面开窗保持 10 秒、页面完成启动，有合成输入时电平表与削波灯的截图也看过；手测未做 |
 | REAPER | macOS，VST3 与 AU | 未测 |
-| Cubase | Windows，VST3 | 界面没完成启动，原因是所有宿主共有的打包缺陷，已修复，待复测；音频未测（Cubase 15，2026-11-24） |
+| Cubase | Windows，VST3 | 界面启动的缺陷（所有宿主共有的打包缺陷）已修复，界面已复测通过：测试流程能走完，各项都出了读数；走带、arm、监听各状态与离线导出未测（Cubase 15，单声道轨，复测日期 2026-11-24） |
 | Cubase | macOS，VST3 | 未测 |
 | FL Studio | Windows 与 macOS，VST3 | 未测 |
 | GarageBand、Logic | macOS，AU | 未测 |
@@ -66,16 +66,17 @@ off, where audio arriving faster than real time voids the step: it is covered by
 The table is a summary and records results that were actually observed. **A host that has not been tested is listed as "Not
 tested".** When a host is tested, its row gets the host version, the date and the evidence, and a row that has not been retested
 for 6 months goes back to "Unverified". At the moment only REAPER on Windows (VST3) has automated test results; Cubase 15 on
-Windows was opened once by a maintainer, which found a UI start-up problem (fixed, re-test pending); nothing else has been tested by
-hand. The version, date, evidence and the parts that were not covered for each row are in
+Windows was tried by hand by a maintainer, which first found a UI start-up problem and, after the fix, passed the re-test (the UI
+starts and the test flow runs through); nothing else has been tested by hand. The version, date, evidence and the parts that were
+not covered for each row are in
 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md). During development the plug-in is checked with pluginval (strictness 5); that
 validates the plug-in format and does not mean it works in a host.
 
 | Host | OS and format | Status |
 |---|---|---|
-| REAPER | Windows, VST3 | Automated audio tests pass (REAPER 7.82, 2026-11-23); UI start-up first checked on 2026-11-24; manual test not done |
+| REAPER | Windows, VST3 | Both audio and UI start-up are in the automated tests (REAPER 7.82, 2026-11-26): the window is held open for 10 s and the page finishes starting; the meters and the clip lamp with a synthetic input were also checked in screenshots; manual test not done |
 | REAPER | macOS, VST3 and AU | Not tested |
-| Cubase | Windows, VST3 | UI did not finish starting, caused by a packaging defect shared by all hosts; fixed, re-test pending; audio not tested (Cubase 15, 2026-11-24) |
+| Cubase | Windows, VST3 | The UI start-up defect (a packaging defect shared by all hosts) is fixed and the UI passed the re-test: the test flow runs through and every item gave a reading; transport, arm and monitoring states and offline export not tested (Cubase 15, mono track, re-test date 2026-11-24) |
 | Cubase | macOS, VST3 | Not tested |
 | FL Studio | Windows and macOS, VST3 | Not tested |
 | GarageBand, Logic | macOS, AU | Not tested |
@@ -125,13 +126,15 @@ once a manual test confirms it.
 ## 没有信号和很安静分不开
 
 话筒没接好、幻象电源没开、增益为零时，插件收到的是一路极低的噪声；房间很安静又没人说话时，信号看起来也一样。两种情况在信号上分不开，
-所以“没有信号”的提示一律写“可能”，主按钮不会被锁住。
+所以这一种提示只写“可能”，“开始增益测试”不锁，可以照常往下测。
+完全没收到音频、收到的全是零、先有声音后变成全零这三种情形分得清：这时按钮会锁住，直到收到声音。
 
 ## No signal and a very quiet room look the same
 
 A microphone that is not connected, a missing phantom power or a gain at zero gives the plug-in a very low noise; so does a very
-quiet room with nobody speaking. The two cannot be told apart from the signal, so the no-signal hints always say "possibly" and the
-main button is never locked.
+quiet room with nobody speaking. The two cannot be told apart from the signal, so that hint only says "possibly" and "Start the gain test" is not
+locked: you can carry on testing as usual. When no audio arrives at all, when everything received is exactly zero, or when the
+signal was there and then turned exactly zero, the case is clear and the button is locked until sound arrives.
 
 ## 判档的数值大多还没有用真实录音标定
 

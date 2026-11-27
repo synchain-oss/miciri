@@ -149,7 +149,8 @@ Miciri 读不到 DAW 里的监听和 arm 状态，所以下面这些提示一律
 | 立体声轨上只有一路有声音 | 录出来可能只在一边：改用单声道轨，或检查输入 |
 | 两路相位相反 | 两路是同一个声音，但一路是反的，合成单声道时可能抵消。检查话筒线和接口上的相位开关 |
 
-其中有些情况和“房间很安静、没人说话”在信号上分不开，所以主按钮始终可以点。
+其中“极低的噪声，说话也不上升”这一种和“房间很安静、没人说话”在信号上分不开，所以只写“可能”，“开始增益测试”不锁，可以照常往下测；
+没有音频回调、从一开始全是零、先有声音后变成全零这三种分得清，按钮会锁住，直到收到声音。
 
 ## 词汇表
 
@@ -184,7 +185,7 @@ macOS 版的 Miciri 没有签名和公证，Gatekeeper 会拦下载来的文件�
 
 **它能在我的 DAW 里用吗？**
 能加载 VST3（Windows、macOS）或 Audio Unit（macOS）的宿主都可以尝试加载，但目前只有 REAPER（Windows，VST3）有自动化测试记录，
-没有任何宿主做过手测。兼容表在 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)，详细记录在 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)，
+手测只有 Cubase 15（Windows）试过（界面能正常启动、测试流程能走完）。兼容表在 [KNOWN_ISSUES.md](KNOWN_ISSUES.md)，详细记录在 [DAW_COMPATIBILITY.md](DAW_COMPATIBILITY.md)，
 没测过的宿主都写着“未测”。
 
 **这一段退回去要我重做，是 bug 吗？**

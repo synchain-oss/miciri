@@ -12,13 +12,13 @@ Audio passes through unchanged: Miciri only listens, it never edits your sound.
 
 ## What it does
 
-You put Miciri on the track you record vocals on and follow the steps in its window. Each step is a few seconds to about a minute.
+You put Miciri on the track you record vocals on and follow the steps in its window. Each step is a few seconds to about a minute. The Connect step listens by itself; after it you start each part yourself and can finish it early once it has enough, and a part also ends by itself at its time limit.
 
 | Step | You do | Miciri looks at |
 |---|---|---|
 | Connect | Pick your mic type (or skip) and speak | Whether signal arrives, left and right channels, sample rate and buffer size |
-| Gain | Sing at your loudest for about 8 seconds | Peak level, clipping, how much to turn the gain up or down |
-| Quiet | Stay quiet for about 8 seconds | Noise floor, mains hum, signs that the device processes the sound |
+| Gain | Sing at your loudest, up to about 8 seconds | Peak level, clipping, how much to turn the gain up or down |
+| Quiet | Stay quiet, up to about 8 seconds | Noise floor, mains hum, signs that the device processes the sound |
 | Room | Clap hard from about 1 metre away | Reverberation time (T20) in four bands |
 | Position | From your singing spot: clap lightly, read two short word lists, then speak a short passage | Direct-to-room ratio, plosives, sibilance, mouth noise, and a before/after check of whether you moved closer or farther |
 | Direction (optional) | Speak toward four directions of the mic | Whether the current direction is the loudest and brightest |
@@ -37,7 +37,8 @@ affected items and see "last time → now".
 
 ## Supported DAWs
 
-So far only REAPER on Windows (VST3) has automated test results, and no host has been tested by hand. Every other host is listed
+So far only REAPER on Windows (VST3) has automated test results. Cubase 15 on Windows was tried by hand by a maintainer (the UI
+starts and the test flow runs through); no other host has been tested by hand. Every other host is listed
 as **not tested** in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md); the full record is in
 [docs/DAW_COMPATIBILITY.md](docs/DAW_COMPATIBILITY.md). The v1 targets are REAPER, Cubase, FL Studio and GarageBand / Logic (Audio
 Unit). Results are added there with the host version and the date as they are verified.
@@ -83,7 +84,7 @@ for a better vocal recording, with the numbers behind it.
 **Does it record or upload my audio?** No. Audio is analysed in memory while it arrives and is not kept. Nothing leaves your computer.
 
 **Which DAWs does it work in?** Hosts that load VST3 or Audio Units can load it, but only REAPER on Windows has automated test
-results so far, and no host has been tested by hand. See the table in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+results so far, and only Cubase 15 on Windows has been tried by hand. See the table in [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
 **Why does macOS block it?** The macOS builds are not signed or notarized, so Gatekeeper blocks a downloaded copy. The user
 guide shows how to clear the flag.
