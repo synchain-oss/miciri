@@ -12,7 +12,7 @@ Audio passes through unchanged: Miciri only listens, it never edits your sound.
 
 ## What it does
 
-You put Miciri on the track you record vocals on and follow the steps in its window. Each step is a few seconds to about a minute. You start each part yourself and can finish it early once it has enough; a part also ends by itself at its time limit.
+You put Miciri on the track you record vocals on and follow the steps in its window. Each step is a few seconds to about a minute. The Connect step listens by itself; after it you start each part yourself and can finish it early once it has enough, and a part also ends by itself at its time limit.
 
 | Step | You do | Miciri looks at |
 |---|---|---|
