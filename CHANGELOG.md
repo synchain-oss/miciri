@@ -43,7 +43,28 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
   plosives, sibilance, mouth noise and direction. The host-test build can run the test steps from a script and write the readings
   of each step to a file ([docs/HOST_PROBE.md](docs/HOST_PROBE.md)); releases do not contain it.
 
+### Changed
+
+- You start and finish each part of a test step. The Start button on the preparation page starts the first part; every later
+  part waits for Start, with no countdown and no time limit on the wait. Finish becomes available once the part has the minimum
+  it needs (for example a few seconds of voice, a few good claps, or six syllables of a word list), so a word list can end as soon
+  as it is read, and each of the four directions is started and finished by hand. A part still ends by itself at its old time
+  limit, and a part that has to be redone goes back to waiting instead of restarting after a countdown. A short stretch right
+  after Start and right before Finish is left out of the analysis, so the mouse click is not taken for a mouth click or a clap.
+  The host-test probe keeps the automatic timeline.
+- Sibilance card: its number is now "6–12 kHz vs vowel", the value that is compared with the reference. The absolute levels of
+  the 3–6 kHz and 6–12 kHz bands, which only compare with an earlier test at the same gain, are now only in the details, and
+  "last time → now" on the card compares the same number as the card shows.
+- Mouth-click card: it says how many seconds of speech the rate per minute was counted over (both word lists and the natural
+  reading). The loudest click, measured above 2 kHz, is now only in the details, where it is given against your average speech
+  level; the details used to call that level the speech peak. Readings, references and thresholds are unchanged.
+
 ### Fixed
+
+- Connect page: it never started listening by itself, so even with sound coming in it stayed on "Waiting for sound" and "Start
+  the gain test" stayed grayed out. It now listens as soon as the page appears, one round after another until the signal is
+  fine, and stops when you leave the page or close the plug-in window. If the plug-in cannot start yet (for example before the
+  host has started its audio), it tries again a few seconds later.
 
 - Level meter: the blue liquid was the average level of only the last audio block while the peak line and the scale were the
   peak, so a voice's liquid sat far below the line (and below what the gain step then judged). The liquid is now a peak meter:

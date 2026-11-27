@@ -653,7 +653,9 @@
     letter-spacing: var(--mono-ls-ui);
     white-space: nowrap;
 }
+/* 主数字的标签（如“6–12 kHz 比元音”）独占一行，写在数字上面 */
 .rc__band {
+    flex-basis: 100%;
     font-family: var(--ff-mono);
     font-size: var(--fs-95);
     color: var(--txt-ui);

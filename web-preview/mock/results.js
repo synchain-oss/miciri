@@ -114,7 +114,7 @@ const BUILDERS = {
                 perMinute: 3,
                 loudestRelDb: -24,
                 loudestDbfs: -32.4,
-                analysedSeconds: 15,
+                analysedSeconds: 20,
                 count: 1,
                 severity: "light",
                 overReference: false,

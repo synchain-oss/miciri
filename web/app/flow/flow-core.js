@@ -225,12 +225,18 @@ export function peekSegments(state, id) {
                     : { key: "flow.w.unk" },
             ];
         if (id === "position" && r.directRatio) {
-            // 四项都不分档，摘要里只写读数；齿音高频项关闭时取 3-6 kHz 那一格
+            // 四项都不分档，摘要里只写读数；齿音写卡上的主数字（比元音，比不了时是一个频段的电平）
             const sb = r.sibilance;
             return [
                 { key: "flow.sum.dr", vars: { n: signed(r.directRatio.drDb) } },
                 r.plosive && { key: "flow.sum.plosive", vars: { n: signed(r.plosive.worstRatioDb) } },
-                sb && { key: "flow.sum.sib", vars: { n: signed(sb.highBandDisabled ? sb.midHighDb : sb.highDb) } },
+                sb &&
+                    (sibVowel(sb)
+                        ? { key: "flow.sum.sib", vars: { n: signed(sb.highOverVowelDb) } }
+                        : {
+                              key: "flow.sum.sib.lv",
+                              vars: { n: signed(sb.highBandDisabled ? sb.midHighDb : sb.highDb) },
+                          }),
                 r.click && { key: "flow.sum.mouth", vars: { n: String(Math.round(r.click.perMinute)) } },
             ].filter(Boolean);
         }
@@ -605,6 +611,8 @@ export const kHz = (v) => `${+(v / 1000).toFixed(1)}`;
 export const hzRange = (b) => `${kHz(b[0])}–${kHz(b[1])} kHz`;
 /** 口水音检测前的高通频率（Hz），与 thresholds.json 的 click.highpass_hz 同值（冒烟核对）；“最响一次”是它之后的峰值。 */
 export const CLICK_HIGHPASS_HZ = 2000;
+/** 齿音能和元音比：高频项没关、有带元音参考的擦音、比值是个数。卡上的主数字与参考值比的都是这个比值。 */
+export const sibVowel = (sb) => !sb.highBandDisabled && sb.vowelEvents > 0 && Number.isFinite(sb.highOverVowelDb);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // 参考值、轻提示与推荐距离
@@ -627,27 +635,15 @@ export function recDistance(state) {
 
 /**
  * 参考值一行（经验值，不是档位）：数值取自 bands，没有（旧的原生端，或参考还没定的 null）就不显示。
- * 齿音比的是 6-12 kHz 对元音的比值，所以那一行同时写出这个比值；高频项关闭或没有元音可比时不比，也不显示参考。
+ * 齿音比的是 6-12 kHz 比元音，就是卡上的主数字，参考行只写参考值；高频项关闭或没有元音可比时不比，也不显示参考。
  */
 const plosiveRef = (p, bands) =>
     bands && Number.isFinite(bands.plosiveReferenceDb)
         ? { key: "flow.ref.plosive", vars: { v: refNum(bands.plosiveReferenceDb) }, over: !!p.overReference }
         : null;
 const sibRef = (sb, bands) =>
-    bands &&
-    Number.isFinite(bands.sibilanceReferenceDb) &&
-    !sb.highBandDisabled &&
-    sb.vowelEvents > 0 &&
-    Number.isFinite(sb.highOverVowelDb)
-        ? {
-              key: "flow.ref.sib",
-              vars: {
-                  b: hzRange(SIB_BANDS_HZ[1]),
-                  r: signed(sb.highOverVowelDb),
-                  v: refNum(bands.sibilanceReferenceDb),
-              },
-              over: !!sb.overReference,
-          }
+    bands && Number.isFinite(bands.sibilanceReferenceDb) && sibVowel(sb)
+        ? { key: "flow.ref.sib", vars: { v: refNum(bands.sibilanceReferenceDb) }, over: !!sb.overReference }
         : null;
 const clickRef = (c, bands) =>
     bands && Number.isFinite(bands.clickReferencePerMin)
@@ -838,26 +834,46 @@ export const resultCards = {
         ...voiceExtras(p, plosiveRef(p, x.bands), x.advice.plosive, x),
         ...plain(p),
     }),
-    sib: (sb, x = cardExtras()) => ({
-        id: "sib",
-        word: UNGRADED_WORD,
-        nums: [
-            num(signed(sb.midHighDb), "dB", null),
-            sb.highBandDisabled ? { na: "flow.w.s.part" } : num(signed(sb.highDb), "dB"),
-        ],
-        bandLabels: SIB_BANDS_HZ.map(hzRange),
-        // “上次 → 现在”比的读数：6-12 kHz；两次里有一次高频项关闭时都比 3-6 kHz（与距离标尺同一个取法）
-        cmp: { mid: signed(sb.midHighDb), high: sb.highBandDisabled ? null : signed(sb.highDb) },
-        note: sb.highBandDisabled ? act("flow.cd.sib.bw", { bw: kHz(sb.effectiveBandwidthHz) }) : null,
-        ...voiceExtras(sb, sibRef(sb, x.bands), x.advice.sibilance, x),
-        ...plain(sb),
-    }),
-    /** 0 次时“最响一次”的两项都不是测量值（留 0），不显示。 */
+    /**
+     * 主数字是 6-12 kHz 比元音，和参考值比的就是它；两个频段的绝对电平随增益和距离变，单看没有好坏，只放在详情里。
+     * 比不了（高频项关闭，或没有带元音参考的擦音）时退回一个频段的电平，带上频段标签，说明写为什么比不了。
+     */
+    sib(sb, x = cardExtras()) {
+        const vowel = sibVowel(sb);
+        const hi = !sb.highBandDisabled;
+        const main = vowel
+            ? {
+                  ...num(signed(sb.highOverVowelDb), "dB"),
+                  label: act("flow.cd.sib.vowel", { b: hzRange(SIB_BANDS_HZ[1]) }),
+              }
+            : {
+                  ...num(signed(hi ? sb.highDb : sb.midHighDb), "dBFS"),
+                  label: act("flow.cd.sib.level", { b: hzRange(SIB_BANDS_HZ[hi ? 1 : 0]) }),
+              };
+        return {
+            id: "sib",
+            word: UNGRADED_WORD,
+            nums: [main],
+            // “上次 → 现在”比主数字那个量：比值对比值、同一频段的电平对电平；两次的主数字不是同一个量就不比
+            cmp: vowel ? { by: "vowel", v: main.text } : { by: hi ? "high" : "mid", v: main.text },
+            note: !hi
+                ? act("flow.cd.sib.bw", { bw: kHz(sb.effectiveBandwidthHz) })
+                : vowel
+                  ? null
+                  : act("flow.cd.sib.novowel"),
+            ...voiceExtras(sb, sibRef(sb, x.bands), x.advice.sibilance, x),
+            ...plain(sb),
+        };
+    },
+    /** 说明写口水音按多少秒说话算的（两张字表加自然念的总长）；“最响一次”只在详情里。 */
     mouth: (c, x = cardExtras()) => ({
         id: "mouth",
         word: UNGRADED_WORD,
         nums: [num(String(Math.round(c.perMinute)), null, "flow.u.perMin")],
-        note: c.count > 0 ? act("flow.cd.mouth.note", { v: fmtDb(c.loudestRelDb), f: kHz(CLICK_HIGHPASS_HZ) }) : null,
+        note:
+            Number.isFinite(c.analysedSeconds) && c.analysedSeconds > 0
+                ? act("flow.cd.mouth.note", { s: String(Math.round(c.analysedSeconds)) })
+                : null,
         ...voiceExtras(c, clickRef(c, x.bands), x.advice.click, x),
         ...plain(c),
     }),

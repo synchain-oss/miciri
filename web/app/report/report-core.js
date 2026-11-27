@@ -99,10 +99,9 @@ export function isFirstMeasure(id, state) {
     return runs >= RETESTED_RUNS && PREVIOUS_OF[id].every((s) => !prev[s]);
 }
 
-/** “上次 → 现在”写哪两个数：一般是第一个数；齿音按 cmp 取（同一频段才可比）。 */
+/** “上次 → 现在”写哪两个数：一般是第一个数；齿音按 cmp 取，两次的主数字是同一个量（比值，或同一频段的电平）才比。 */
 function compared(before, now) {
-    if (before.cmp && now.cmp)
-        return before.cmp.high && now.cmp.high ? [before.cmp.high, now.cmp.high] : [before.cmp.mid, now.cmp.mid];
+    if (before.cmp && now.cmp) return before.cmp.by === now.cmp.by ? [before.cmp.v, now.cmp.v] : [null, null];
     return [before.nums[0] && before.nums[0].text, now.nums[0] && now.nums[0].text];
 }
 

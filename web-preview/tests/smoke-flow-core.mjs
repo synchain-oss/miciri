@@ -452,14 +452,15 @@ run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
         [
             ["flow.sum.dr", "+3.8"],
             ["flow.sum.plosive", "+2.0"],
-            ["flow.sum.sib", "−18.0"],
+            ["flow.sum.sib", "−6.0"],
             ["flow.sum.mouth", "3"],
         ],
-        "位置摘要：D/R、喷麦、齿音、口水音只写读数",
+        "位置摘要：D/R、喷麦、齿音、口水音只写读数；齿音写卡上的主数字，6-12 kHz 比元音",
     );
     const narrow = done(snap(), ["position"]);
     narrow.results.sibilance = { ...narrow.results.sibilance, highBandDisabled: true };
-    run.eq(flow.peekSegments(narrow, "position")[2].vars.n, "−12.0", "高频项关闭：齿音摘要取 3-6 kHz 那一格");
+    const seg = flow.peekSegments(narrow, "position")[2];
+    run.eq([seg.key, seg.vars.n], ["flow.sum.sib.lv", "−12.0"], "高频项关闭：齿音摘要写 3-6 kHz 的电平");
 }
 run.eq(flow.resultModel(snap(), "gain"), null, "没有结果时结果页没有数据");
 
