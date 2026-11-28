@@ -209,7 +209,8 @@ export function createFlowSim(snap, io, o = {}) {
             const valid = validOf(snap.live.taps);
             if (valid >= snap.live.tapsNeeded) return closeSegment();
             if (inSeg >= s.sec && valid < MIN_CLEAN_TAPS) {
-                // 和插件一样：削波的几下本来够数就说“拍轻一点”，否则是拍得太少
+                // 削波的几下本来够数就说“拍轻一点”，否则是拍得太少。插件只数削波且量得出直达声的（D/R 的
+                // clippedUsable）；模拟里削波的都当量得出，这里简化成数所有削波的
                 const clipped = snap.live.taps.filter((t) => t === "clipped").length;
                 elapsed -= inSeg;
                 inSeg = 0;
