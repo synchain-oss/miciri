@@ -83,7 +83,8 @@ inline constexpr auto kSnapshotBands =
           "sibilanceReferenceDb", "clickReferencePerMin");
 inline constexpr auto kSnapshotLive =
     names("phase", "round", "rounds", "phaseElapsedSec", "phaseDurationSec", "claps", "clapsNeeded", "clapsMax",
-          "directionIndex", "notice", "noticeSec", "clapDetails", "waiting", "canEnd", "need", "needLeft", "heard");
+          "directionIndex", "notice", "noticeSec", "clapDetails", "waiting", "canEnd", "need", "needLeft", "heard",
+          "taps", "tapsNeeded");
 // 追加（建议与“最该改”）：房间步每一下拍手的明细、建议
 inline constexpr auto kSnapshotClapDetail = names("timeSec", "peakDbfs", "clipped", "bandStatus", "t20Sec");
 inline constexpr auto kSnapshotAdvice = names("room", "distance", "directionPrompt", "plosive", "sibilance", "click");
@@ -178,6 +179,7 @@ inline std::vector<Table> contractTables()
         table("ENUM_SIBILANCE_ADVICE", c::kSibilanceAdviceNames),
         table("ENUM_CLICK_ADVICE", c::kClickAdviceNames),
         table("ENUM_PHASE_NEED", c::kPhaseNeedNames),
+        table("ENUM_TAP_STATE", c::kTapStateNames),
     };
 }
 } // namespace miciri::bridge

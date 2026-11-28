@@ -249,6 +249,7 @@ const pos = (phase, extra = {}) =>
         running("position", { phase, round: 1, rounds: 3, phaseDurationSec: 10, phaseElapsedSec: 2, ...extra }),
     );
 run.check(pos("soft-clap").dots.total === 3, "位置·轻拍：三个点");
+run.check(!pos("soft-clap").slots, "自动推进的轻拍按遍画点，不画逐下的槽位");
 run.check(
     pos("plosive", { rounds: 2 }).words && pos("plosive", { rounds: 2 }).aux.key === "flow.rm.round",
     "位置·喷麦：念的字和第几遍",
@@ -277,7 +278,6 @@ run.check(
     const NEEDS = {
         seconds: ["quiet", "flow.rm.need.seconds"],
         "voice-seconds": ["gain", "flow.rm.need.voice"],
-        claps: ["room", "flow.rm.need.claps"],
         syllables: ["position", "flow.rm.need.syllables"],
     };
     for (const [need, [step, key]] of Object.entries(NEEDS)) {
@@ -298,6 +298,11 @@ run.check(
     }
     const ready = flow.remoteModel(running("gain", { need: "voice-seconds", needLeft: 0, canEnd: true }));
     run.check(ready.end.can === true && ready.need.key === "flow.rm.need.ready", "收够之后：“结束”可用，写“够了”");
+    run.eq(
+        pos("plosive", { rounds: 1, need: "syllables", needLeft: 0, canEnd: true }).need.key,
+        "flow.rm.need.ready",
+        "字表不会自己结束：收够了仍写“够了”",
+    );
     const soft = pos("soft-clap", { rounds: 1, need: "claps", needLeft: 2 });
     run.check(!soft.dots && soft.aux.key === "flow.rm.part", "手动分段的轻拍是一段：不画遍数的点，写第几部分");
     run.check(
@@ -305,7 +310,51 @@ run.check(
         "手动分段的字表是一段：写第几部分，不写第 1 遍 / 共 1 遍",
     );
     const room = flow.remoteModel(running("room", { ...roomLive, need: "claps", needLeft: 1 }));
-    run.check(!room.aux && room.need.vars.n === 1, "手动分段的房间步：还差几下由 need 说");
+    run.check(!room.aux, "手动分段的房间步：不另写还差几下");
+    run.eq(room.need, { key: "flow.rm.count", vars: { n: 2, total: 4 } }, "房间步只写有效几下 / 凑够几下自动结束");
+    const room3 = flow.remoteModel(
+        running("room", { ...roomLive, claps: ["valid", "valid", "noisy", "valid"], need: "claps", canEnd: true }),
+    );
+    run.check(
+        room3.end.can === true && room3.need.key === "flow.rm.count" && room3.need.vars.n === 3,
+        "房间步第 3 下有效：“结束”可以按，但只写计数，不写“够了”（第 4 下就自动结束）",
+    );
+
+    // 手动分段的轻拍：一直听，每一下都有反馈，凑够 tapsNeeded 下有效自己往下走
+    const tap = (extra) => pos("soft-clap", { rounds: 1, need: "claps", needLeft: 2, tapsNeeded: 3, ...extra });
+    const tap0 = tap({ taps: [] });
+    run.eq(tap0.slots, ["wait", "wait", "wait"], "轻拍刚开始：画出要凑的三下");
+    run.check(tap0.slotsKind === "taps" && tap0.cmd.vars.n === 3, "轻拍的槽位单独排版，要拍几下取自 tapsNeeded");
+    run.eq(tap0.need, { key: "flow.rm.count", vars: { n: 0, total: 3 } }, "轻拍写有效 0 / 3");
+    const tap2 = tap({ taps: ["clipped", "valid", "unmeasured"] });
+    run.eq(
+        tap2.slots,
+        ["clip", "valid", "miss", "wait", "wait"],
+        "削波的一下写“拍轻一点”，量不出的写“没量出”，都不算数",
+    );
+    run.eq(tap2.need.vars, { n: 1, total: 3 }, "只数有效的");
+    const tapReady = tap({ taps: ["valid", "valid"], canEnd: true, needLeft: 0 });
+    run.check(
+        tapReady.end.can === true && tapReady.need.key === "flow.rm.count",
+        "轻拍收够两下：“结束”能按，仍只写计数",
+    );
+    run.eq(
+        flow.tapSlots({ taps: Array(10).fill("clipped"), tapsNeeded: 3 }),
+        [...Array(5).fill("clip"), "wait", "wait", "wait"],
+        "一行最多 8 个：拍多了只留最近的几下，要凑的几下总在",
+    );
+    const few = flow.remoteModel(
+        running("position", { phase: "soft-clap", notice: "redo", waiting: true, need: "claps", tapsNeeded: 3 }),
+    );
+    run.check(
+        few.cmd.key === "flow.rm.clap.again" && few.sub.key === "flow.rm.clap.few" && few.go === true,
+        "轻拍到上限有效的不够：请用户再拍一组，说明原因，等“开始”",
+    );
+    run.eq(
+        flow.remoteModel(running("gain", { notice: "redo", waiting: true, need: "voice-seconds" })).cmd.key,
+        "flow.rm.redo.gen",
+        "别的部分的 redo 仍用通用的“要重来”",
+    );
     const redo = flow.remoteModel(
         running("position", { phase: "soft-clap", notice: "clap-clipped", noticeSec: 0, waiting: true, need: "claps" }),
     );
@@ -685,20 +734,39 @@ run.eq(meter.markList(snap()), [], "没有结果时没有标记");
     run.check(!s.live.waiting && s.live.need === "claps" && !s.live.canEnd, "模拟·手动：第一段随开始直接开始");
     run.eq(sim.endPhase(), "not-enough", "模拟·手动：没收够不能结束");
     run.eq(sim.startPhase(), "no-phase", "模拟·手动：进行中不能再开始");
-    sim.advance(4);
+    sim.advance(8);
+    run.eq(s.live.taps, ["clipped", "valid", "unmeasured", "valid"], "模拟·手动：轻拍每一下都有判定");
     run.check(s.live.canEnd && s.live.needLeft === 0, "模拟·手动：收够之后可以结束");
-    run.eq(sim.endPhase(), "ok", "模拟·手动：结束");
+    sim.advance(2);
     run.check(
-        s.live.waiting && s.live.phase === "plosive" && s.live.rounds === 1,
-        "模拟·手动：下一段（字表合成一段）等开始",
+        s.live.waiting && s.live.phase === "plosive" && s.live.rounds === 1 && s.live.taps.length === 0,
+        "模拟·手动：轻拍凑够三下有效自己往下走，下一段（字表合成一段）等开始",
     );
     const before = s.steps.position.progressSec;
     sim.advance(30);
     run.check(s.live.waiting && s.steps.position.progressSec === before, "模拟·手动：待开始时不推进");
     run.eq(sim.startPhase(), "ok", "模拟·手动：开始下一段");
+    sim.advance(7);
+    run.eq(sim.endPhase(), "ok", "模拟·手动：结束");
+    run.check(s.live.waiting && s.live.phase === "sibilant", "模拟·手动：结束后下一段等开始");
+    sim.startPhase();
     sim.advance(20);
-    run.check(s.live.waiting && s.live.phase === "sibilant", "模拟·手动：到上限自动结束");
+    run.check(s.live.waiting && s.live.phase === "natural", "模拟·手动：到上限自动结束");
     sim.cancel();
+    // 轻拍到上限有效的不够：退回待开始重拍；削波的几下本来够数时说“拍轻一点”
+    for (const [taps, notice] of [
+        [["valid"], "redo"],
+        [["clipped", "valid"], "clap-clipped"],
+    ]) {
+        sim.setTaps(taps);
+        sim.begin("position");
+        sim.advance(20);
+        run.check(
+            s.live.waiting && s.live.phase === "soft-clap" && s.live.notice === notice && s.live.taps.length === 0,
+            `模拟·手动：轻拍到上限有效的不够，退回待开始重拍（${notice}）`,
+        );
+        sim.cancel();
+    }
     const a = snap();
     const auto = createFlowSim(a, { push: () => {} }, { phases: "auto" });
     auto.begin("position");

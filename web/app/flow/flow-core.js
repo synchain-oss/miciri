@@ -55,11 +55,12 @@ const DIRECTION_HINT = ["flow.rm.dir.d1", "flow.rm.dir.d2", "flow.rm.dir.d3", "f
 
 /**
  * 位置步的子步骤，按先后。`id` 对应桥契约的 ENUM_STEP_PHASE；`n` 是准备页写的次数或遍数（测试中以 live.rounds 为准）；
- * `aux` 决定测试中右下角写“第几部分”还是“第几遍”；`words` 是念的字表（词条键）。
+ * `aux` 决定测试中右下角写“第几部分”还是“第几遍”；`words` 是念的字表（词条键）；
+ * `taps`：逐下数的轻拍。自动推进时按遍画点；手动分段时一直听、逐下给判定（live.taps），凑够 live.tapsNeeded 下有效就自己往下走。
  * 想删掉“轻拍 3 次”：删掉第一行即可，Session 不再发 soft-clap。
  */
 export const POSITION_PHASES = [
-    { id: "soft-clap", n: 3, how: "flow.pp.pos.soft-clap", cmd: "flow.rm.pos.clap", aux: "part", dots: true },
+    { id: "soft-clap", n: 3, how: "flow.pp.pos.soft-clap", cmd: "flow.rm.pos.clap", aux: "part", taps: true },
     {
         id: "plosive",
         n: 2,
@@ -424,12 +425,14 @@ export function prepModel(state, id) {
 // 测试中（远距离模式）
 
 const CLAP_SLOT = { valid: "valid", "too-soft": "soft", noisy: "noisy", truncated: "gate" };
+const TAP_SLOT = { valid: "valid", clipped: "clip", unmeasured: "miss" };
+/** 一行最多几个槽位（和房间步的 clapsMax 一样多）；轻拍多了只留最近的几下。 */
+const SLOTS_MAX = 8;
 const RESTART = "flow.rm.restart";
 /** 还差什么才能点“结束”：live.need 到词条键（数字是 needLeft 向上取整）。 */
 const NEED_KEY = {
     seconds: "flow.rm.need.seconds",
     "voice-seconds": "flow.rm.need.voice",
-    claps: "flow.rm.need.claps",
     syllables: "flow.rm.need.syllables",
 };
 
@@ -485,13 +488,17 @@ export function remoteModel(state, o = {}) {
             redo.key = "flow.rm.wait.redo";
             m.go = true;
         }
-        const by = {
+        const BY = {
             spoiled: { cmd: "flow.rm.redo", sub: "flow.rm.quiet.spoiled" },
             "clap-clipped": { cmd: "flow.rm.clap.soft", sub: "flow.rm.clap.clipped" },
             "too-quiet": { cmd: "flow.rm.again", sub: "flow.rm.plosive.quiet" },
             gated: { cmd: "flow.rm.room.void", sub: "flow.rm.room.gated" },
             redo: { cmd: "flow.rm.redo.gen", sub: null },
-        }[notice] || { cmd: "flow.rm.redo.gen", sub: null };
+            // 轻拍到上限有效的还不够、又不是削波刷掉的（手动分段才有）：原生给的是通用的 redo
+            fewTaps: { cmd: "flow.rm.clap.again", sub: "flow.rm.clap.few" },
+        };
+        const by =
+            (notice === "redo" && running === "position" && tapsPhase(live) ? BY.fewTaps : BY[notice]) || BY.redo;
         m.struct = `notice:${notice}${live.waiting ? ":wait" : ""}`;
         m.cmd = { key: by.cmd };
         m.sub = by.sub ? { key: by.sub } : null;
@@ -509,7 +516,7 @@ export function remoteModel(state, o = {}) {
             cmd: { key: "flow.rm.room.cmd" },
             sub: { key: "flow.rm.room.sub" },
             slots: clapSlots(live),
-            // 手动分段时“还差几下”由 need 说（收够能结束的那几下）；凑够 clapsNeeded 照样自动收尾
+            // 手动分段时由 need 写“有效几下 / clapsNeeded”（见 countedPart），凑够就自动收尾
             aux: manual ? null : { key: "flow.rm.need", vars: { n: Math.max(0, live.clapsNeeded - valid) } },
         });
     } else if (running === "position") {
@@ -518,12 +525,15 @@ export function remoteModel(state, o = {}) {
         // 手动分段时每个部分是一段（字表的几遍一口气念完、几下轻拍一起拍），只写第几部分，不画遍数的点
         const byPart = manual || p.aux === "part";
         const auxVars = byPart ? { n: at + 1, total: POSITION_PHASES.length } : { n: live.round, total: live.rounds };
+        const taps = manual && !!p.taps && Array.isArray(live.taps);
         Object.assign(m, {
-            cmd: { key: p.cmd, vars: { n: manual ? p.n : live.rounds } },
+            cmd: { key: p.cmd, vars: { n: manual ? (taps && live.tapsNeeded) || p.n : live.rounds } },
             words: p.words || null,
             aux: { key: byPart ? "flow.rm.part" : "flow.rm.round", vars: auxVars },
         });
-        if (p.dots && !manual) m.dots = { total: live.rounds, on: Math.max(0, live.round - 1), cur: live.round };
+        if (p.taps && !manual) m.dots = { total: live.rounds, on: Math.max(0, live.round - 1), cur: live.round };
+        // 手动分段的轻拍：每一下都有反馈（有效、拍轻一点、没量出），待开始时先画出要凑的几下
+        if (taps) Object.assign(m, { slots: tapSlots(live), slotsKind: "taps" });
     } else if (running === "direction") {
         if (live.phase === "confirm") {
             const pair = confirmPair(state);
@@ -557,14 +567,31 @@ export function remoteModel(state, o = {}) {
         m.go = true;
     } else if (manual) {
         m.end = { can: live.canEnd === true };
-        m.need = live.canEnd
-            ? { key: "flow.rm.need.ready" }
-            : {
-                  key: NEED_KEY[live.need] || "flow.rm.need.more",
-                  vars: { n: Math.max(1, Math.ceil(Number(live.needLeft) || 0)) },
-              };
+        const counted = countedPart(running, live);
+        m.need = counted
+            ? { key: "flow.rm.count", vars: counted }
+            : live.canEnd
+              ? { key: "flow.rm.need.ready" }
+              : {
+                    key: NEED_KEY[live.need] || "flow.rm.need.more",
+                    vars: { n: Math.max(1, Math.ceil(Number(live.needLeft) || 0)) },
+                };
     }
     return m;
+}
+
+/**
+ * 凑够数就自己结束的部分（房间的拍手、位置步的轻拍）：进行中只写“有效 n / 总数”，总数是自动结束要的下数。
+ * 收够最低量后“结束”照样能按，但不另说“够了”：再拍一下就自动结束了，说“随时可以点结束”反而让人以为要回来点。
+ * 其余按最低量结束的部分（按秒、按字）没有自动结束，仍然写“够了”。
+ */
+function countedPart(running, live) {
+    const valid = (list) => (list || []).filter((c) => c === "valid").length;
+    if (running === "room" && Number.isFinite(live.clapsNeeded))
+        return { n: valid(live.claps), total: live.clapsNeeded };
+    if (running === "position" && tapsPhase(live) && Number.isFinite(live.tapsNeeded))
+        return { n: valid(live.taps), total: live.tapsNeeded };
+    return null;
 }
 
 /**
@@ -579,6 +606,17 @@ export function confirmPair(state) {
     if (live.round >= 2 && live.directionIndex > 0) b = live.directionIndex + 1;
     else if (d && Number.isInteger(d.repeatIndex) && d.repeatIndex >= 0) b = d.repeatIndex + 1;
     return { a, b };
+}
+
+/** 位置步当前这一部分是不是逐下判定的那一部分（步骤表里的 taps）。 */
+const tapsPhase = (live) => !!(POSITION_PHASES.find((p) => p.id === live.phase) || {}).taps;
+
+/** 轻拍槽位：听到的每一下按判定，再补上还差几下有效的“待拍”；一行放不下时只留最近的几下。 */
+export function tapSlots(live) {
+    const heard = (live.taps || []).map((t) => TAP_SLOT[t] || "miss");
+    const valid = heard.filter((s) => s === "valid").length;
+    const pending = Math.max(0, Math.min(SLOTS_MAX, (live.tapsNeeded || 0) - valid));
+    return [...heard.slice(Math.max(0, heard.length - (SLOTS_MAX - pending))), ...Array(pending).fill("wait")];
 }
 
 /** 拍手槽位：已拍的按判定，没拍的补成“待拍”，总数是 clapsMax。 */

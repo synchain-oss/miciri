@@ -493,6 +493,7 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     v.results.distance = core::DistanceResult{};
     v.live.claps = {core::ClapState::Valid, core::ClapState::Truncated};
     v.live.clapDetails = {core::ReverbClap{}, core::ReverbClap{}};
+    v.live.taps = {core::TapState::Valid, core::TapState::Clipped};
     v.previous.gain = core::GainResult{};
     v.results.gain->confidence = core::retest(core::RetestReason::TooShort);
     v.steps[static_cast<std::size_t>(StepId::Gain)].status = core::StepStatus::Done;
@@ -509,6 +510,9 @@ TEST_CASE("snapshot JSON has exactly the contract's keys in the contract's order
     REQUIRE(root["live"]["clapDetails"].items.size() == 2);
     CHECK(root["live"]["clapDetails"].items[0].keys() == names(bridge::kSnapshotClapDetail));
     CHECK(root["live"]["clapDetails"].items[0]["bandStatus"].items.size() == thr::reverb::bands_hz.size());
+    REQUIRE(root["live"]["taps"].items.size() == 2);
+    CHECK(root["live"]["taps"].items[1].text == "clipped");
+    CHECK(root["live"]["tapsNeeded"].number == Catch::Approx(thr::session::soft_claps));
     CHECK(root["steps"].keys() == names(core::kStepIdNames));
     for (const auto& step : root["steps"].members)
         CHECK(step.second.keys() == names(bridge::kSnapshotStep));

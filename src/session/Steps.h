@@ -9,7 +9,7 @@
 //     宿主探针用它，时间轴与分析次数和手动开始之前一样。
 //   - Manual：第一段随这一步开始，之后每段先“待开始”，用户 begin() 才开始收；收够这一段的最低量（need()）后用户可以
 //   end()，
-//     到时长上限照样自动结束。待开始时收到的音频全部丢掉。重来时回到这一阶段的待开始，带着提示，不倒数。
+//     到时长上限照样自动结束；轻拍凑够了也自己结束（segmentFilled()）。待开始时收到的音频全部丢掉。重来时回到这一阶段的待开始，带着提示，不倒数。
 //     用户的点击会被话筒录进去：开始后先丢掉 click_guard_s 秒；样本先经过同样长的延迟再送去分析，
 //     用户结束时延迟里剩下的那段丢掉，到上限或自动收尾时照常全收。字表的几遍合成一段，一口气念完再结束。
 //
@@ -56,6 +56,7 @@ struct Live
     core::PhaseNeed need = core::PhaseNeed::None; // 最低量的单位
     double needLeft = 0.0; // 还差多少（秒或个），够了是 0
     double heard = 0.0; // 这一段已收到多少，单位同 need
+    std::vector<core::TapState> taps; // 位置步的轻拍（Manual）：每一下的判定，按先后；别的阶段与 Auto 下为空
 };
 
 // 前面几步留下、后面几步要用的量。开始一步时整份复制给它，之后不再变
@@ -136,6 +137,8 @@ protected:
     virtual core::FlowNotice endOfPhase(core::StepPhase) { return core::FlowNotice::None; }
     virtual void resetPhase(core::StepPhase) {}
     virtual bool finishedEarly() const { return false; }
+    // 这一段不等上限、也不等用户点结束就收尾，进下一段（只在 Manual 下问）。finishedEarly() 是整步收尾，这个只收这一段
+    virtual bool segmentFilled(const Segment&) const { return false; }
     // 这一段的最低量（只在 Manual 下问）；一段换成下一段时先调 segmentBegins()，清掉按段记的量
     virtual Need need(const Segment&) const { return {}; }
     virtual void segmentBegins(const Segment&) {}

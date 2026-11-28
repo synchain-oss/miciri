@@ -139,7 +139,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 <!-- prettier-ignore-start -->
 <!-- thresholds:begin 以下由 scripts/gen-algorithms.mjs 按 thresholds.json 生成，不要手改 -->
-共 301 项，分 17 组：合成验证 108 项、待标定 187 项、实录标定 6 项。
+共 302 项，分 17 组：合成验证 108 项、待标定 188 项、实录标定 6 项。
 
 ### `no_signal`
 
@@ -506,14 +506,15 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `room_max_s` | 20 | 待标定 | 规格起始值 |  |
 | `room_claps_needed` | 4 | 待标定 | 规格起始值 |  |
 | `room_claps_max` | 8 | 待标定 | 规格起始值 |  |
-| `live_clap_every_s` | 0.5 | 待标定 | 工程起始值 | how often the room step re-reads the claps so far to give per-clap feedback; with manual phases the soft claps of the position step are re-read as often, to count the clean ones |
-| `soft_claps` | 3 | 待标定 | 规格起始值 |  |
-| `soft_clap_round_s` | 2 | 待标定 | 规格起始值 |  |
+| `live_clap_every_s` | 0.5 | 待标定 | 工程起始值 | how often the room step re-reads the claps so far to give per-clap feedback; with manual phases the soft taps of the position step are re-read as often, to judge each tap and count the clean ones |
+| `soft_claps` | 3 | 待标定 | 规格起始值 | soft taps in the position step. With automatic phases one tap per soft_clap_round_s; with manual phases the part moves on by itself once this many clean taps are heard |
+| `soft_clap_round_s` | 2 | 待标定 | 规格起始值 | with automatic phases, length of each soft-tap round; not used with manual phases |
+| `soft_clap_max_s` | 20 | 待标定 | 工程起始值 | with manual phases, longest the soft-tap part listens. Covers walking back from the computer (a few seconds), soft_claps taps at the automatic pace (6 s) and redoing two or three clipped taps, each shown about 1.5 s after it; same as room_max_s, the other part that listens until enough claps are heard |
 | `word_list_rounds` | 2 | 待标定 | 规格起始值 |  |
 | `word_list_round_s` | 10 | 待标定 | 规格起始值 |  |
 | `direction_take_s` | 3 | 待标定 | 规格起始值 |  |
 | `notice_s` | 3 | 待标定 | 工程起始值 | with automatic phases, countdown shown before a phase or step restarts by itself; counted in samples. With manual phases the phase waits for the user to start it again |
-| `restarts_max` | 3 | 待标定 | 工程起始值 | how many times one step may restart a phase by itself (clipped soft claps, gated claps); after that it carries on and the analysis reports the retest |
+| `restarts_max` | 3 | 待标定 | 工程起始值 | how many times one step may restart a phase by itself (soft taps that clipped or, with manual phases, were too few at the time limit; gated claps); after that it carries on and the analysis reports the retest |
 | `realtime_ratio_max` | 1.5 | 待标定 | 工程起始值 | audio arriving faster than this multiple of real time means an offline render the host did not announce; the step is voided |
 | `realtime_check_min_s` | 1 | 待标定 | 工程起始值 | wall-clock time before the mid-step speed check starts; the check at the end of a step always runs |
 | `capture_buffer_s` | 4 | 待标定 | 工程起始值 | audio the capture ring holds while the worker is busy; a full ring voids the step as an overflow |

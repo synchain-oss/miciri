@@ -177,7 +177,8 @@
 自动重来：阶段收满时要求重来（轻拍削波、念得太轻、门限让拍手整组作废等），先丢掉 `session.notice_s` 秒的音频作为倒数，再从这一阶段
 的第一遍重来；一步最多自动重来 `session.restarts_max` 次。时间轴上要给这些留余量，后面的 `startStep` 回 `busy` 时会自己等。
 
-上面两张表说的是缺省的自动推进。`"phases": "manual"` 时字表的几遍合成一段（`rounds` 为 1），每段开头的 `session.click_guard_s` 秒
+上面两张表说的是缺省的自动推进。`"phases": "manual"` 时字表的几遍合成一段（`rounds` 为 1）；轻拍也是一段，
+凑够 `session.soft_claps` 下有效就自己结束，上限 `session.soft_clap_max_s`，到上限不够时退回待开始重拍；每段开头的 `session.click_guard_s` 秒
 不进分析，待开始时的音频也不算；阶段要重来时不倒数，退回这一阶段的待开始，等下一个 `startPhase`。
 
 ## 对音频与状态的影响

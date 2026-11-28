@@ -240,5 +240,9 @@ MICIRI_DEFINE_ENUM(ClickAdvice, MICIRI_ENUM_ClickAdvice)
     X(Claps, "claps")                  \
     X(Syllables, "syllables")
 MICIRI_DEFINE_ENUM(PhaseNeed, MICIRI_ENUM_PhaseNeed)
+// 追加（轻拍逐下）：手动开始时位置步每一下轻拍的判定。valid 没削波、量得出直达声，算进 D/R；clipped 削波了，不算；
+// unmeasured 没削波但量不出（拍手前的噪声窗不够长，或直达能量不为正），也不算
+#define MICIRI_ENUM_TapState(X) X(Valid, "valid") X(Clipped, "clipped") X(Unmeasured, "unmeasured")
+MICIRI_DEFINE_ENUM(TapState, MICIRI_ENUM_TapState)
 // clang-format on
 } // namespace miciri::core

@@ -72,6 +72,8 @@ export function idleLive() {
             need: "none",
             needLeft: 0,
             heard: 0,
+            taps: [],
+            tapsNeeded: 3,
         },
         "live",
     );

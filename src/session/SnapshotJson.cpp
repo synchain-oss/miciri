@@ -418,6 +418,11 @@ void putLive(Json& j, const Live& l)
     j.closeArray();
     j.key("waiting").boolean(l.waiting).key("canEnd").boolean(l.canEnd);
     j.key("need").wire(l.need).key("needLeft").num(l.needLeft).key("heard").num(l.heard);
+    j.key("taps").openArray();
+    for (TapState t : l.taps)
+        j.wire(t);
+    j.closeArray();
+    j.key("tapsNeeded").integer(std::lround(thr::session::soft_claps));
     j.close();
 }
 

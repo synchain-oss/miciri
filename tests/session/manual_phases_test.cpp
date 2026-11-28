@@ -74,6 +74,25 @@ std::vector<double> counting(double seconds, double amplitude, double leadSec)
     return x;
 }
 
+// 一串轻拍（ClapTrain 的直达加尾巴），间隔 1.5 s；clipped 里列出的几下（从 0 起）在直达处削波
+std::vector<double> softTaps(int taps, std::vector<int> clipped = {})
+{
+    ClapTrain c;
+    c.fs = kFs;
+    c.claps = taps;
+    c.leadSec = 0.6;
+    c.gapSec = 1.5;
+    c.direct = 0.2;
+    std::vector<double> x = makeClaps(c);
+    for (int i : clipped)
+    {
+        const auto at = static_cast<std::size_t>(clapTime(c, i) * kFs);
+        for (std::size_t n = 0; n < 24; ++n)
+            x[at + n] = n % 2 ? -1.0 : 1.0;
+    }
+    return x;
+}
+
 // 六个擦音夹在元音之间（像一遍齿音字表）
 std::vector<double> sibilantList()
 {
@@ -327,8 +346,7 @@ TEST_CASE("manual: a phase that has to be redone goes back to waiting with its n
             clipped[at + n] = n % 2 ? -1.0 : 1.0;
     }
     // 三下都削波：最低量永远不够，到上限收尾时要求重拍
-    clipped.resize(
-        static_cast<std::size_t>((kGuard + thr::session::soft_claps * thr::session::soft_clap_round_s) * kFs) + 1);
+    clipped.resize(static_cast<std::size_t>((kGuard + thr::session::soft_clap_max_s) * kFs) + 1);
     feedUntil(*s, clipped, [&] { return s->live().notice != FlowNotice::None; });
     REQUIRE(s->live().notice == FlowNotice::ClapClipped);
     CHECK(s->live().waiting);
@@ -342,6 +360,67 @@ TEST_CASE("manual: a phase that has to be redone goes back to waiting with its n
     REQUIRE(s->begin());
     CHECK(s->live().notice == FlowNotice::None);
     CHECK(s->live().phase == StepPhase::SoftClap);
+}
+
+TEST_CASE("manual: soft taps are judged one by one, and enough clean ones move on without the user")
+{
+    auto s = session::makeScript(StepId::Position, manual(), nullptr);
+    CHECK(s->live().phase == StepPhase::SoftClap);
+    CHECK(s->live().phaseDurationSec == Catch::Approx(thr::session::soft_clap_max_s));
+    CHECK(s->live().taps.empty());
+
+    // 第一下削波：当场判成 clipped、不算数；后面三下干净的凑够 soft_claps 就自己进字表
+    const auto taps = softTaps(static_cast<int>(thr::session::soft_claps) + 1, {0});
+    std::vector<core::TapState> seen;
+    bool couldEnd = false;
+    feedUntil(
+        *s, taps,
+        [&] {
+            if (s->live().phase != StepPhase::SoftClap)
+                return true;
+            seen = s->live().taps;
+            couldEnd = couldEnd || s->live().canEnd;
+            return false;
+        },
+        480);
+    REQUIRE(seen.size() >= 3);
+    CHECK(seen[0] == core::TapState::Clipped);
+    CHECK(seen[1] == core::TapState::Valid);
+    CHECK(seen[2] == core::TapState::Valid);
+    CHECK(couldEnd); // 收够 min_clean_claps 下就能点结束，不必等凑够
+    CHECK(s->live().phase == StepPhase::Plosive);
+    CHECK(s->live().waiting);
+    CHECK(s->live().notice == FlowNotice::None);
+    CHECK(s->live().taps.empty());
+    CHECK(s->progressSec() < static_cast<double>(taps.size()) / kFs); // 没等上限，也没等这串音频喂完
+}
+
+TEST_CASE("manual: soft taps that run out of time carry on with enough clean ones and are redone with too few")
+{
+    const auto cap = static_cast<std::size_t>((kGuard + thr::session::soft_clap_max_s) * kFs) + 1;
+    // 到上限只有一下：D/R 给不出，退回待开始重拍；不是削波刷掉的，提示是 redo
+    {
+        auto s = session::makeScript(StepId::Position, manual(), nullptr);
+        auto x = softTaps(1);
+        x.resize(cap);
+        feedUntil(*s, x, [&] { return s->live().notice != FlowNotice::None; });
+        REQUIRE(s->live().notice == FlowNotice::Redo);
+        CHECK(s->live().waiting);
+        CHECK(s->live().phase == StepPhase::SoftClap);
+        CHECK(s->live().taps.empty());
+        CHECK(s->progressSec() == Catch::Approx(0.0));
+    }
+    // 到上限有 min_clean_claps 下：够 D/R 用，照常进字表
+    {
+        auto s = session::makeScript(StepId::Position, manual(), nullptr);
+        auto x = softTaps(static_cast<int>(thr::direct_ratio::min_clean_claps));
+        x.resize(cap);
+        feedUntil(*s, x, [&] { return s->live().phase != StepPhase::SoftClap; });
+        CHECK(s->live().phase == StepPhase::Plosive);
+        CHECK(s->live().waiting);
+        CHECK(s->live().notice == FlowNotice::None);
+        CHECK(s->progressSec() == Catch::Approx(thr::session::soft_clap_max_s).margin(1e-3));
+    }
 }
 
 TEST_CASE("manual: each direction is started and ended on its own")
@@ -396,6 +475,13 @@ TEST_CASE("automatic phases ignore start and end, and report no minimum")
     CHECK_FALSE(s->end());
     CHECK_FALSE(s->begin());
     CHECK(s->progressSec() == Catch::Approx(4.0).margin(1e-6)); // 没有点击保护
+
+    // 轻拍在 Auto 下仍按遍计时，不报逐下的判定
+    auto pos = session::makeScript(StepId::Position, c, nullptr);
+    CHECK(pos->live().rounds == static_cast<int>(thr::session::soft_claps));
+    CHECK(pos->live().phaseDurationSec == Catch::Approx(thr::session::soft_clap_round_s));
+    feedAll(*pos, softTaps(static_cast<int>(thr::session::soft_claps)));
+    CHECK(pos->live().taps.empty());
 
     // 接通步总是自动推进，Manual 也一样
     auto connect = session::makeScript(StepId::Connect, manual(), nullptr);

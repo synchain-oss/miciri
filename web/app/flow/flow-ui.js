@@ -565,7 +565,15 @@ function bandsViz(v, ctx) {
     );
 }
 
-const SLOT_ICON = { valid: "check", soft: "up", noisy: "wave", gate: "cut", wait: "circle" };
+const SLOT_ICON = {
+    valid: "check",
+    soft: "up",
+    noisy: "wave",
+    gate: "cut",
+    wait: "circle",
+    clip: "down",
+    miss: "circle-x",
+};
 export const slotEl = (s, ctx) =>
     el("div", { class: "slot", data: { s } }, ic(SLOT_ICON[s], 26), el("span", { text: ctx.t(`flow.sl.${s}`) }));
 

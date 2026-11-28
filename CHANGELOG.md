@@ -52,6 +52,12 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
   limit, and a part that has to be redone goes back to waiting instead of restarting after a countdown. A short stretch right
   after Start and right before Finish is left out of the analysis, so the mouse click is not taken for a mouth click or a clap.
   The host-test probe keeps the automatic timeline.
+- The light claps of the position step are no longer timed when you start and finish parts yourself. The part keeps listening,
+  so you can walk back to where you sing after pressing Start; every clap gets feedback on the spot (valid, clap softer, not
+  measured), and the part moves on to the word list by itself once it has three valid claps. A clap that clipped no longer
+  sends the whole part back at the end: it just does not count. Only if there are still fewer than two valid claps after
+  20 seconds (`session.soft_clap_max_s`, new) does the part go back to waiting. The room claps and the light claps now only show
+  "valid n of N" while they run, instead of saying "that is enough, press Finish" one clap before they end by themselves.
 - Sibilance card: its number is now "6–12 kHz vs vowel", the value that is compared with the reference. The absolute levels of
   the 3–6 kHz and 6–12 kHz bands, which only compare with an earlier test at the same gain, are now only in the details, and
   "last time → now" on the card compares the same number as the card shows.

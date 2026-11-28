@@ -93,10 +93,12 @@ the position step). You start and finish each part yourself:
   to press Start. While it waits nothing counts down, so take your time.
 - Once a part has enough (for example about 3 seconds of voice, or enough words), Finish becomes available and takes you to the
   next part. Until then Finish is grayed out and the page says what is still needed.
+- The two parts that count claps (the room claps and the light claps of the position step) end by themselves once they have
+  enough. While they run they only show "valid n of N", and you do not need to come back to press Finish.
 - You do not have to press Finish: a part ends by itself at its time limit. The "about N seconds" in the title is that limit,
   and a counter runs while the part is on.
-- If a part has to be redone (for example because a light clap clipped), it goes back to waiting; press Start when you are
-  ready.
+- If a part has to be redone (for example because time ran out before there were enough valid light claps), it goes back to
+  waiting; press Start when you are ready.
 
 Colors follow the result: green is fine or signal present, amber is worth noticing, red is the one to change first, gray is not
 measured or stale, and purple is the current or next step.
@@ -128,9 +130,9 @@ noise reduction), which would make the other results look better than the room r
 
 ### 4. Room (about 20 seconds)
 
-Stand about 1 meter from the microphone and clap hard. Every clap gets feedback, and the card counts how many more good claps
-it needs. You need four good claps, and Miciri accepts up to eight; a round that is spoiled is marked void. Once the minimum
-number of good claps is in, you may press Finish; when there are enough, the step also ends by itself. From the decay of
+Stand about 1 meter from the microphone and clap hard. Every clap gets feedback, and the card shows how many valid claps it has
+out of four. With four valid claps the step ends by itself, and Miciri accepts up to eight; a round that is spoiled is marked
+void. From the third valid clap Finish is available, but one more clap ends the step anyway, so you do not need it. From the decay of
 each clap it estimates how long the room rings (T20) in four bands. Clapping hard is what this step wants, so loud claps are fine.
 If the card says the device may have a noise gate or noise reduction on, turn it off and clap again.
 
@@ -140,7 +142,10 @@ Go back to the place where you sing, at the distance you normally use. There are
 Start button on the preparation page; for each later part press Start, and press Finish when you are done. You may finish a
 word list as soon as you have read it, without waiting for the time to run out.
 
-1. Clap lightly three times.
+1. Clap lightly three times. After pressing Start you can walk back to where you sing before you clap: this part keeps
+   listening, gives feedback on every clap (valid, clap softer, not measured) and moves on by itself once it has three valid
+   ones, so you do not need to come back to press Finish. Claps that clipped or could not be measured do not count; just clap
+   again. If it does not have enough after about 20 seconds, it asks you to clap the set again.
 2. Read the first word list twice, each word on its own, at your singing strength. You do not need a rhythm. For example
    "pop pick pay / top tea key".
 3. Read the second word list twice in the same way. For example "see say so / she shoe show".
@@ -252,7 +257,8 @@ The compatibility table is in
 "Not tested".
 
 **A part went back and asks me to redo it. Is that a bug?**
-No. When something spoils a part, it goes back to waiting so you can redo it: a light clap that clipped, or room claps cut short
+No. When something spoils a part, it goes back to waiting so you can redo it: time ran out before there were enough valid light
+claps (clipped ones do not count), or room claps cut short
 by a noise gate in your device. The card says why; press Start when you are ready.
 
 **Why does it say it cannot test while I render?**

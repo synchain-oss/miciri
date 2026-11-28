@@ -7,7 +7,8 @@
 // 两种分段，和插件一样（见 docs/contracts/BRIDGE.md 的“一段的开始与结束”）：
 // - 手动开始（缺省，插件由界面驱动时就是这样）：第一段随 begin 开始，之后每段待开始（live.waiting），
 //   startPhase 才开始；收够这一段的最低量（假的：按时间线性增长）后 endPhase 可以提前结束，到时长上限照样自动结束。
-//   待开始时 advance 不推进。
+//   待开始时 advance 不推进。轻拍不按遍计时：每 2 秒听到一下，按 TAP_PATTERN（setTaps 可换）给判定，
+//   凑够 tapsNeeded 下有效就自己进字表；到上限（阶段表的第 5 项）有效的不够 2 下就退回待开始重拍。
 // - 自动推进（phases: "auto"）：各段首尾相接，按时长推进，startPhase、endPhase 回 no-phase。
 //
 // 接通是一轮观察窗（CONNECT_SEC，和插件一样长），只按时长推进；一轮结束时把 setInput 给的信号状态写进快照，
@@ -17,9 +18,12 @@ import { ENUM_STEP_ID } from "../../web/shared/bridge-api.js";
 import { idleLive } from "./snapshot.js";
 import { resultsFor } from "./results.js";
 
-/** 位置步的阶段：[阶段名, 遍数, 每遍秒数, 手动开始时的最低量（见 NEED）]。 */
+/**
+ * 位置步的阶段：[阶段名, 遍数, 每遍秒数, 手动开始时的最低量（见 NEED）, 手动开始时一直听、逐下判定的上限秒数]。
+ * 第 5 项只有轻拍有（插件里是 session.soft_clap_max_s）。
+ */
 const POSITION_PHASES = [
-    ["soft-clap", 3, 2, ["claps", 2, 0.6]],
+    ["soft-clap", 3, 2, ["claps", 2, 0.6], 20],
     ["plosive", 2, 10, ["syllables", 6, 0.9]],
     ["sibilant", 2, 10, ["syllables", 6, 0.9]],
     ["natural", 1, 14, ["voice-seconds", 8, 0.7]],
@@ -32,6 +36,9 @@ const DIRECTION_PHASES = [
 /** 接通的一轮观察多长（插件里是 no_signal.low_flat_window_s）。 */
 const CONNECT_SEC = 6;
 const CLAP_PATTERN = ["valid", "too-soft", "valid", "noisy", "valid", "valid"];
+/** 手动分段的轻拍：每 2 秒一下的判定；上限和 D/R 要的最少有效下数取插件的起始值。 */
+const TAP_PATTERN = ["clipped", "valid", "unmeasured", "valid", "valid"];
+const MIN_CLEAN_TAPS = 2;
 
 /**
  * 手动开始时各段的最低量：[单位, 量, 每秒长多少]。和插件同样的单位；量取插件的起始值，增长速度是随便取的。
@@ -54,7 +61,11 @@ function phasesOf(id, duration) {
 /** 手动开始的段表：位置步每个阶段一段，方向步每个方向、确认每一遍一段。 */
 function segmentsOf(id, duration) {
     const one = (phase, sec, need) => ({ phase, round: 1, rounds: 1, sec, need });
-    if (id === "position") return POSITION_PHASES.map(([name, rounds, per, need]) => one(name, rounds * per, need));
+    if (id === "position")
+        return POSITION_PHASES.map(([name, rounds, per, need, listen]) => ({
+            ...one(name, listen || rounds * per, need),
+            taps: !!listen,
+        }));
     if (id === "direction") {
         const dirs = Array.from({ length: 4 }, (_, i) => ({
             phase: "direction",
@@ -86,6 +97,7 @@ export function createFlowSim(snap, io, o = {}) {
     let reached = false;
     // 下一轮接通观察会看到的信号状态（ENUM_SIGNAL_STATE 之一），null 时不改快照
     let input = null;
+    let tapPattern = TAP_PATTERN;
 
     // 做完一步：次数与证据版本各加 1（作废、取消不加，和真插件一样）
     const done = (id) => {
@@ -112,6 +124,7 @@ export function createFlowSim(snap, io, o = {}) {
 
     const roomClaps = (sec) => CLAP_PATTERN.slice(0, Math.min(CLAP_PATTERN.length, Math.floor(sec / 2)));
     const validOf = (claps) => claps.filter((c) => c === "valid").length;
+    const tapsAt = (sec) => tapPattern.slice(0, Math.min(tapPattern.length, Math.floor(sec / 2)));
 
     const update = () => {
         const id = running;
@@ -147,6 +160,7 @@ export function createFlowSim(snap, io, o = {}) {
     const heardOf = (s) => {
         const [kind, , rate] = s.need;
         if (running === "room") return validOf(snap.live.claps);
+        if (s.taps) return validOf(snap.live.taps);
         const v = inSeg * rate;
         return kind === "claps" || kind === "syllables" ? Math.floor(v) : v;
     };
@@ -174,6 +188,7 @@ export function createFlowSim(snap, io, o = {}) {
         seg += 1;
         inSeg = 0;
         reached = false;
+        snap.live.taps = [];
         if (seg >= segments.length) return finish(running);
         waiting = true;
         showSegment();
@@ -188,6 +203,22 @@ export function createFlowSim(snap, io, o = {}) {
         if (running === "room") {
             snap.live.claps = roomClaps(inSeg);
             if (validOf(snap.live.claps) >= snap.live.clapsNeeded) return finish(running);
+        }
+        if (s.taps) {
+            snap.live.taps = tapsAt(inSeg);
+            const valid = validOf(snap.live.taps);
+            if (valid >= snap.live.tapsNeeded) return closeSegment();
+            if (inSeg >= s.sec && valid < MIN_CLEAN_TAPS) {
+                // 和插件一样：削波的几下本来够数就说“拍轻一点”，否则是拍得太少
+                const clipped = snap.live.taps.filter((t) => t === "clipped").length;
+                elapsed -= inSeg;
+                inSeg = 0;
+                reached = false;
+                waiting = true;
+                snap.live.taps = [];
+                snap.live.notice = valid + clipped >= MIN_CLEAN_TAPS ? "clap-clipped" : "redo";
+                return showSegment();
+            }
         }
         if (inSeg >= s.sec) {
             closeSegment();
@@ -251,6 +282,10 @@ export function createFlowSim(snap, io, o = {}) {
             closeSegment();
             io.push();
             return "ok";
+        },
+        /** 手动分段的轻拍每 2 秒一下的判定（ENUM_TAP_STATE），换成别的序列试到上限不够的情形。 */
+        setTaps(pattern) {
+            tapPattern = pattern;
         },
         /** 下一轮接通观察结束时快照里的信号状态（例如 "ok"）；null 时不改。 */
         setInput(state) {
