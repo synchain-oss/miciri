@@ -476,11 +476,15 @@ TEST_CASE("automatic phases ignore start and end, and report no minimum")
     CHECK_FALSE(s->begin());
     CHECK(s->progressSec() == Catch::Approx(4.0).margin(1e-6)); // 没有点击保护
 
-    // 轻拍在 Auto 下仍按遍计时，不报逐下的判定
+    // 轻拍在 Auto 下仍按遍计时，不报逐下的判定：三下的尾巴都收完了、这一段还没结束时核对（换段本来就会清空）
     auto pos = session::makeScript(StepId::Position, c, nullptr);
     CHECK(pos->live().rounds == static_cast<int>(thr::session::soft_claps));
     CHECK(pos->live().phaseDurationSec == Catch::Approx(thr::session::soft_clap_round_s));
-    feedAll(*pos, softTaps(static_cast<int>(thr::session::soft_claps)));
+    auto taps = softTaps(static_cast<int>(thr::session::soft_claps));
+    const double inPhase = thr::session::soft_claps * thr::session::soft_clap_round_s - 0.5;
+    taps.resize(std::min(taps.size(), static_cast<std::size_t>(inPhase * kFs)));
+    feedAll(*pos, taps);
+    CHECK(pos->live().phase == StepPhase::SoftClap);
     CHECK(pos->live().taps.empty());
 
     // 接通步总是自动推进，Manual 也一样
