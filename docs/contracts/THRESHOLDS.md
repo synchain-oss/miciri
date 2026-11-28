@@ -56,7 +56,8 @@ double w = miciri::thr::noise::frame_ms;  // 数值一律 double
 `session`：测试的编排，各步与各阶段的时长、房间步凑够与最多几下拍手、测试中提示的倒数与自动重来的次数上限、
 采集环的容量、“音频明显快于实时就当作离线渲染”的倍数与观察窗，全部 `pending`。时长与拍手数取自规格（来源记“规格起始值”）；
 房间步看拍手的间隔、倒数、重来上限、采集环与快于实时的判据是规格没有给、实现时定的起始值（来源记“工程起始值”）。接通步的观察窗与
-“没有回调”的秒数沿用 `no_signal.low_flat_window_s` 与 `no_signal.no_callback_s`，自然朗读的长度沿用 `click.analysis_window_s`。
+“没有回调”的秒数沿用 `no_signal.low_flat_window_s` 与 `no_signal.no_callback_s`；自然朗读的长度在自动推进时沿用
+`click.analysis_window_s`，手动开始时是 `natural_read_s`（念完从头再念，口水音的计数更稳）。
 证据波形的三个上限也在这一组：包络最窄一格 `evidence_hop_min_s`、一步最多几格 `evidence_cells_max`、最多几个事件 `evidence_events_max`，
 是规格没有给、实现时定的工程值（来源记“工程起始值”），口径见 `BRIDGE.md` 的“证据波形”。
 手动开始时各段的最低量也在这一组：增益 `gain_min_voice_s`、自然念 `natural_min_voice_s`、方向每一遍 `direction_min_voice_s`（都按有声秒数）、

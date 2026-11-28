@@ -124,6 +124,8 @@ protected:
     // 字表这类“念几遍”的阶段：Auto 下同 addPhase；Manual 下几遍合成一段，上限是总时长
     void addPasses(core::StepPhase phase, int passes, double secondsEach);
     bool manual() const { return ctx_.control == PhaseControl::Manual; }
+    // Manual 下第一段不随这一步开始，和后面各段一样等用户点“开始”（用户要先摆好话筒）；计划排好之后调。Auto 下不起作用
+    void waitForStart();
     // 这一段已送去分析的秒数
     double segmentSeconds() const;
     void analysed() const;

@@ -139,7 +139,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 
 <!-- prettier-ignore-start -->
 <!-- thresholds:begin 以下由 scripts/gen-algorithms.mjs 按 thresholds.json 生成，不要手改 -->
-共 302 项，分 17 组：合成验证 108 项、待标定 188 项、实录标定 6 项。
+共 303 项，分 17 组：合成验证 108 项、待标定 189 项、实录标定 6 项。
 
 ### `no_signal`
 
@@ -408,7 +408,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 |---|---|---|---|---|
 | `highpass_hz` | 2000 | 待标定 | 规格起始值 |  |
 | `fricative_min_ms` | 30 | 待标定 | 规格起始值 |  |
-| `analysis_window_s` | 15 | 待标定 | 规格起始值 | length of natural speech the session captures for this analysis; the analysis itself takes whatever it is given |
+| `analysis_window_s` | 15 | 待标定 | 规格起始值 | length of natural speech the session captures for this analysis with automatic phases (manual phases use session.natural_read_s); the analysis itself takes whatever it is given |
 | `residual_median_multiple` | 20 | 待标定 | 规格起始值，待实录标定 | LPC residual over its local scale; starting range 15-20 adjusted on real recordings, uncalibrated |
 | `moderate_per_min` | — | 待标定 | 待定：口水音只作提示、不分档；缺第二位说话人的试听标签和安静段每分钟的误报率 |  |
 | `heavy_per_min` | — | 待标定 | 待定：口水音只作提示、不分档；缺第二位说话人的试听标签和安静段每分钟的误报率 |  |
@@ -510,6 +510,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `soft_claps` | 3 | 待标定 | 规格起始值 | soft taps in the position step. With automatic phases one tap per soft_clap_round_s; with manual phases the part moves on by itself once this many clean taps are heard |
 | `soft_clap_round_s` | 2 | 待标定 | 规格起始值 | with automatic phases, length of each soft-tap round; not used with manual phases |
 | `soft_clap_max_s` | 20 | 待标定 | 工程起始值 | with manual phases, longest the soft-tap part listens. Covers walking back from the computer (a few seconds), soft_claps taps at the automatic pace (6 s) and redoing two or three clipped taps, each shown about 1.5 s after it; same as room_max_s, the other part that listens until enough claps are heard |
+| `natural_read_s` | 30 | 待标定 | 工程起始值 | with manual phases, how long the natural reading lasts; the user reads the passage (about 12 s) again from the start until the part ends by itself. Together with the two word lists this gives the mouth-noise count about twice the speech of a 15 s reading, for a steadier rate. With automatic phases the reading stays click.analysis_window_s, so the host-test timeline is unchanged |
 | `word_list_rounds` | 2 | 待标定 | 规格起始值 |  |
 | `word_list_round_s` | 10 | 待标定 | 规格起始值 |  |
 | `direction_take_s` | 3 | 待标定 | 规格起始值 |  |
@@ -523,7 +524,7 @@ Welch 谱（2 秒汉宁窗、50% 重叠）里找市电基频（50 或 60 Hz）�
 | `evidence_events_max` | 200 | 待标定 | 工程起始值 | most plosive, sibilance and mouth-noise events in one step's evidence; the earliest are kept |
 | `gain_min_voice_s` | 3 | 待标定 | 工程起始值 | with manual phases, voiced seconds the gain take needs before the user may end it; voiced frames follow the speech level rule of the noise group |
 | `word_list_min_events` | 6 | 待标定 | 工程起始值 | with manual phases, syllables the plosive or the sibilant list needs before the user may end it, counted by that list's own analysis; the shortest list has six words |
-| `natural_min_voice_s` | 8 | 待标定 | 工程起始值 | with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading. The reading is capped at click.analysis_window_s (15 s) and only about 70 % of natural reading counts as voiced: on six natural-reading recordings every 15 s stretch reached 8 s but only 82 % reached 10 s. To be calibrated on more recordings |
+| `natural_min_voice_s` | 20 | 待标定 | 工程起始值 | with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading. The reading lasts session.natural_read_s (30 s) and only about 70 % of natural reading counts as voiced, so an even reader gets here in the last few seconds and someone with long pauses not at all; the part then still ends at 30 s and mouth noise is counted over what was heard. Earlier, with a 15 s reading, the value was 8 s: on six natural-reading recordings every 15 s stretch reached 8 s but only 82 % reached 10 s (two thirds voiced, the same share as 20 s of 30 s). To be calibrated on more recordings |
 | `direction_min_voice_s` | 1.5 | 待标定 | 工程起始值 | with manual phases, voiced seconds each direction take needs before the user may end it |
 | `click_guard_s` | 0.3 | 待标定 | 工程起始值 | with manual phases, audio dropped after the user starts a phase and before the user ends it, so the mouse click is not analysed |
 | `live_words_every_s` | 1 | 待标定 | 工程起始值 | with manual phases, how often a word list is re-analysed to count its syllables, until there are enough |

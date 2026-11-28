@@ -314,11 +314,12 @@ TEST_CASE("manual: the position step waits between phases, reads each list in on
     REQUIRE(s->live().canEnd);
     REQUIRE(s->end());
 
-    // 自然念：有声秒数没够就念到上限，自动结束
+    // 自然念：手动开始时念 natural_read_s 秒（Auto 仍是 click.analysis_window_s），有声秒数没够就念到上限，自动结束
     CHECK(s->live().phase == StepPhase::Natural);
     CHECK(s->live().need == PhaseNeed::VoiceSeconds);
+    CHECK(s->live().phaseDurationSec == Catch::Approx(thr::session::natural_read_s).margin(1e-3));
     REQUIRE(s->begin());
-    feedAll(*s, voice(kFs, kGuard + thr::click::analysis_window_s + 1.0, 0.1, 6, kGuard));
+    feedAll(*s, voice(kFs, kGuard + thr::session::natural_read_s + 1.0, 0.1, 6, kGuard));
     REQUIRE(s->done());
     const auto out = s->finish();
     REQUIRE(out.results.plosive.has_value());
@@ -427,17 +428,18 @@ TEST_CASE("manual: each direction is started and ended on its own")
 {
     auto s = session::makeScript(StepId::Direction, manual(), nullptr);
     const double take = thr::session::direction_take_s;
+    // 第一个方向也等用户点“开始”：按下这一步的“开始”时用户还在电脑前
     for (int d = 0; d < 4; ++d)
     {
         CHECK(s->live().directionIndex == d);
         CHECK(s->live().phase == StepPhase::Direction);
-        if (d > 0)
-        {
-            CHECK(s->live().waiting);
-            CHECK(s->live().heard == 0.0); // 上一个方向的有声秒数不带过来
-            feedAll(*s, voice(kFs, 2.0, 0.2, 30)); // 转话筒时说的话不算
-            REQUIRE(s->begin());
-        }
+        CHECK(s->live().waiting);
+        CHECK_FALSE(s->live().canEnd);
+        CHECK(s->live().heard == 0.0); // 上一个方向的有声秒数不带过来
+        const double before = s->progressSec();
+        feedAll(*s, voice(kFs, 2.0, 0.2, 30)); // 坐回去、转话筒时说的话不算
+        CHECK(s->progressSec() == before);
+        REQUIRE(s->begin());
         CHECK_FALSE(s->end());
         const double level = d == 2 ? 0.2 : 0.05; // 背面明显更响
         feedUntil(*s, counting(kGuard + take, level, kGuard), [&] { return s->live().canEnd; }, 480);
@@ -486,6 +488,11 @@ TEST_CASE("automatic phases ignore start and end, and report no minimum")
     feedAll(*pos, taps);
     CHECK(pos->live().phase == StepPhase::SoftClap);
     CHECK(pos->live().taps.empty());
+
+    // 方向步在 Auto 下第一个方向随这一步开始，不等
+    auto dir = session::makeScript(StepId::Direction, c, nullptr);
+    CHECK_FALSE(dir->live().waiting);
+    CHECK_FALSE(dir->begin());
 
     // 接通步总是自动推进，Manual 也一样
     auto connect = session::makeScript(StepId::Connect, manual(), nullptr);

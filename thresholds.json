@@ -745,7 +745,7 @@
       "state": "pending",
       "source": "规格起始值",
       "date": null,
-      "note": "length of natural speech the session captures for this analysis; the analysis itself takes whatever it is given"
+      "note": "length of natural speech the session captures for this analysis with automatic phases (manual phases use session.natural_read_s); the analysis itself takes whatever it is given"
     },
     "residual_median_multiple": {
       "value": 20.0,
@@ -1070,6 +1070,13 @@
       "date": null,
       "note": "with manual phases, longest the soft-tap part listens. Covers walking back from the computer (a few seconds), soft_claps taps at the automatic pace (6 s) and redoing two or three clipped taps, each shown about 1.5 s after it; same as room_max_s, the other part that listens until enough claps are heard"
     },
+    "natural_read_s": {
+      "value": 30.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, how long the natural reading lasts; the user reads the passage (about 12 s) again from the start until the part ends by itself. Together with the two word lists this gives the mouth-noise count about twice the speech of a 15 s reading, for a steadier rate. With automatic phases the reading stays click.analysis_window_s, so the host-test timeline is unchanged"
+    },
     "word_list_rounds": { "value": 2, "state": "pending", "source": "规格起始值", "date": null },
     "word_list_round_s": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
     "direction_take_s": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -1144,11 +1151,11 @@
       "note": "with manual phases, syllables the plosive or the sibilant list needs before the user may end it, counted by that list's own analysis; the shortest list has six words"
     },
     "natural_min_voice_s": {
-      "value": 8.0,
+      "value": 20.0,
       "state": "pending",
       "source": "工程起始值",
       "date": null,
-      "note": "with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading. The reading is capped at click.analysis_window_s (15 s) and only about 70 % of natural reading counts as voiced: on six natural-reading recordings every 15 s stretch reached 8 s but only 82 % reached 10 s. To be calibrated on more recordings"
+      "note": "with manual phases, voiced seconds of natural reading before the user may end it; mouth noise is counted over the word lists and this reading. The reading lasts session.natural_read_s (30 s) and only about 70 % of natural reading counts as voiced, so an even reader gets here in the last few seconds and someone with long pauses not at all; the part then still ends at 30 s and mouth noise is counted over what was heard. Earlier, with a 15 s reading, the value was 8 s: on six natural-reading recordings every 15 s stretch reached 8 s but only 82 % reached 10 s (two thirds voiced, the same share as 20 s of 30 s). To be calibrated on more recordings"
     },
     "direction_min_voice_s": {
       "value": 1.5,
