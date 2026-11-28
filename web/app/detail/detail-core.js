@@ -16,6 +16,7 @@
 import { fmtDb } from "../meter/meter-core.js";
 import {
     CLICK_HIGHPASS_HZ,
+    DIR_NAMES,
     SIB_BANDS_HZ,
     hzRange,
     kHz,
@@ -213,13 +214,12 @@ const BODY = {
         const turn = d.levelDb.map((_, k) => (cur + k) % d.levelDb.length);
         // 并列最响时只亮第一个；turn 把当前方向转到了第一位，所以这里比较的是原下标
         const top = d.levelDb.indexOf(Math.max(...d.levelDb));
-        const names = ["flow.dir.cur", "flow.dir.90", "flow.dir.180", "flow.dir.270"];
         const m = resultModel(state, "direction");
         return {
             expl: m ? m.expl : A("detail.dir.none"),
             cols: ["detail.col.loud", "detail.col.bright"],
             rows: turn.map((i, k) =>
-                row(names[k], level(d.levelDb[i]), cell(fmtDb(d.brightnessDb[i]), "dB"), i === top),
+                row(DIR_NAMES[k], level(d.levelDb[i]), cell(fmtDb(d.brightnessDb[i]), "dB"), i === top),
             ),
             radar: m && m.viz && m.viz.kind === "radar" ? { rel: m.viz.rel } : null,
         };

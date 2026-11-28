@@ -26,9 +26,11 @@
     --focus-on-glass: var(--sem-violet-title);
     --focus-on-dark: var(--acc-cta);
     --lt-h: 356px;
-    /* 远距离模式的字号：都是 --fs-260（26px）的倍数。指令 52px ≥48，念的字 65px ≥64，倒计时 130px */
+    /* 远距离模式的字号：都是 --fs-260（26px）的倍数。指令 52px ≥48，念的字 65px ≥64，倒计时 130px；
+       自然念的整段约 60 个字，65px 放不下，用 39px（三行） */
     --fs-remote-cmd: calc(var(--fs-260) * 2);
     --fs-remote-word: calc(var(--fs-260) * 2.5);
+    --fs-remote-passage: calc(var(--fs-260) * 1.5);
     --fs-remote-count: calc(var(--fs-260) * 5);
     --fs-remote-aux: calc(var(--fs-260) * 1.4);
     --fs-remote-sub: calc(var(--fs-200) * 1.2);

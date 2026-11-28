@@ -52,11 +52,19 @@ export const STEPS = {
 /** 方向步的方向数与转动提示；方向步在 live.rounds 里也会给出，这里只用来写准备页。 */
 export const DIRECTION_COUNT = 4;
 const DIRECTION_HINT = ["flow.rm.dir.d1", "flow.rm.dir.d2", "flow.rm.dir.d3", "flow.rm.dir.d4"];
+/**
+ * 方向的叫法：话筒哪一面朝你。开始时朝你的一面算正面，之后每次沿同一个方向再转四分之一圈，依次是侧面、背面、另一侧朝你；
+ * 不写累计的角度（“转 270°”会被读成再转 270°）。按开始时的方向起第几个排，雷达、卡片、详情与方向步共用。
+ */
+export const DIR_NAMES = ["flow.dir.front", "flow.dir.side", "flow.dir.back", "flow.dir.other"];
+/** 录音顺序里第 i 个方向（0 起）的叫法：从开始时的方向 cur 数起。 */
+export const dirNameOf = (i, cur = 0) => DIR_NAMES[(((i - cur) % 4) + 4) % 4];
 
 /**
  * 位置步的子步骤，按先后。`id` 对应桥契约的 ENUM_STEP_PHASE；`n` 是准备页写的次数或遍数（测试中以 live.rounds 为准）；
  * `aux` 决定测试中右下角写“第几部分”还是“第几遍”；`words` 是念的字表（词条键）；
  * `taps`：逐下数的轻拍。自动推进时按遍画点；手动分段时一直听、逐下给判定（live.taps），凑够 live.tapsNeeded 下有效就自己往下走。
+ * `passage`：念的是一整段话（自然念），字号小一号才放得下。
  * 想删掉“轻拍 3 次”：删掉第一行即可，Session 不再发 soft-clap。
  */
 export const POSITION_PHASES = [
@@ -79,7 +87,15 @@ export const POSITION_PHASES = [
         words: "flow.rm.words.s",
         list: "flow.pos.words.s",
     },
-    { id: "natural", n: 1, how: "flow.pp.pos.natural", cmd: "flow.rm.pos.n", aux: "part", words: "flow.rm.natural" },
+    {
+        id: "natural",
+        n: 1,
+        how: "flow.pp.pos.natural",
+        cmd: "flow.rm.pos.n",
+        aux: "part",
+        words: "flow.rm.natural",
+        passage: true,
+    },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -527,8 +543,15 @@ export function remoteModel(state, o = {}) {
         const auxVars = byPart ? { n: at + 1, total: POSITION_PHASES.length } : { n: live.round, total: live.rounds };
         const taps = manual && !!p.taps && Array.isArray(live.taps);
         Object.assign(m, {
-            cmd: { key: p.cmd, vars: { n: manual ? (taps && live.tapsNeeded) || p.n : live.rounds } },
+            cmd: {
+                key: p.cmd,
+                vars: {
+                    n: manual ? (taps && live.tapsNeeded) || p.n : live.rounds,
+                    sec: Math.round(live.phaseDurationSec),
+                },
+            },
             words: p.words || null,
+            wordsKind: p.passage ? "passage" : null,
             aux: { key: byPart ? "flow.rm.part" : "flow.rm.round", vars: auxVars },
         });
         if (p.taps && !manual) m.dots = { total: live.rounds, on: Math.max(0, live.round - 1), cur: live.round };
@@ -536,14 +559,19 @@ export function remoteModel(state, o = {}) {
         if (taps) Object.assign(m, { slots: tapSlots(live), slotsKind: "taps" });
     } else if (running === "direction") {
         if (live.phase === "confirm") {
+            // 两个方向按叫法写（正面朝你、背面朝你……），不写编号
             const pair = confirmPair(state);
+            const names = {
+                a: { word: dirNameOf(pair.a - 1, pair.a - 1) },
+                b: pair.b ? { word: dirNameOf(pair.b - 1, pair.a - 1) } : null,
+            };
             Object.assign(m, {
                 cmd: {
                     key: pair.b ? "flow.rm.dir.confirm" : "flow.rm.dir.confirm.gen",
-                    vars: { sec: Math.round(live.phaseDurationSec), ...pair },
+                    vars: { sec: Math.round(live.phaseDurationSec), ...names },
                 },
                 words: pair.b ? "flow.rm.dir.pair" : "flow.rm.dir.pair.gen",
-                wordsVars: pair,
+                wordsVars: names,
                 sub: { key: "flow.rm.dir.sub" },
             });
         } else {
@@ -568,22 +596,29 @@ export function remoteModel(state, o = {}) {
     } else if (manual) {
         m.end = { can: live.canEnd === true };
         const counted = countedPart(running, live);
-        m.need = counted
-            ? { key: "flow.rm.count", vars: counted }
-            : live.canEnd
-              ? { key: "flow.rm.need.ready" }
-              : {
-                    key: NEED_KEY[live.need] || "flow.rm.need.more",
-                    vars: { n: Math.max(1, Math.ceil(Number(live.needLeft) || 0)) },
-                };
+        if (counted) {
+            // 大字写有效几下 / 要几下，不倒数：上限只是兜底，倒数的秒数会被读成拍的期限
+            m.count = `${counted.n} / ${counted.total}`;
+            m.unit = { key: "flow.rm.valid" };
+            if (counted.n === counted.total - 1) {
+                m.cmd = { key: running === "room" ? "flow.rm.one.end" : "flow.rm.one.next" };
+                if (live.canEnd) m.sub = { key: "flow.rm.one.sub" };
+            }
+        } else
+            m.need = live.canEnd
+                ? { key: "flow.rm.need.ready" }
+                : {
+                      key: NEED_KEY[live.need] || "flow.rm.need.more",
+                      vars: { n: Math.max(1, Math.ceil(Number(live.needLeft) || 0)) },
+                  };
     }
     return m;
 }
 
 /**
- * 凑够数就自己结束的部分（房间的拍手、位置步的轻拍）：进行中只写“有效 n / 总数”，总数是自动结束要的下数。
- * 收够最低量后“结束”照样能按，但不另说“够了”：再拍一下就自动结束了，说“随时可以点结束”反而让人以为要回来点。
- * 其余按最低量结束的部分（按秒、按字）没有自动结束，仍然写“够了”。
+ * 凑够数就自己结束的部分（房间的拍手、位置步的轻拍）：总数是自动结束要的下数。大字写“有效 n / 总数”、不倒数，
+ * 也不写“够了”：差一下时主句换成“再拍一下就自动结束（继续）”，收够最低量的话下面加一句“拍不出来也可以现在点结束”。
+ * 其余按最低量结束的部分（按秒、按字）没有自动结束，仍然倒数，收够了写“够了”。
  */
 function countedPart(running, live) {
     const valid = (list) => (list || []).filter((c) => c === "valid").length;
@@ -781,13 +816,26 @@ export function t20Viz(bands, t) {
 const hz = (v) => (v >= 1000 ? `${+(v / 1000).toFixed(1)} kHz` : `${v} Hz`);
 const act = (key, vars) => ({ key, vars });
 
-/** 重唱确认成立时（confirmedAdvantageDb 有值）用两次里较小的优势；否则是第一遍里最响的其他方向的优势。 */
+/**
+ * 最响的其他方向比当前方向响多少（负数是当前方向最响）。重唱确认成立（可能放反）时用两次里较小的优势；
+ * 没确认成立时原生把 confirmedAdvantageDb 写成 0，不用它，仍是第一遍里最响的其他方向的优势。
+ */
 const directionAdvantage = (d) =>
-    Number.isFinite(d.confirmedAdvantageDb)
+    d.kind === "maybe-reversed" && Number.isFinite(d.confirmedAdvantageDb)
         ? d.confirmedAdvantageDb
         : Number.isFinite(d.bestOtherAdvantageDb)
           ? d.bestOtherAdvantageDb
           : 0;
+
+/** 比当前方向响的那个方向的叫法（词条键）：原生给的 repeatIndex（最响的其他方向），没有时按 levelDb 找。 */
+export function louderOther(d) {
+    const cur = Number.isInteger(d.currentIndex) && d.currentIndex >= 0 ? d.currentIndex : 0;
+    const lv = Array.isArray(d.levelDb) ? d.levelDb : [];
+    let i = Number.isInteger(d.repeatIndex) && d.repeatIndex >= 0 && d.repeatIndex !== cur ? d.repeatIndex : -1;
+    if (i < 0)
+        for (let k = 0; k < lv.length; k++) if (k !== cur && Number.isFinite(lv[k]) && (i < 0 || lv[k] > lv[i])) i = k;
+    return i < 0 ? null : dirNameOf(i, cur);
+}
 
 /** 没有电流声结果（噪声步做了、电流声分析没给）时按“没检出”画一张卡。 */
 const NO_HUM = {
@@ -927,13 +975,28 @@ export const resultCards = {
         ...voiceExtras(c, clickRef(c, x.bands), x.advice.click, x),
         ...plain(c),
     }),
+    /**
+     * 数字和说明与词同向，数字都写成正的：当前方向最响时是它比其他方向里最响的还响多少；别的方向更响时写是哪一面朝你、
+     * 响多少。两次的意思不同（一个说当前方向领先，一个说别的方向领先）时“上次 → 现在”不比。
+     */
     dir(d) {
-        const advantage = directionAdvantage(d);
+        const advantage = Math.round(directionAdvantage(d) * 10) / 10;
+        const other = louderOther(d);
+        const text = signed(Math.abs(advantage));
+        const by = advantage < 0 ? "best" : advantage > 0 ? other || "other" : "tie";
         return {
             id: "dir",
             word: dirWord(d),
-            nums: [num(signed(advantage), "dB")],
-            note: act("flow.cd.dir.note"),
+            nums: [num(text, "dB")],
+            note:
+                advantage < 0
+                    ? act("flow.cd.dir.best")
+                    : advantage === 0
+                      ? act("flow.cd.dir.tie")
+                      : other
+                        ? act("flow.cd.dir.other", { d: { word: other } })
+                        : null,
+            cmp: { by, v: text },
             ...sec(d),
         };
     },
@@ -1125,17 +1188,16 @@ export function resultModel(state, id) {
     if (id === "direction" && r.direction) {
         const d = r.direction;
         const advantage = directionAdvantage(d);
-        const loudest = d.levelDb.indexOf(Math.max(...d.levelDb)) + 1;
         const by = {
             "maybe-reversed": {
-                e: act("flow.dr1.e", { v: fmtDb(advantage), n: loudest }),
+                e: act("flow.dr1.e", { v: fmtDb(advantage), d: { word: louderOther(d) || DIR_NAMES[2] } }),
                 a: [act("flow.dr1.a1"), act("flow.dr1.a2")],
             },
             "small-difference": { e: act("flow.dr2.e"), a: [act("flow.dr2.a1")] },
             best: { e: act("flow.dr.best.e"), a: [] },
             uncertain: { e: act("flow.dr.unsure.e"), a: [] },
         }[d.kind] || { e: act("flow.dr.unsure.e"), a: [] };
-        // 雷达的顺序是“当前方向、转 90°、转 180°、转 270°”：把当前方向转到第一位
+        // 雷达的顺序是正面、侧面、背面、另一侧朝你（DIR_NAMES）：把开始时的方向转到第一位
         const cur = Number.isInteger(d.currentIndex) && d.currentIndex >= 0 ? d.currentIndex : 0;
         const level = d.levelDb.map((_, k) => d.levelDb[(cur + k) % d.levelDb.length]);
         const top = Math.max(...level);

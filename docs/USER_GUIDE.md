@@ -89,14 +89,17 @@ can read it from your singing position.
 Each step is short, and some have several parts (for example the light claps, the two word lists and the natural reading of
 the position step). You start and finish each part yourself:
 
-- The Start button on the preparation page starts the first part. Each later part first tells you what to do and waits for you
-  to press Start. While it waits nothing counts down, so take your time.
+- The Start button on the preparation page starts the first part (except in the direction step, where the first direction also
+  tells you how to set the microphone and waits for Start). Each later part first tells you what to do and waits for you to press
+  Start. While it waits nothing counts down, so take your time.
 - Once a part has enough (for example about 3 seconds of voice, or enough words), Finish becomes available and takes you to the
   next part. Until then Finish is grayed out and the page says what is still needed.
 - The two parts that count claps (the room claps and the light claps of the position step) end by themselves once they have
-  enough. While they run they only show "valid n of N", and you do not need to come back to press Finish.
+  enough, so you do not need to come back to press Finish. While they run the big number is "n / N valid" instead of a
+  countdown. One short of the end it says "one more and it finishes (moves on) by itself"; if Finish is already available, a
+  line below says you can press it now if you can't get one more.
 - You do not have to press Finish: a part ends by itself at its time limit. The "about N seconds" in the title is that limit,
-  and a counter runs while the part is on.
+  and parts that run on time count down the seconds left.
 - If a part has to be redone (for example because time ran out before there were enough valid light claps), it goes back to
   waiting; press Start when you are ready.
 
@@ -132,11 +135,11 @@ noise reduction), which would make the other results look better than the room r
 
 Stand about 1 meter from the microphone and clap hard. Every clap gets feedback, and the card shows how many valid claps it has
 out of four. With four valid claps the step ends by itself, and Miciri accepts up to eight; a round that is spoiled is marked
-void. From the third valid clap Finish is available, but one more clap ends the step anyway, so you do not need it. From the decay of
+void. At the third valid clap it says one more clap finishes the step; Finish is available then too, if you can't get one more. From the decay of
 each clap it estimates how long the room rings (T20) in four bands. Clapping hard is what this step wants, so loud claps are fine.
 If the card says the device may have a noise gate or noise reduction on, turn it off and clap again.
 
-### 5. Position (about 1 minute)
+### 5. Position (about 1.5 minutes)
 
 Go back to the place where you sing, at the distance you normally use. There are four parts. The first one starts with the
 Start button on the preparation page; for each later part press Start, and press Finish when you are done. You may finish a
@@ -145,11 +148,14 @@ word list as soon as you have read it, without waiting for the time to run out.
 1. Clap lightly three times. After pressing Start you can walk back to where you sing before you clap: this part keeps
    listening, gives feedback on every clap (valid, clap softer, not measured) and moves on by itself once it has three valid
    ones, so you do not need to come back to press Finish. Claps that clipped or could not be measured do not count; just clap
-   again. If it does not have enough after about 20 seconds, it asks you to clap the set again.
+   again. At two valid ones it says one more moves on by itself, and Finish is available if you can't get one more. If it does
+   not have enough after about 20 seconds, it asks you to clap the set again.
 2. Read the first word list twice, each word on its own, at your singing strength. You do not need a rhythm. For example
    "pop pick pay / top tea key".
 3. Read the second word list twice in the same way. For example "see say so / she shoe show".
-4. Read a short passage the way you normally speak.
+4. Read a passage the way you normally speak, for 30 seconds: when you reach the end, start again from the top. It ends by itself
+   and counts down the seconds left; after about 20 seconds of voice you may also press Finish. If you pause a lot and have
+   less than 20 seconds of voice at 30 seconds, it still ends, and mouth clicks are counted over what it heard.
 
 You do not need to memorize the lists and Miciri does not judge whether you said them correctly. It measures how much of what the
 microphone hears is the direct voice versus the room (D/R), plosives (the puffs of air on p, t, k), sibilance (the hiss on s and sh),
@@ -168,10 +174,15 @@ seem closer, seem farther, or have not changed noticeably. The first time it can
 ### 6. Direction (optional, about 25 seconds)
 
 Speak toward the microphone for a few seconds in each of four directions, one part per direction: turn, press Start, speak,
-press Finish when you have enough, then turn to the next one. Miciri only answers one question: is the current
+press Finish when you have enough, then turn to the next one. The first direction works the same way: after the Start button on
+the preparation page, sit back, set the microphone, then press Start. Directions are named by which side of the microphone faces
+you: the side facing you at the start is the front, and each later direction is another quarter turn the same way, giving the
+side, the back and the other side. Miciri only answers one question: is the current
 direction the loudest and brightest one? If another direction is clearly louder it repeats that pair to be sure, and only then
 says the microphone may be the wrong way round. It does not guess your microphone model. If you chose "headset" as the microphone
 type, this step is hidden.
+The number on the direction card is always positive: when the direction is right, it is how much louder it is than the loudest
+other direction; when another direction is louder, the card says which side and by how much.
 Not testing direction never stops the report from saying you are ready to record.
 
 ## The report and retesting

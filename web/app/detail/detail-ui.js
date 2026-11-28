@@ -11,7 +11,7 @@
 
 import { el } from "../../shared/dom.js";
 import { createModal } from "../../shared/modal.js";
-import { ctaBtn, radar } from "../flow/flow-ui.js";
+import { ctaBtn, radar, tv } from "../flow/flow-ui.js";
 import { ic } from "../flow/icons.js";
 import { cardsOf } from "../report/report-core.js";
 import { detailOf } from "./detail-core.js";
@@ -160,7 +160,7 @@ export function createDetail(o) {
                       el("span", { text: t("detail.stale") }),
                   )
                 : null,
-            el("p", { class: "dt__expl", text: t(d.expl.key, d.expl.vars) }),
+            el("p", { class: "dt__expl", text: t(d.expl.key, tv(t, d.expl.vars)) }),
             d.radar ? el("div", { class: "dt__radar" }, radar({ rel: d.radar.rel }, ctx)) : null,
             table(d),
             ev ? ev.el : null,

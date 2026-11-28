@@ -255,6 +255,11 @@ run.check(
     "位置·喷麦：念的字和第几遍",
 );
 run.check(pos("natural", { rounds: 1 }).aux.key === "flow.rm.part", "位置·自然说话：第几部分");
+run.eq(
+    pos("natural", { rounds: 1, phaseDurationSec: 30 }).cmd,
+    { key: "flow.rm.pos.n", vars: { n: 1, sec: 30 } },
+    "位置·自然说话：主句写念多少秒（念完从头再念）",
+);
 const dirRun = flow.remoteModel(
     running("direction", { phase: "direction", directionIndex: 1, rounds: 4, phaseDurationSec: 3, phaseElapsedSec: 1 }),
 );
@@ -310,14 +315,28 @@ run.check(
         "手动分段的字表是一段：写第几部分，不写第 1 遍 / 共 1 遍",
     );
     const room = flow.remoteModel(running("room", { ...roomLive, need: "claps", needLeft: 1 }));
-    run.check(!room.aux, "手动分段的房间步：不另写还差几下");
-    run.eq(room.need, { key: "flow.rm.count", vars: { n: 2, total: 4 } }, "房间步只写有效几下 / 凑够几下自动结束");
+    run.check(!room.aux && !room.need, "手动分段的房间步：不另写还差几下，也没有“够了”那一行");
+    run.check(
+        room.count === "2 / 4" && room.unit.key === "flow.rm.valid" && room.cmd.key === "flow.rm.room.cmd",
+        "房间步的大字是有效几下 / 凑够几下自动结束，不倒数秒",
+    );
     const room3 = flow.remoteModel(
         running("room", { ...roomLive, claps: ["valid", "valid", "noisy", "valid"], need: "claps", canEnd: true }),
     );
     run.check(
-        room3.end.can === true && room3.need.key === "flow.rm.count" && room3.need.vars.n === 3,
-        "房间步第 3 下有效：“结束”可以按，但只写计数，不写“够了”（第 4 下就自动结束）",
+        room3.end.can === true &&
+            room3.count === "3 / 4" &&
+            room3.cmd.key === "flow.rm.one.end" &&
+            room3.sub.key === "flow.rm.one.sub" &&
+            !room3.need,
+        "房间步第 3 下有效：主句说再拍一下就自动结束，下面一句说拍不出来也可以现在点结束，不写“够了”",
+    );
+    const room3n = flow.remoteModel(
+        running("room", { ...roomLive, claps: ["valid", "valid", "valid"], need: "claps", needLeft: 1 }),
+    );
+    run.check(
+        room3n.cmd.key === "flow.rm.one.end" && room3n.sub.key === "flow.rm.room.sub",
+        "差一下但还不能结束时：只说再拍一下，不说可以点结束",
     );
 
     // 手动分段的轻拍：一直听，每一下都有反馈，凑够 tapsNeeded 下有效自己往下走
@@ -325,18 +344,27 @@ run.check(
     const tap0 = tap({ taps: [] });
     run.eq(tap0.slots, ["wait", "wait", "wait"], "轻拍刚开始：画出要凑的三下");
     run.check(tap0.slotsKind === "taps" && tap0.cmd.vars.n === 3, "轻拍的槽位单独排版，要拍几下取自 tapsNeeded");
-    run.eq(tap0.need, { key: "flow.rm.count", vars: { n: 0, total: 3 } }, "轻拍写有效 0 / 3");
+    run.check(
+        !tap0.need &&
+            tap0.count === "0 / 3" &&
+            tap0.unit.key === "flow.rm.valid" &&
+            tap0.cmd.key === "flow.rm.pos.clap",
+        "轻拍的大字是有效 0 / 3，不倒数秒",
+    );
     const tap2 = tap({ taps: ["clipped", "valid", "unmeasured"] });
     run.eq(
         tap2.slots,
         ["clip", "valid", "miss", "wait", "wait"],
         "削波的一下写“拍轻一点”，量不出的写“没量出”，都不算数",
     );
-    run.eq(tap2.need.vars, { n: 1, total: 3 }, "只数有效的");
+    run.eq(tap2.count, "1 / 3", "只数有效的");
     const tapReady = tap({ taps: ["valid", "valid"], canEnd: true, needLeft: 0 });
     run.check(
-        tapReady.end.can === true && tapReady.need.key === "flow.rm.count",
-        "轻拍收够两下：“结束”能按，仍只写计数",
+        tapReady.end.can === true &&
+            tapReady.count === "2 / 3" &&
+            tapReady.cmd.key === "flow.rm.one.next" &&
+            tapReady.sub.key === "flow.rm.one.sub",
+        "轻拍收够两下：主句说再拍一下就自动继续，下面说拍不出来也可以现在点结束",
     );
     run.eq(
         flow.tapSlots({ taps: Array(10).fill("clipped"), tapsNeeded: 3 }),
@@ -426,6 +454,57 @@ const dirRes = R("direction", ["direction"], (s) => {
     s.results.direction = { ...s.results.direction, levelDb: [-6, -2, 0, -3], currentIndex: 1 };
 });
 run.eq(dirRes.viz.rel, [-2, 0, -3, -6], "方向雷达：把当前方向转到第一位，再取相对最响的差");
+
+// 方向卡的数：和词同向，数字写成正的；说明写当前方向领先，还是哪一面朝你时更响
+{
+    const card = (patch) =>
+        flow.resultCards.dir({ levelDb: [-3, -9, -10, -8], currentIndex: 0, repeatIndex: 3, ...patch });
+    const best = card({ kind: "best", bestOtherAdvantageDb: -5.7 });
+    run.check(
+        best.nums[0].text === "+5.7" && best.note.key === "flow.cd.dir.best",
+        "方向对：+5.7 dB，比其他方向里最响的还响",
+    );
+    const flip = card({ kind: "maybe-reversed", bestOtherAdvantageDb: 6.2, confirmedAdvantageDb: 5.9, repeatIndex: 2 });
+    run.check(
+        flip.nums[0].text === "+5.9" &&
+            flip.note.key === "flow.cd.dir.other" &&
+            flip.note.vars.d.word === "flow.dir.back",
+        "可能放反：写两次里较小的 5.9 dB，背面朝你时更响",
+    );
+    const unsure = card({ kind: "uncertain", bestOtherAdvantageDb: 4.1, confirmedAdvantageDb: 0, repeatIndex: 1 });
+    run.check(
+        unsure.nums[0].text === "+4.1" && unsure.note.vars.d.word === "flow.dir.side",
+        "没确认成立：不用原生写的 0，仍是第一遍的 4.1 dB，侧面朝你时更响",
+    );
+    run.eq(
+        card({
+            kind: "uncertain",
+            bestOtherAdvantageDb: 3,
+            repeatIndex: -1,
+            currentIndex: 1,
+            levelDb: [-4, -7, -9, -8],
+        }).note.vars.d.word,
+        "flow.dir.other",
+        "没有 repeatIndex 时按电平找最响的其他方向，叫法从开始时的方向数起",
+    );
+    run.eq(card({ kind: "small-difference", bestOtherAdvantageDb: 0.02 }).note.key, "flow.cd.dir.tie", "一样响");
+    run.check(
+        best.cmp.by !== flip.cmp.by && best.cmp.by === card({ kind: "best", bestOtherAdvantageDb: -1 }).cmp.by,
+        "上次 → 现在只在两次的意思相同（都是当前方向领先，或同一面更响）时才比",
+    );
+    const dr = R("direction", ["direction"], (s) => {
+        s.results.direction = {
+            ...s.results.direction,
+            kind: "maybe-reversed",
+            levelDb: [-9, -8, -3, -10],
+            currentIndex: 0,
+            repeatIndex: 2,
+            bestOtherAdvantageDb: 6,
+            confirmedAdvantageDb: 5.5,
+        };
+    });
+    run.eq(dr.expl.vars.d, { word: "flow.dir.back" }, "可能放反的说明用叫法写是哪一面更响，不写方向编号");
+}
 run.eq(R("position", ["position"]).cards.length, 4, "位置：四张结果卡");
 
 // 位置结果页：四张卡都不分档；距离只有前后对比与一条弱提示；推荐距离取自快照

@@ -56,8 +56,17 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
   so you can walk back to where you sing after pressing Start; every clap gets feedback on the spot (valid, clap softer, not
   measured), and the part moves on to the word list by itself once it has three valid claps. A clap that clipped no longer
   sends the whole part back at the end: it just does not count. Only if there are still fewer than two valid claps after
-  20 seconds (`session.soft_clap_max_s`, new) does the part go back to waiting. The room claps and the light claps now only show
-  "valid n of N" while they run, instead of saying "that is enough, press Finish" one clap before they end by themselves.
+  20 seconds (`session.soft_clap_max_s`, new) does the part go back to waiting.
+- The room claps and the light claps show the count of valid claps as the big number instead of a countdown. One clap before they
+  end by themselves they say "one more and it finishes (moves on) by itself", with a line below that Finish is available now if
+  you can't get one more, instead of "that is enough, press Finish".
+- Natural reading in the position step, when you start and finish parts yourself, lasts 30 seconds (`session.natural_read_s`,
+  new) and ends by itself. The passage is longer, and you read it again from the top until time is up. Finish becomes available
+  after 20 seconds of voice (`session.natural_min_voice_s`, was 8). The host-test probe keeps 15 seconds.
+- Direction step: the first direction also waits for Start, so you can sit back and set the microphone after the preparation page.
+  Directions are named by which side of the microphone faces you (front, side, back, other side), each a further quarter turn the
+  same way, instead of by angles. The number on the direction card is always positive: when the direction is right, it is how much
+  louder it is than the loudest other direction; otherwise the card says which side is louder and by how much.
 - Sibilance card: its number is now "6–12 kHz vs vowel", the value that is compared with the reference. The absolute levels of
   the 3–6 kHz and 6–12 kHz bands, which only compare with an earlier test at the same gain, are now only in the details, and
   "last time → now" on the card compares the same number as the card shows.
@@ -81,6 +90,8 @@ There is no release yet. The first one will be `0.1.0`. Work so far:
   slowly, and the peak line is kept. The average level (RMS over the same interval) is a paler core inside it. The large-type
   bar in the test view reads the true peak too.
 - Clip lamp: it used to stay on until clicked. It now goes out 5 seconds after the last clip, and a click still clears it at once.
+- Direction card: when the repeat did not confirm that another direction was louder, the card showed 0 dB. It now shows the
+  difference from the first measurement.
 - Plug-in window: the UI never finished starting in any host (first seen in Cubase 15 on Windows, then reproduced in REAPER).
   The JUCE front-end bridge script was compiled in without the file it imports, so the page could not make a single call to the
   plug-in and switched to the fallback panel after 15 s. Both files are compiled in now, and a test starts the real page through
