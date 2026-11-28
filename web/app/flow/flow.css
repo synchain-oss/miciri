@@ -466,6 +466,14 @@
     text-align: center;
     padding: 0 var(--sp-4);
 }
+/* 轻拍只画要凑的几下和听到的几下：和房间步一样宽，居中 */
+.rm__slots--taps {
+    display: flex;
+    justify-content: center;
+}
+.rm__slots--taps .slot {
+    flex: 0 0 calc((100% - 7 * var(--sp-10)) / 8);
+}
 .slot svg {
     stroke: var(--txt-1);
 }
@@ -474,11 +482,13 @@
     border-color: var(--ink-green);
 }
 .slot[data-s="soft"],
-.slot[data-s="noisy"] {
+.slot[data-s="noisy"],
+.slot[data-s="clip"] {
     background: linear-gradient(rgba(var(--sem-amber), 0.7), rgba(var(--sem-amber), 0.7)), var(--slate-bg);
     border-color: var(--ink-amber);
 }
-.slot[data-s="gate"] {
+.slot[data-s="gate"],
+.slot[data-s="miss"] {
     background: linear-gradient(rgba(var(--sem-gray), 0.55), rgba(var(--sem-gray), 0.55)), var(--slate-bg);
     border-color: var(--ink-gray);
 }

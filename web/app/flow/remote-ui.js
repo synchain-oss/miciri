@@ -86,7 +86,7 @@ export function createRemote(o) {
         r.slots = m.slots
             ? el(
                   "div",
-                  { class: "rm__slots", data: { part: "slots" } },
+                  { class: m.slotsKind ? `rm__slots rm__slots--${m.slotsKind}` : "rm__slots", data: { part: "slots" } },
                   m.slots.map((s) => slotEl(s, { t })),
               )
             : null;
@@ -255,6 +255,7 @@ export function createRemote(o) {
                 !!m.words,
                 m.dots && m.dots.total,
                 m.slots && m.slots.length,
+                m.slotsKind,
                 !!m.sub,
                 !!m.sub2,
                 m.count != null,

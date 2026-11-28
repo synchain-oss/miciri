@@ -282,6 +282,8 @@ export const SNAPSHOT_LIVE = [
     "need",
     "needLeft",
     "heard",
+    "taps",
+    "tapsNeeded",
 ];
 export const ENUM_STEP_PHASE = ["none", "soft-clap", "plosive", "sibilant", "natural", "direction", "confirm"];
 export const ENUM_CLAP_STATE = ["valid", "too-soft", "noisy", "truncated"];
@@ -316,3 +318,5 @@ export const ENUM_SIBILANCE_ADVICE = ["none", "angle-soften-de-ess"];
 export const ENUM_CLICK_ADVICE = ["none", "back-off-a-little", "drink-water"];
 // 追加（手动开始与结束）：一段要收够什么才可以由用户结束（live.need）
 export const ENUM_PHASE_NEED = ["none", "seconds", "voice-seconds", "claps", "syllables"];
+// 追加（轻拍逐下）：手动开始时位置步每一下轻拍的判定（live.taps）
+export const ENUM_TAP_STATE = ["valid", "clipped", "unmeasured"];

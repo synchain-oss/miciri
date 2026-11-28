@@ -105,6 +105,9 @@ status: frozen
   - `clapDetails`（追加，每项是 `SNAPSHOT_CLAP_DETAIL`）：与 `claps` 一一对应的明细。`timeSec` 这一下在本步里的时刻，`peakDbfs` 峰值，
     `clipped` 是否削波，`bandStatus`（`ENUM_CLAP_BAND_STATUS`）与 `t20Sec` 按 `bands.t20BandsHz` 的顺序给各频带的状态与 T20（拟合不出为 0）。
     房间步结束后与 `claps` 一起保留。
+  - `taps`、`tapsNeeded`（追加）：手动开始时位置步轻拍每一下的判定（`ENUM_TAP_STATE`，按拍的先后），尾巴还没收完的那一下先不报。
+    `valid` 没削波、量得出直达声，算进 D/R；`clipped` 削波了，`unmeasured` 没削波但量不出，这两种都不算数。轻拍阶段之外、自动推进时
+    与没有步骤在跑时 `taps` 是空数组；`tapsNeeded` 一直有值，是凑够几下有效就自己结束（`session.soft_claps`）。
   - `waiting`、`canEnd`、`need`、`needLeft`、`heard`（追加）：一段的开始与结束，见下一节。自动推进或没有步骤在跑时
     `waiting`、`canEnd` 为假，`need` 是 `none`，两个数是 0。
 - `steps.<id>.durationSec` 在 `idle` 时也给出这一步的计划时长（准备页写“约 N 秒”）。
@@ -117,7 +120,9 @@ status: frozen
 - 自动推进：段首尾相接，按时长推进，与没有这五个字段时相同。
 - 手动开始：`startStep` 开始这一步的第一段；之后每一段先“待开始”（`waiting` 为真），界面调 `startPhase` 才开始收。
   待开始时收到的音频全部丢掉，不计时、不进分析，可以一直等。一段收够最低量后 `canEnd` 为真，界面可以调 `endPhase` 提前结束；
-  到时长上限（`phaseDurationSec`）照样自动结束，房间步凑够有效拍手也照样自动收尾。字表的几遍合成一段（`rounds` 为 1），一口气念完再结束；
+  到时长上限（`phaseDurationSec`）照样自动结束，房间步凑够有效拍手也照样自动收尾。
+  轻拍不按遍计时（`rounds` 为 1）：一直听，凑够 `tapsNeeded` 下有效就自己结束、进下一段，上限是 `session.soft_clap_max_s`；
+  到上限有效的不够 `direct_ratio.min_clean_claps` 下就退回这一段的待开始重拍，削波把能用的几下刷掉了时 `notice` 是 `clap-clipped`，否则是 `redo`。字表的几遍合成一段（`rounds` 为 1），一口气念完再结束；
   方向步每个方向、确认的每一遍各是一段。阶段要重来时回到这一阶段的待开始，不倒数（见 `notice`）。
 - 用户的点击会被话筒录进去：一段开始后先丢掉 `session.click_guard_s` 秒；用户结束时，最后这么长的一段也不进分析。
   到上限或自动收尾时没有点击，照常全收。证据波形的时间轴只算分析用到的样本，待开始与这两段都不算。
@@ -125,7 +130,7 @@ status: frozen
   `voice-seconds` 其中有声的秒数（增益、自然念、方向；有声帧的规则与说话电平相同），`claps` 能用的拍手下数（房间：有效的；轻拍：没削波、量得出直达声的），
   `syllables` 字表里听到的音节数（就是各自分析找到的事件）。`needLeft` 是还差多少（够了是 0），`heard` 是这一段已收到多少，单位同 `need`；
   待开始时给的是下一段的量。一段里够了之后 `canEnd` 一直为真，后面的音频不会把它收回去；`heard` 也停在够了的那一刻、不再增长
-  （够了就不再数，有声秒数每数一次都要重算全部帧），界面这时只说“够了”，这一段的进度看 `phaseElapsedSec`。各段的最低量见 `thresholds.json` 的 `session` 组。
+  （够了就不再数，有声秒数每数一次都要重算全部帧），界面这时说“够了”（凑够数就自己结束的房间拍手与轻拍只写有效几下），这一段的进度看 `phaseElapsedSec`。各段的最低量见 `thresholds.json` 的 `session` 组。
 - 意图在原生的工作线程上、喂下一块音频之前执行，计时仍按采样计数；回执 `ok` 只表示已收下，状态随后面的快照变化。
   收下时那一段已经到了上限、换成了下一段，这个意图就不起作用。
 - `cancelStep`、过期规则，以及离线渲染与验证宿主下不开始测试的保护，都不因分段方式而变。

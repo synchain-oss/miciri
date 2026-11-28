@@ -80,7 +80,8 @@ try {
     });
     await frame.waitForSelector('[data-part="end"][aria-disabled="true"]', { state: "visible" });
     await audit("远距离模式（还不能结束）");
-    await page.evaluate(() => window.__MICIRI_MOCK__.sim.advance(4));
+    // 模拟的轻拍每 2 秒一下：第 8 秒有两下有效，“结束”可以按，槽位里也有削波与没量出的判定
+    await page.evaluate(() => window.__MICIRI_MOCK__.sim.advance(8));
     await frame.waitForSelector('[data-part="end"][aria-disabled="false"]', { state: "visible" });
     await audit("远距离模式（可以结束）");
     await page.evaluate(() => window.__MICIRI_MOCK__.endPhase());

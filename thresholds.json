@@ -1047,10 +1047,29 @@
       "state": "pending",
       "source": "工程起始值",
       "date": null,
-      "note": "how often the room step re-reads the claps so far to give per-clap feedback; with manual phases the soft claps of the position step are re-read as often, to count the clean ones"
+      "note": "how often the room step re-reads the claps so far to give per-clap feedback; with manual phases the soft taps of the position step are re-read as often, to judge each tap and count the clean ones"
     },
-    "soft_claps": { "value": 3, "state": "pending", "source": "规格起始值", "date": null },
-    "soft_clap_round_s": { "value": 2.0, "state": "pending", "source": "规格起始值", "date": null },
+    "soft_claps": {
+      "value": 3,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "soft taps in the position step. With automatic phases one tap per soft_clap_round_s; with manual phases the part moves on by itself once this many clean taps are heard"
+    },
+    "soft_clap_round_s": {
+      "value": 2.0,
+      "state": "pending",
+      "source": "规格起始值",
+      "date": null,
+      "note": "with automatic phases, length of each soft-tap round; not used with manual phases"
+    },
+    "soft_clap_max_s": {
+      "value": 20.0,
+      "state": "pending",
+      "source": "工程起始值",
+      "date": null,
+      "note": "with manual phases, longest the soft-tap part listens. Covers walking back from the computer (a few seconds), soft_claps taps at the automatic pace (6 s) and redoing two or three clipped taps, each shown about 1.5 s after it; same as room_max_s, the other part that listens until enough claps are heard"
+    },
     "word_list_rounds": { "value": 2, "state": "pending", "source": "规格起始值", "date": null },
     "word_list_round_s": { "value": 10.0, "state": "pending", "source": "规格起始值", "date": null },
     "direction_take_s": { "value": 3.0, "state": "pending", "source": "规格起始值", "date": null },
@@ -1066,7 +1085,7 @@
       "state": "pending",
       "source": "工程起始值",
       "date": null,
-      "note": "how many times one step may restart a phase by itself (clipped soft claps, gated claps); after that it carries on and the analysis reports the retest"
+      "note": "how many times one step may restart a phase by itself (soft taps that clipped or, with manual phases, were too few at the time limit; gated claps); after that it carries on and the analysis reports the retest"
     },
     "realtime_ratio_max": {
       "value": 1.5,

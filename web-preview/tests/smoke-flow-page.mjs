@@ -5,7 +5,8 @@
 //   ② 叠卡：翻页（点上下露出的卡、PageDown/PageUp、滚轮）、耳机麦没有方向步、步骤条按状态着图标；
 //   ③ 测试中：整窗远距离模式，指令 ≥ 48 px、念的字 ≥ 64 px，倒计时与拍手槽位随模拟推进，取消回到准备页；
 //      手动分段：收够之前“结束”不可用并写明还差什么，够了用键盘结束，之后每段等“开始”、待开始时不倒数也不推进，
-//      重来时退回待开始；自动推进（phases=auto）时没有这两个按钮；
+//      重来时退回待开始；房间与轻拍只写“有效 n / 总数”，轻拍逐下给判定、凑够自己往下走，到上限不够时请用户再拍一组；
+//      自动推进（phases=auto）时没有这两个按钮；
 //   ④ 成功屏与结果页：绿色成功屏之后落在这一步的结果页，数字与档位词来自快照，重测显示准备页；
 //   ⑤ 左栏：结果标记与悬停提示、峰值读数；
 //   ⑥ 关窗再开：全零做完一轮后落在接通页，步骤条与折叠摘要跟着信号判断；信号恢复后左栏药丸在别的页上也自己转绿；
@@ -275,33 +276,47 @@ try {
         ["valid", "soft", "valid", "noisy", "wait", "wait", "wait", "wait"],
         "每一下拍手有自己的判定",
     );
+    run.eq(await text('[data-part="need"]'), "有效 2 / 4", "房间步只写有效几下 / 凑够几下自动结束");
+    await call(`sim.advance(2)`);
+    await page.waitFor(`${q('[data-part="end"]')}?.getAttribute("aria-disabled") === "false"`, {
+        label: "第 3 下有效：“结束”可以按",
+    });
+    run.eq(await text('[data-part="need"]'), "有效 3 / 4", "第 3 下有效：仍只写计数，不说“够了”（第 4 下自动结束）");
     await click('[data-part="cancel"]');
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消房间步" });
 
-    // 手动分段：准备页的“开始”直接开始第一段；收够之前“结束”不可用并写明还差什么；够了按 Enter 结束；之后每段等“开始”
+    // 手动分段：准备页的“开始”直接开始第一段（轻拍）；轻拍一直听、每一下都有反馈，凑够三下有效自己进字表
+    const slots = () => page.eval(`[...${FD}.querySelectorAll(".rm__slots .slot")].map((s) => s.dataset.s)`);
     await goStep("position");
     await click('[data-part="cta"]');
     await page.waitFor(`${q(".rm")}?.dataset.step === "position"`, { label: "位置步进入远距离模式" });
     run.eq(await exists('[data-part="start"]'), false, "第一段随准备页的“开始”直接开始，不用再点");
     run.eq(await page.eval(`${q('[data-part="end"]')}?.getAttribute("aria-disabled")`), "true", "收够之前“结束”不可用");
     run.eq(await focused(), "end", "焦点在“结束”上（键盘可操作）");
-    run.check((await text('[data-part="need"]')).includes("2"), "写明还差几下合格的拍手（数字来自 needLeft）");
+    run.eq(await slots(), ["wait", "wait", "wait"], "轻拍先画出要凑的三下");
+    run.eq(await text('[data-part="need"]'), "有效 0 / 3", "写有效 0 / 3");
+    run.eq(await text(".rm__num"), "20", "轻拍不按遍计时：倒计时是这一部分的上限");
     run.eq(await page.eval(`${FD}.querySelectorAll(".rm__dot").length`), 0, "手动分段时轻拍是一段，不画遍数的点");
     run.check((await fontPx('[data-part="end"]')) >= 36, "“结束”的字号 ≥ 36 px（1.5 米外看得清）");
     await click('[data-part="end"]');
     await sleep(200);
     run.eq(await phaseCalls(), [], "不可用时点“结束”不走桥");
-    await call(`sim.advance(4)`);
+    await call(`sim.advance(2)`);
+    await page.waitFor(`${FD}.querySelectorAll(".rm__slots .slot").length === 4`, { label: "听到第一下" });
+    run.eq(await slots(), ["clip", "wait", "wait", "wait"], "削波的一下当场写“拍轻一点”，不算数");
+    run.check((await text(".rm__slots")).includes("拍轻一点"), "槽位上写“拍轻一点”");
+    await call(`sim.advance(6)`);
     await page.waitFor(`${q('[data-part="end"]')}?.getAttribute("aria-disabled") === "false"`, {
-        label: "收够之后“结束”可用",
+        label: "收够两下有效“结束”可用",
     });
-    run.check((await text('[data-part="need"]')).includes("够了"), "收够之后写“够了”");
-    run.eq(await focused(), "end", "只改属性不重建：焦点还在“结束”上");
-    await pressEnter();
-    await page.waitFor(`!!${q('[data-part="start"]')}`, { label: "结束后下一段等用户开始" });
-    run.eq(await phaseCalls(), ["endPhase"], "按 Enter 结束走桥 endPhase");
+    run.eq(await slots(), ["clip", "valid", "miss", "valid", "wait"], "有效、没量出各有判定");
+    run.eq(await text('[data-part="need"]'), "有效 2 / 3", "只写计数，不说“够了”");
+    await call(`sim.advance(2)`);
+    await page.waitFor(`${q(".rm")}?.dataset.struct === "position:plosive:wait"`, {
+        label: "凑够三下有效自己进爆破音字表",
+    });
+    run.eq(await phaseCalls(), [], "凑够了自己往下走，不用点“结束”");
     run.eq(await focused(), "start", "焦点移到“开始”");
-    run.eq(await page.eval(`${q(".rm")}.dataset.struct`), "position:plosive:wait", "待开始的是爆破音字表");
     run.eq(await exists(".rm__num"), false, "待开始时不倒数");
     run.eq(await exists('[data-part="end"]'), false, "待开始时没有“结束”");
     run.check((await fontPx(".rm__words")) >= 64, "待开始时先给出念的字，字号 ≥ 64 px（1.5 米可读）");
@@ -311,17 +326,21 @@ try {
     run.eq(await exists('[data-part="start"]'), true, "等多久都还在等：待开始没有超时，也不推进");
     await pressEnter();
     await page.waitFor(`${q(".rm")}?.dataset.struct === "position:plosive"`, { label: "按 Enter 开始字表" });
-    run.eq(await phaseCalls(), ["endPhase", "startPhase"], "开始走桥 startPhase");
+    run.eq(await phaseCalls(), ["startPhase"], "开始走桥 startPhase");
     run.eq(await text(".rm__num"), "20", "字表两遍合成一段：倒计时是这一段的上限");
     run.eq(await focused(), "end", "开始后焦点在“结束”上");
     run.check((await text('[data-part="need"]')).includes("6"), "字表写明还差几个字");
-    // 字表可以提前结束：念够 6 个字就能结束，不用等满 20 秒
+    // 字表可以提前结束：念够 6 个字就能结束，不用等满 20 秒；字表不会自己结束，所以写“够了”
     await call(`sim.advance(7)`);
     await page.waitFor(`${q('[data-part="end"]')}?.getAttribute("aria-disabled") === "false"`, {
         label: "字表念够就能提前结束",
     });
-    await click('[data-part="end"]');
+    run.check((await text('[data-part="need"]')).includes("够了"), "收够之后写“够了”");
+    run.eq(await focused(), "end", "只改属性不重建：焦点还在“结束”上");
+    await pressEnter();
     await page.waitFor(`${q(".rm")}?.dataset.struct === "position:sibilant:wait"`, { label: "提前结束后到齿音字表" });
+    run.eq(await phaseCalls(), ["startPhase", "endPhase"], "按 Enter 结束走桥 endPhase");
+    run.eq(await focused(), "start", "焦点移到“开始”");
     // 到上限照样自动结束：齿音字表不按“结束”，念满 20 秒自己结束
     await click('[data-part="start"]');
     await page.waitFor(`${q(".rm")}?.dataset.struct === "position:sibilant"`, { label: "开始齿音字表" });
@@ -335,6 +354,21 @@ try {
     run.check(!(await text(".rm")).includes("秒后自动"), "不写“几秒后自动重新开始”");
     await click('[data-part="start"]');
     await page.waitFor(`${q(".rm")}?.dataset.rtone === "violet"`, { label: "再点开始，提示清掉" });
+    await click('[data-part="cancel"]');
+    await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消位置步" });
+
+    // 轻拍到上限有效的不够：退回待开始，请用户再拍一组，等“开始”
+    await call(`sim.setTaps(["valid"])`);
+    await click('[data-part="cta"]');
+    await page.waitFor(`${q(".rm")}?.dataset.step === "position"`, { label: "再开始位置步" });
+    await call(`sim.advance(20)`);
+    await page.waitFor(`${q(".rm")}?.dataset.struct === "notice:redo:wait"`, { label: "轻拍到上限不够：重拍" });
+    run.check((await text(".rm__cmd")).includes("再拍一组"), "请用户再拍一组");
+    run.check((await text(".rm")).includes("时间到了"), "说明是时间到了、有效的不够");
+    run.eq(await exists('[data-part="start"]'), true, "重拍等用户点“开始”");
+    await click('[data-part="start"]');
+    await page.waitFor(`${q(".rm")}?.dataset.struct === "position:soft-clap"`, { label: "重新开始轻拍" });
+    await call(`sim.setTaps(["clipped", "valid", "unmeasured", "valid", "valid"])`);
     await click('[data-part="cancel"]');
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消位置步" });
 

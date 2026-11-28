@@ -126,7 +126,7 @@ void StepScript::feed(const double* left, const double* right, std::size_t frame
         inSegment_ += k;
         skip(k);
         const bool early = finishedEarly();
-        if (inSegment_ == seg.frames || early)
+        if (inSegment_ == seg.frames || early || (manual() && segmentFilled(seg)))
             closeSegment(seg, true, early);
         updateLive();
     }
@@ -553,7 +553,9 @@ private:
 
 // ---- 位置：轻拍（D/R）→ 爆破音字表 → 齿音字表 → 自然念一段；口水音用字表加自然的一段一起分析 ----
 // Manual 下各阶段的最低量：轻拍要 direct_ratio.min_clean_claps 下没削波、量得出的；两个字表各要 word_list_min_events
-// 个音节（数的就是各自的分析找到的事件）；自然念要 natural_min_voice_s 秒有声
+// 个音节（数的就是各自的分析找到的事件）；自然念要 natural_min_voice_s 秒有声。
+// Manual 下轻拍不按遍计时：一直听，凑够 session.soft_claps 下就自己进字表（用户在唱歌的位置，不用回来点“结束”），
+// session.soft_clap_max_s 是上限；每一下的判定放在 live.taps，削波的那一下当场就请用户拍轻一点
 class PositionStep final : public StepScript
 {
 public:
@@ -562,7 +564,10 @@ public:
           clapEvery_(framesFor(thr::session::live_clap_every_s)),
           wordsEvery_(framesFor(thr::session::live_words_every_s))
     {
-        addPasses(StepPhase::SoftClap, count(thr::session::soft_claps), thr::session::soft_clap_round_s);
+        if (manual())
+            addPhase(StepPhase::SoftClap, 1, thr::session::soft_clap_max_s);
+        else
+            addPhase(StepPhase::SoftClap, count(thr::session::soft_claps), thr::session::soft_clap_round_s);
         addPasses(StepPhase::Plosive, count(thr::session::word_list_rounds), thr::session::word_list_round_s);
         addPasses(StepPhase::Sibilant, count(thr::session::word_list_rounds), thr::session::word_list_round_s);
         addPhase(StepPhase::Natural, 1, thr::click::analysis_window_s);
@@ -656,18 +661,35 @@ private:
         return {core::PhaseNeed::Syllables, thr::session::word_list_min_events - n, n};
     }
 
-    void segmentBegins(const Segment&) override { sinceLook_ = 0; }
+    void segmentBegins(const Segment& seg) override
+    {
+        sinceLook_ = 0;
+        if (seg.phase != StepPhase::SoftClap)
+            live_.taps.clear();
+    }
 
-    // 轻拍：只数尾巴已经收完的几下，削波的、量不出直达声的不算
+    bool segmentFilled(const Segment& seg) const override
+    {
+        return seg.phase == StepPhase::SoftClap && cleanClaps_ >= thr::session::soft_claps;
+    }
+
+    // 轻拍：只报尾巴已经收完的几下，削波的、量不出直达声的不算数
     void lookSoftClaps()
     {
         const auto a = claps_->finishDirectRatio();
         analysed();
         const double heard = static_cast<double>(softFrames_) / ctx_.sampleRate;
+        live_.taps.clear();
         double clean = 0.0;
         for (const auto& c : a.claps)
-            if (!c.clipped && c.usable && c.timeSec + thr::direct_ratio::segment_after_s <= heard)
-                clean += 1.0;
+        {
+            if (c.timeSec + thr::direct_ratio::segment_after_s > heard)
+                continue;
+            using core::TapState;
+            const TapState t = c.clipped ? TapState::Clipped : c.usable ? TapState::Valid : TapState::Unmeasured;
+            live_.taps.push_back(t);
+            clean += t == TapState::Valid ? 1.0 : 0.0;
+        }
         cleanClaps_ = clean;
     }
 
@@ -685,7 +707,8 @@ private:
         analysed();
     }
 
-    // 轻拍要不削波：没削波的几下不够时重拍
+    // 没削波的几下不够时重拍：是削波刷掉的说“拍轻一点”。Manual 下凑够了才会自己结束、用户也要收够才能结束，
+    // 走到这里不够只会是到了上限，这时拍得太少也重拍；Auto 下拍得太少照旧往下走，由 D/R 给出再测
     FlowNotice endOfPhase(StepPhase phase) override
     {
         if (phase != StepPhase::SoftClap)
@@ -693,8 +716,11 @@ private:
         directRatio_ = claps_->finishDirectRatio();
         analysed();
         const auto& c = directRatio_->result.confidence;
-        return c.level == core::Reliability::Retest && c.reason == core::RetestReason::Clipped ? FlowNotice::ClapClipped
-                                                                                               : FlowNotice::None;
+        if (c.level != core::Reliability::Retest)
+            return FlowNotice::None;
+        if (c.reason == core::RetestReason::Clipped)
+            return FlowNotice::ClapClipped;
+        return manual() && c.reason == core::RetestReason::FewClaps ? FlowNotice::Redo : FlowNotice::None;
     }
 
     // 重来时丢掉这一阶段收到的音频，与进度、证据波形一起退回；这一段的起点在重新收到样本时再记。
@@ -709,6 +735,7 @@ private:
             directRatio_.reset();
             softFrames_ = 0;
             cleanClaps_ = 0.0;
+            live_.taps.clear();
             break;
         case StepPhase::Plosive:
             plosive_.clear();
