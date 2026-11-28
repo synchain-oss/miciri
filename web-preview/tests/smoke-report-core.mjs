@@ -512,10 +512,12 @@ run.eq(core.directionSlot({ ...SCENES.veryBoomy(), micType: "headset" }), null, 
     s.steps.direction.status = "running";
     s.live = { ...s.live, phase: "confirm", round: 2, rounds: 2, directionIndex: 2, phaseDurationSec: 6 };
     const m = flow.remoteModel(s);
+    const front = { word: "flow.dir.front" };
+    const back = { word: "flow.dir.back" };
     run.eq(
         [m.cmd.key, m.cmd.vars.a, m.cmd.vars.b, m.words, m.wordsVars],
-        ["flow.rm.dir.confirm", 1, 3, "flow.rm.dir.pair", { a: 1, b: 3 }],
-        "方向确认的测试中视图点出方向 1 与方向 3",
+        ["flow.rm.dir.confirm", front, back, "flow.rm.dir.pair", { a: front, b: back }],
+        "方向确认的测试中视图按叫法点出正面朝你与背面朝你",
     );
     s.live = { ...s.live, round: 1, directionIndex: 0 };
     run.eq(flow.remoteModel(s).cmd.key, "flow.rm.dir.confirm.gen", "不知道哪个方向更响时用通用文案");

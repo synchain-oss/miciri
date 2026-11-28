@@ -5,7 +5,8 @@
 //   ② 叠卡：翻页（点上下露出的卡、PageDown/PageUp、滚轮）、耳机麦没有方向步、步骤条按状态着图标；
 //   ③ 测试中：整窗远距离模式，指令 ≥ 48 px、念的字 ≥ 64 px，倒计时与拍手槽位随模拟推进，取消回到准备页；
 //      手动分段：收够之前“结束”不可用并写明还差什么，够了用键盘结束，之后每段等“开始”、待开始时不倒数也不推进，
-//      重来时退回待开始；房间与轻拍只写“有效 n / 总数”，轻拍逐下给判定、凑够自己往下走，到上限不够时请用户再拍一组；
+//      重来时退回待开始；房间与轻拍的大字是“有效 n / 总数”、不倒数，差一下时说“再拍一下就自动结束（继续）”，
+//      轻拍逐下给判定、凑够自己往下走，到上限不够时请用户再拍一组；方向步的第一个方向也等“开始”、不写累计角度；
 //      自动推进（phases=auto）时没有这两个按钮；
 //   ④ 成功屏与结果页：绿色成功屏之后落在这一步的结果页，数字与档位词来自快照，重测显示准备页；
 //   ⑤ 左栏：结果标记与悬停提示、峰值读数；
@@ -276,12 +277,20 @@ try {
         ["valid", "soft", "valid", "noisy", "wait", "wait", "wait", "wait"],
         "每一下拍手有自己的判定",
     );
-    run.eq(await text('[data-part="need"]'), "有效 2 / 4", "房间步只写有效几下 / 凑够几下自动结束");
+    run.eq(
+        [await text(".rm__num"), await text(".rm__unit"), await exists('[data-part="need"]')],
+        ["2 / 4", "有效", false],
+        "房间步的大字是有效几下 / 凑够几下自动结束，不倒数秒",
+    );
     await call(`sim.advance(2)`);
     await page.waitFor(`${q('[data-part="end"]')}?.getAttribute("aria-disabled") === "false"`, {
         label: "第 3 下有效：“结束”可以按",
     });
-    run.eq(await text('[data-part="need"]'), "有效 3 / 4", "第 3 下有效：仍只写计数，不说“够了”（第 4 下自动结束）");
+    run.eq(
+        [await text('[data-part="cmd"]'), await text('[data-part="sub"]'), await text(".rm__num")],
+        ["再拍一下就自动结束", "拍不出来也可以现在点“结束”", "3 / 4"],
+        "第 3 下有效：主句说再拍一下就自动结束，下面说拍不出来也可以现在点“结束”，不说“够了”",
+    );
     await click('[data-part="cancel"]');
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消房间步" });
 
@@ -294,8 +303,11 @@ try {
     run.eq(await page.eval(`${q('[data-part="end"]')}?.getAttribute("aria-disabled")`), "true", "收够之前“结束”不可用");
     run.eq(await focused(), "end", "焦点在“结束”上（键盘可操作）");
     run.eq(await slots(), ["wait", "wait", "wait"], "轻拍先画出要凑的三下");
-    run.eq(await text('[data-part="need"]'), "有效 0 / 3", "写有效 0 / 3");
-    run.eq(await text(".rm__num"), "20", "轻拍不按遍计时：倒计时是这一部分的上限");
+    run.eq(
+        [await text(".rm__num"), await text(".rm__unit")],
+        ["0 / 3", "有效"],
+        "轻拍的大字是有效 0 / 3，不倒数这一部分的上限",
+    );
     run.eq(await page.eval(`${FD}.querySelectorAll(".rm__dot").length`), 0, "手动分段时轻拍是一段，不画遍数的点");
     run.check((await fontPx('[data-part="end"]')) >= 36, "“结束”的字号 ≥ 36 px（1.5 米外看得清）");
     await click('[data-part="end"]');
@@ -310,7 +322,11 @@ try {
         label: "收够两下有效“结束”可用",
     });
     run.eq(await slots(), ["clip", "valid", "miss", "valid", "wait"], "有效、没量出各有判定");
-    run.eq(await text('[data-part="need"]'), "有效 2 / 3", "只写计数，不说“够了”");
+    run.eq(
+        [await text('[data-part="cmd"]'), await text('[data-part="sub"]'), await text(".rm__num")],
+        ["再拍一下就自动继续", "拍不出来也可以现在点“结束”", "2 / 3"],
+        "收够两下：再拍一下就自动继续，也可以现在点“结束”，不说“够了”",
+    );
     await call(`sim.advance(2)`);
     await page.waitFor(`${q(".rm")}?.dataset.struct === "position:plosive:wait"`, {
         label: "凑够三下有效自己进爆破音字表",
@@ -372,18 +388,21 @@ try {
     await click('[data-part="cancel"]');
     await page.waitFor(`${FD}.getElementById("shell").dataset.remote === "0"`, { label: "取消位置步" });
 
-    // 方向：四个方向各自开始、结束
+    // 方向：四个方向各自开始、结束；第一个方向也等“开始”（点完准备页的“开始”要先坐好、摆好话筒）
     await goStep("direction");
     await click('[data-part="cta"]');
     await page.waitFor(`${q(".rm")}?.dataset.step === "direction"`, { label: "方向步进入远距离模式" });
     for (let d = 1; d <= 4; d++) {
-        if (d > 1) {
-            await page.waitFor(`${q(".rm")}?.dataset.struct === "direction:direction:wait"`, {
-                label: `方向 ${d} 等用户开始`,
-            });
-            run.check((await text(".rm__aux")).includes(String(d)), `方向 ${d}：待开始时就写明是第几个方向`);
-            await click('[data-part="start"]');
-        }
+        await page.waitFor(`${q(".rm")}?.dataset.struct === "direction:direction:wait"`, {
+            label: `方向 ${d} 等用户开始`,
+        });
+        run.check((await text(".rm__aux")).includes(String(d)), `方向 ${d}：待开始时就写明是第几个方向`);
+        const cmd = await text('[data-part="cmd"]');
+        run.check(
+            !/°/.test(cmd) && cmd.includes(d === 1 ? "正面" : "四分之一圈"),
+            `方向 ${d}：按哪一面朝你说、每次再转四分之一圈，不写累计角度`,
+        );
+        await click('[data-part="start"]');
         await page.waitFor(`${q(".rm")}?.dataset.struct === "direction:direction"`, { label: `方向 ${d} 开始` });
         await call(`sim.advance(2.5)`);
         await page.waitFor(`${q('[data-part="end"]')}?.getAttribute("aria-disabled") === "false"`, {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // 远距离模式：测试进行中整窗换成一整块不透明的语义色（紫=进行中，绿=成功，玫瑰红=重来），
-// 站在 1.5 米外也看得清：指令 ≥ 48 px、念的字 ≥ 64 px、全宽电平条。
+// 站在 1.5 米外也看得清：指令 ≥ 48 px、念的字 ≥ 64 px（自然念的一整段放不下，39 px）、全宽电平条。
 //
 // 结构只在“形状”变了（颜色、有没有字、点、槽位……）时重建，倒计时、指令文字、点亮的点、槽位判定都只改文字和属性，
 // 不重建节点：指令行是 aria-live=assertive，重建会让读屏把同一句话再念一遍。
@@ -73,7 +73,12 @@ export function createRemote(o) {
             : null;
         r.icon = m.icon ? el("div", { class: "rm__icon" }, ic(m.icon, 56)) : null;
         r.cmd = el("h2", { class: "rm__cmd", role: "status", aria: { live: "assertive" }, data: { part: "cmd" } });
-        r.words = m.words ? el("p", { class: "rm__words", data: { part: "words" } }) : null;
+        r.words = m.words
+            ? el("p", {
+                  class: m.wordsKind ? `rm__words rm__words--${m.wordsKind}` : "rm__words",
+                  data: { part: "words" },
+              })
+            : null;
         r.dots = m.dots
             ? el(
                   "div",
@@ -103,7 +108,7 @@ export function createRemote(o) {
                       "div",
                       { class: "rm__cnt" },
                       r.num,
-                      r.num ? el("span", { class: "rm__unit", text: t("flow.rm.sec") }) : null,
+                      r.num ? el("span", { class: "rm__unit", text: tr(m.unit) || t("flow.rm.sec") }) : null,
                       r.aux,
                   )
                 : null;
@@ -184,7 +189,7 @@ export function createRemote(o) {
 
     function patch(m) {
         setText(refs.cmd, tr(m.cmd));
-        if (refs.words) setText(refs.words, t(m.words, m.wordsVars));
+        if (refs.words) setText(refs.words, t(m.words, tv(t, m.wordsVars)));
         if (refs.sub) setText(refs.sub, tr(m.sub));
         if (refs.sub2) setText(refs.sub2, tr(m.sub2));
         if (refs.num) setText(refs.num, String(m.count));
@@ -253,12 +258,14 @@ export function createRemote(o) {
                 m.struct,
                 !!m.icon,
                 !!m.words,
+                m.wordsKind,
                 m.dots && m.dots.total,
                 m.slots && m.slots.length,
                 m.slotsKind,
                 !!m.sub,
                 !!m.sub2,
                 m.count != null,
+                m.unit && m.unit.key,
                 !!m.aux,
                 !!m.bar,
                 !!m.go,

@@ -5,10 +5,11 @@
 // 阶段表、时长和最低量只是占位，真实的步骤编排在原生侧的 Session。
 //
 // 两种分段，和插件一样（见 docs/contracts/BRIDGE.md 的“一段的开始与结束”）：
-// - 手动开始（缺省，插件由界面驱动时就是这样）：第一段随 begin 开始，之后每段待开始（live.waiting），
+// - 手动开始（缺省，插件由界面驱动时就是这样）：第一段随 begin 开始（方向步除外，第一个方向也待开始），之后每段待开始（live.waiting），
 //   startPhase 才开始；收够这一段的最低量（假的：按时间线性增长）后 endPhase 可以提前结束，到时长上限照样自动结束。
 //   待开始时 advance 不推进。轻拍不按遍计时：每 2 秒听到一下，按 TAP_PATTERN（setTaps 可换）给判定，
-//   凑够 tapsNeeded 下有效就自己进字表；到上限（阶段表的第 5 项）有效的不够 2 下就退回待开始重拍。
+//   凑够 tapsNeeded 下有效就自己进字表；到上限（阶段表第 5 项的 listen）有效的不够 2 下就退回待开始重拍。
+//   自然念手动开始时念 30 秒（第 5 项的 listen），有声 20 秒才能结束。
 // - 自动推进（phases: "auto"）：各段首尾相接，按时长推进，startPhase、endPhase 回 no-phase。
 //
 // 接通是一轮观察窗（CONNECT_SEC，和插件一样长），只按时长推进；一轮结束时把 setInput 给的信号状态写进快照，
@@ -19,14 +20,15 @@ import { idleLive } from "./snapshot.js";
 import { resultsFor } from "./results.js";
 
 /**
- * 位置步的阶段：[阶段名, 遍数, 每遍秒数, 手动开始时的最低量（见 NEED）, 手动开始时一直听、逐下判定的上限秒数]。
- * 第 5 项只有轻拍有（插件里是 session.soft_clap_max_s）。
+ * 位置步的阶段：[阶段名, 遍数, 每遍秒数, 手动开始时的最低量（见 NEED）, 手动开始时的另一种分段]。
+ * 第 5 项：listen 是手动开始时这一段的上限秒数（轻拍是 session.soft_clap_max_s，自然念是 session.natural_read_s），
+ * taps 是一直听、逐下判定。
  */
 const POSITION_PHASES = [
-    ["soft-clap", 3, 2, ["claps", 2, 0.6], 20],
+    ["soft-clap", 3, 2, ["claps", 2, 0.6], { listen: 20, taps: true }],
     ["plosive", 2, 10, ["syllables", 6, 0.9]],
     ["sibilant", 2, 10, ["syllables", 6, 0.9]],
-    ["natural", 1, 14, ["voice-seconds", 8, 0.7]],
+    ["natural", 1, 14, ["voice-seconds", 20, 0.7], { listen: 30 }],
 ];
 /** 方向步：4 个方向各 3 秒，再确认一次。 */
 const DIRECTION_PHASES = [
@@ -62,9 +64,9 @@ function phasesOf(id, duration) {
 function segmentsOf(id, duration) {
     const one = (phase, sec, need) => ({ phase, round: 1, rounds: 1, sec, need });
     if (id === "position")
-        return POSITION_PHASES.map(([name, rounds, per, need, listen]) => ({
-            ...one(name, listen || rounds * per, need),
-            taps: !!listen,
+        return POSITION_PHASES.map(([name, rounds, per, need, own = {}]) => ({
+            ...one(name, own.listen || rounds * per, need),
+            taps: !!own.taps,
         }));
     if (id === "direction") {
         const dirs = Array.from({ length: 4 }, (_, i) => ({
@@ -243,7 +245,7 @@ export function createFlowSim(snap, io, o = {}) {
                 segments = segmentsOf(id, snap.steps[id].durationSec);
                 seg = 0;
                 inSeg = 0;
-                waiting = false; // 第一段随这一步开始
+                waiting = id === "direction"; // 第一段随这一步开始；方向步的第一个方向也等“开始”（要先摆好话筒）
                 reached = false;
                 showSegment();
             } else update();

@@ -132,6 +132,15 @@ void StepScript::feed(const double* left, const double* right, std::size_t frame
     }
 }
 
+void StepScript::waitForStart()
+{
+    if (!manual() || segment_ >= plan_.size())
+        return;
+    waiting_ = true;
+    guardLeft_ = 0; // 点“开始”时 begin() 再放点击保护
+    updateLive();
+}
+
 bool StepScript::begin()
 {
     if (!manual() || done_ || !waiting_ || segment_ >= plan_.size())
@@ -554,6 +563,8 @@ private:
 // ---- 位置：轻拍（D/R）→ 爆破音字表 → 齿音字表 → 自然念一段；口水音用字表加自然的一段一起分析 ----
 // Manual 下各阶段的最低量：轻拍要 direct_ratio.min_clean_claps 下没削波、量得出的；两个字表各要 word_list_min_events
 // 个音节（数的就是各自的分析找到的事件）；自然念要 natural_min_voice_s 秒有声。
+// Manual 下自然念的长度是 session.natural_read_s（念完一遍就从头再念，到时间自己结束），Auto 下仍是
+// click.analysis_window_s，宿主测试的时间轴不变；到时间有声秒数还不够也照样结束，口水音按收到的那些分析。
 // Manual 下轻拍不按遍计时：一直听，凑够 session.soft_claps 下就自己进字表（用户在唱歌的位置，不用回来点“结束”），
 // session.soft_clap_max_s 是上限；每一下的判定放在 live.taps，削波的那一下当场就请用户拍轻一点
 class PositionStep final : public StepScript
@@ -570,7 +581,7 @@ public:
             addPhase(StepPhase::SoftClap, count(thr::session::soft_claps), thr::session::soft_clap_round_s);
         addPasses(StepPhase::Plosive, count(thr::session::word_list_rounds), thr::session::word_list_round_s);
         addPasses(StepPhase::Sibilant, count(thr::session::word_list_rounds), thr::session::word_list_round_s);
-        addPhase(StepPhase::Natural, 1, thr::click::analysis_window_s);
+        addPhase(StepPhase::Natural, 1, manual() ? thr::session::natural_read_s : thr::click::analysis_window_s);
     }
 
     StepOutput finish() override
@@ -801,9 +812,11 @@ public:
     static constexpr int kCurrent = 0; // 用户开始时面对的方向就是当前方向
     static constexpr int kConfirmTakes = 2; // 确认重唱的那一对：当前方向、更响的那个方向
 
+    // Manual 下第一个方向也等用户点“开始”：按下这一步的“开始”时用户还在电脑前，要先坐回去、摆好话筒
     DirectionStep(const StepContext& ctx, AnalysisHook hook) : StepScript(ctx, hook), voice_(ctx.sampleRate)
     {
         addPhase(StepPhase::Direction, static_cast<int>(takes_.size()), thr::session::direction_take_s);
+        waitForStart();
     }
 
     StepOutput finish() override

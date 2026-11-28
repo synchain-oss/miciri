@@ -110,7 +110,11 @@ for (const id of CARD_ORDER) {
     run.eq(dir.rows.length, 4, "方向：四行");
     run.eq(dir.rows.filter((r) => r.hl).length, 1, "方向：最响的一行高亮");
     run.check(dir.radar && dir.radar.rel.length === 4, "方向：有四点雷达");
-    run.eq(dir.rows[0].label.key, "flow.dir.cur", "方向：第一行是当前方向");
+    run.eq(
+        dir.rows.map((r) => r.label.key),
+        ["flow.dir.front", "flow.dir.side", "flow.dir.back", "flow.dir.other"],
+        "方向：按话筒哪一面朝你叫，第一行是开始时的方向（正面朝你），不写角度",
+    );
     // 并列最响：只亮原下标最小的那一行（turn 把当前方向转到了第一位，所以要在原下标上比较）
     const tie = (levelDb, currentIndex) =>
         detailOf(

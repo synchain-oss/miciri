@@ -12,6 +12,7 @@ import {
     bannersFor,
     cardMode,
     connectModel,
+    DIR_NAMES,
     neighbour,
     peekSegments,
     prepModel,
@@ -604,12 +605,11 @@ export function radar(v, ctx) {
         ),
     );
     const POS = ["top", "rgt", "bot", "lft"];
-    const KEYS = ["flow.dir.cur", "flow.dir.90", "flow.dir.180", "flow.dir.270"];
     const label = (i) =>
         el(
             "div",
             { class: "radar__lb", data: { [POS[i]]: "1" } },
-            el("span", { text: t(KEYS[i]) }),
+            el("span", { text: t(DIR_NAMES[i]) }),
             el("b", { class: "sc-num", text: `${fmtDb(v.rel[i])} dB` }),
         );
     return [

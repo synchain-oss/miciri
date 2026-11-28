@@ -367,6 +367,9 @@
     line-height: 1.12;
     color: var(--txt-1);
     text-wrap: balance;
+    /* 中文只在标点和空格处换行，不把“四分之一圈”“从头再念”拆到两行；一段放不下时才在字中间断 */
+    word-break: keep-all;
+    overflow-wrap: anywhere;
 }
 .rm__words {
     margin: 0;
@@ -377,6 +380,13 @@
     color: var(--txt-1);
     white-space: pre-line;
     text-wrap: balance;
+}
+.rm__words--passage {
+    font-size: var(--fs-remote-passage);
+    line-height: 1.35;
+    max-width: 30em;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
 }
 .rm__sub {
     margin: 0;

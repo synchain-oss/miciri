@@ -407,10 +407,10 @@ TEST_CASE("with manual phases, start and end are taken only when they apply, and
 
     s.setPhaseControl(session::PhaseControl::Manual);
     REQUIRE(waitFor([&] { return s.startStep(StepId::Direction) == session::Session::Start::Ok; }));
-    CHECK_FALSE(s.view().live.waiting); // 第一段随这一步开始
+    CHECK(s.view().live.waiting); // 方向步的第一个方向也等用户点“开始”（要先摆好话筒）
     CHECK(s.view().live.need == core::PhaseNeed::VoiceSeconds);
-    CHECK(s.startPhase() == Phase::NoPhase);
-    CHECK(s.endPhase() == Phase::NotEnough);
+    CHECK(s.endPhase() == Phase::NoPhase);
+    CHECK(s.startPhase() == Phase::Ok); // 在下一块音频之前生效
 
     // 点击保护之后一口气数数：0.4 s 有声、0.1 s 停顿
     std::vector<double> x(static_cast<std::size_t>(fs * thr::session::click_guard_s), 0.0);
@@ -443,6 +443,8 @@ TEST_CASE("with manual phases, start and end are taken only when they apply, and
     CHECK(s.startPhase() == Phase::Ok);
     REQUIRE(waitFor([&] { return !s.view().live.waiting; }));
     CHECK(s.view().live.directionIndex == 1);
+    CHECK(s.startPhase() == Phase::NoPhase);
+    CHECK(s.endPhase() == Phase::NotEnough); // 这个方向只收到底噪
     CHECK(s.running());
     s.cancelStep();
     stop = true;
